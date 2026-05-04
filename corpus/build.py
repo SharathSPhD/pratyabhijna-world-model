@@ -181,31 +181,21 @@ def ingest_hf_poetry(output_dir: Path) -> int:
     source_dir = output_dir / "hf_poetry"
     total_tokens = 0
 
-    console.log("[cyan]Streaming poem_sentiment dataset…[/cyan]")
+    console.log("[cyan]Streaming merve/poetry dataset…[/cyan]")
     try:
-        ds = load_dataset("poem_sentiment", split="train", streaming=True, trust_remote_code=True)
+        ds = load_dataset("merve/poetry", split="train", streaming=False)
     except Exception as exc:
-        console.log(f"[yellow]poem_sentiment load failed: {exc}[/yellow]")
-        # Fallback: try merlin-ai/poetry-dataset
-        try:
-            ds = load_dataset(
-                "merlin-ai/poetry",
-                split="train",
-                streaming=True,
-                trust_remote_code=True,
-            )
-        except Exception as exc2:
-            console.log(f"[red]Poetry fallback also failed: {exc2}[/red]")
-            return 0
+        console.log(f"[red]Poetry load failed: {exc}[/red]")
+        return 0
 
     count = 0
     for i, example in enumerate(tqdm(ds, desc="hf_poetry", unit="poems")):
         if i >= HF_MAX_DOCS:
             break
-        # poem_sentiment has 'verse_text' field; merlin has 'content' / 'poem'
+        # merve/poetry uses 'content' field
         text = (
-            example.get("verse_text")
-            or example.get("content")
+            example.get("content")
+            or example.get("verse_text")
             or example.get("poem")
             or example.get("text")
             or ""
@@ -218,7 +208,7 @@ def ingest_hf_poetry(output_dir: Path) -> int:
         stem = f"{i:06d}_{_sanitise_filename(title)[:60]}"
         meta = {
             "source": "hf_poetry",
-            "dataset": "poem_sentiment",
+            "dataset": "merve/poetry",
             "lang": "en",
             "label": label,
             "author": author,
@@ -582,18 +572,18 @@ def _parse_gretil_page(html: str) -> str:
 
     soup = BeautifulSoup(html, "html.parser")
     # Remove navigation, scripts, styles
-    for tag in soup(["script", "style", "nav", "header", "footer"]):
+    for tag in soup.find_all(["script", "style", "nav", "header", "footer"]):
         tag.decompose()
     # GRETIL pages use <pre> or <p> for transliterated text
     blocks: list[str] = []
     for tag in soup.find_all(["pre", "p", "div"]):
-        text = tag.get_text(separator="\n")
+        text = tag.get_text(separator="\n")  # type: ignore[union-attr]
         if len(text.strip()) > 50:
             blocks.append(text.strip())
     if blocks:
         return "\n\n".join(blocks)
     # Fallback: all text
-    return soup.get_text(separator="\n").strip()
+    return soup.get_text(separator="\n").strip()  # type: ignore[union-attr]
 
 
 def ingest_gretil(output_dir: Path) -> int:
@@ -708,7 +698,7 @@ def ingest_gutenberg(output_dir: Path) -> int:
             book_id = book.get("id")
             if book_id in seen_ids:
                 continue
-            seen_ids.add(book_id)
+            seen_ids.add(book_id)  # type: ignore[arg-type]
 
             text_url = _gutenberg_text_url(book)
             if text_url is None:
