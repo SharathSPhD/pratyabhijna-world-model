@@ -67,7 +67,9 @@ from pwm.memory.citta_store import CittaStore  # type: ignore[import]
 from pwm.memory.replay import ReplayBuffer, Transition  # type: ignore[import]
 from pwm.rewards.camatk import CamatkaraReward  # type: ignore[import]
 from pwm.pipeline.pancakrtya_loop import PancakrtyaLoop, LoopConfig  # type: ignore[import]
-from pwm.data.corpus_dataset import PhaseOneEnv  # type: ignore[import]
+from pwm.active_inference.efe_actor import EFEActor  # type: ignore[import]   # Phase 2+
+from pwm.active_inference.crspp import CRSPPModel    # type: ignore[import]   # Phase 2+
+from pwm.data.corpus_dataset import PhaseOneEnv      # type: ignore[import]   # Phase 1+
 
 log = logging.getLogger(__name__)
 
@@ -289,8 +291,22 @@ class PWMTrainer:
         ).to(self.device)
 
         feature_dim = wm_cfg.hidden_dim_apara + wm_cfg.stoch_dim * wm_cfg.stoch_classes
+        self._action_dim: int = int(wm_cfg.action_dim)  # cache as plain int to avoid Tensor|Module widening
 
-        self.efe_actor = EFEActorStub(feature_dim, wm_cfg.action_dim).to(self.device)
+        # Phase 2+: real EFE actor replaces zero-weight stub
+        self.efe_actor = EFEActor(
+            hidden_dim=wm_cfg.hidden_dim_apara,
+            stoch_dim=wm_cfg.stoch_dim,
+            n_cats=wm_cfg.stoch_classes,
+            action_dim=wm_cfg.action_dim,
+            n_layers=3,
+        ).to(self.device)
+
+        # Phase 2+: CRSPP preference model (SR-AIF creative value)
+        self.crspp = CRSPPModel(
+            hidden_dim=wm_cfg.hidden_dim_apara,
+            gamma=self._GAMMA,
+        ).to(self.device)
 
         self.critic = CriticHead(feature_dim).to(self.device)
         self.slow_critic = CriticHead(feature_dim).to(self.device)
@@ -323,7 +339,7 @@ class PWMTrainer:
             gamma=self._GAMMA,
             lambda_=self._LAM,
             llm_enabled=cfg.llm.enabled,
-            efe_enabled=False,  # Phase 2+ only
+            efe_enabled=True,   # Phase 2: EFEActor active
         )
         self.loop = PancakrtyaLoop(
             world_model=self.world_model,
@@ -332,7 +348,7 @@ class PWMTrainer:
             cfg=loop_cfg,
         )
 
-        # Phase 1: Corpus environment selection (priority order):
+        # Corpus environment selection (priority order):
         #   1. CachedCorpusEnv — if CORPUS_CACHE_DIR env var set and meta.json exists.
         #      ~100K step/sec; pre-embed once with: python -m pwm.data.embed_cache
         #   2. PhaseOneEnv    — live sentence-transformer embedding from .txt files.
@@ -369,8 +385,8 @@ class PWMTrainer:
             )
         else:
             log.warning(
-                'PhaseOneEnv: corpus not found at %s — falling back to TextEnv stub. '
-                'Run corpus/build.py or set CORPUS_ROOT to real data.',
+                'Corpus not found at %s — falling back to TextEnv stub. '
+                'Set CORPUS_ROOT to real data or CORPUS_CACHE_DIR to embed cache.',
                 corpus_dir,
             )
             self.env = TextEnv(
@@ -387,8 +403,9 @@ class PWMTrainer:
             weight_decay=self._WM_WD,
             eps=1e-8,
         )
+        # Phase 2+: joint actor + CRSPP optimisation
         self.opt_actor = torch.optim.Adam(
-            self.efe_actor.parameters(),
+            list(self.efe_actor.parameters()) + list(self.crspp.parameters()),
             lr=self._ACTOR_LR,
             eps=1e-8,
         )
@@ -506,10 +523,13 @@ class PWMTrainer:
         imag_rewards: list[Tensor] = []
         imag_dones: list[Tensor] = []
 
+        _action_dim = self._action_dim
         with torch.autocast(device_type=self.device.type, dtype=self._mp_dtype, enabled=self._use_amp):
             for t in range(H):
-                feat = self.world_model.get_features(imag_states, level=0)
-                action = self.efe_actor(feat)
+                h_t, z_t = imag_states[0]
+                # Phase 2+: EFEActor selects action from (h, z); embed as one-hot
+                act_idx = self.efe_actor.select_action(h_t, z_t)          # (B,)
+                action = torch.nn.functional.one_hot(act_idx, num_classes=_action_dim).float()
                 imag_states, _ = self.world_model.imagine_step(action, imag_states, step=t)
 
                 h_t, z_t = imag_states[0]
@@ -537,20 +557,28 @@ class PWMTrainer:
             values_t = self.slow_critic.value(feats_t.detach())  # (B, H)
             returns_t = _compute_lambda_returns(rewards_t, values_t, dones_t, self._GAMMA, self._LAM)
 
-            # Actor loss: negative λ-return + entropy regulariser (svātantrya)
-            actor_outs = self.efe_actor(feats_t.reshape(B * H, -1))
-            entropy = -(torch.softmax(actor_outs, dim=-1) * torch.log_softmax(actor_outs, dim=-1)).sum(-1).mean()
-            entropy_coef = getattr(self.cfg.actor, "entropy_coef", 3e-4)
-            actor_loss = -returns_t.mean() - entropy_coef * entropy
+            # Phase 2+: EFE actor loss — pg_loss + EFE minimisation + entropy bonus
+            # imag_h_list / imag_z_list hold (B, hidden) and (B, D, K) tensors per step
+            h_flat = torch.stack(imag_h_list, dim=1).reshape(B * H, -1)        # (B*H, hidden)
+            z_for_actor = torch.stack(imag_z_list, dim=1)                       # (B, H, D, K)
+            z_for_actor = z_for_actor.reshape(B * H, *z_for_actor.shape[2:])   # (B*H, D, K)
+            advantage = returns_t.reshape(B * H)
+            efe_losses = self.efe_actor.actor_loss(h_flat, z_for_actor, advantage)
+            actor_loss = efe_losses["actor_total"]
+            actor_entropy = efe_losses["entropy"]
 
         self.opt_actor.zero_grad(set_to_none=True)
         actor_loss.backward()
-        nn.utils.clip_grad_norm_(self.efe_actor.parameters(), self._ACTOR_GRAD_CLIP)
+        nn.utils.clip_grad_norm_(
+            list(self.efe_actor.parameters()) + list(self.crspp.parameters()),
+            self._ACTOR_GRAD_CLIP,
+        )
         self.opt_actor.step()
 
         return {
             "loss/actor": float(actor_loss.item()),
-            "train/actor_entropy": float(entropy.item()),
+            "loss/actor_efe": float(efe_losses["efe_loss"].item()),
+            "train/actor_entropy": float(actor_entropy.item()),
             "train/returns_mean": float(returns_t.mean().item()),
         }
 
@@ -579,9 +607,13 @@ class PWMTrainer:
 
         with torch.no_grad():
             for t in range(H):
-                feat = self.world_model.get_features(imag_states, level=0)
-                action = self.efe_actor(feat)
-                imag_states, _ = self.world_model.imagine_step(action, imag_states, step=t)
+                h_t_c, z_t_c = imag_states[0]
+                # Phase 2+: EFEActor.select_action(h, z) → discrete action index
+                action = self.efe_actor.select_action(h_t_c, z_t_c)   # (B,)
+                # Embed discrete action into continuous action_dim for WM step
+                _adim = self._action_dim
+                action_emb = torch.nn.functional.one_hot(action, num_classes=_adim).float()
+                imag_states, _ = self.world_model.imagine_step(action_emb, imag_states, step=t)
                 h_t, z_t = imag_states[0]
                 imag_feats.append(torch.cat([h_t, z_t.flatten(-2)], dim=-1))
                 camatk_tensor, _ = self.camatk.compute(
