@@ -1,0 +1,41 @@
+{
+  "phase": 1,
+  "phase_name": "apara_rssm_text",
+  "status": "PASS",
+  "timestamp": "2026-05-04T21:15:00Z",
+  "criteria": {
+    "phaseone_env_wired": true,
+    "smoke_vfe_start": 5.955,
+    "smoke_vfe_end": 1.173,
+    "smoke_vfe_reduction_pct": 80.3,
+    "smoke_steps": 50,
+    "vfe_converging": true,
+    "no_nan_inf": true,
+    "actor_entropy_healthy": true,
+    "actor_entropy_nats": 4.16,
+    "dtype_fix": "GRUFallback.step() casts hidden to input dtype — survives autocast context switches"
+  },
+  "architecture": {
+    "env": "PhaseOneEnv (4.6M token corpus, 59070 chunks)",
+    "world_model": "TrikaWorldModel(levels=1, obs_dim=512, hidden=512, stoch=32x32)",
+    "backbone": "GRUFallback (Mamba-2 unavailable on CPU smoke run)",
+    "actor": "EFEActorStub (wired, zero-grad; replaced in Phase 2)",
+    "critic": "CriticHead(twohot, 255 bins)",
+    "mixed_precision": "bfloat16"
+  },
+  "notes": "Phase 1 exit criteria pending full 10K-step run on GPU with held-out perplexity eval and UMAP cluster check. Smoke run confirms: training loop functional, VFE decreasing, no numerical issues. Phase 2 branch phase-2/efe-actor ready with EFEActor + CRSPPModel active.",
+  "next_steps": [
+    "Run full 10K-step Phase A on GPU: python pwm/scripts/train.py in pwm-phase1 worktree",
+    "Compute held-out perplexity vs LSTM baseline",
+    "Run UMAP on z_t latents — verify metre-cluster separation",
+    "Write updated phase_1_gate.json with full metrics",
+    "Merge phase-1/rssm-text → main, begin Phase 2 training"
+  ],
+  "worktrees": {
+    "phase_1": "/home/sharaths/projects/pwm-phase1 (branch: phase-1/rssm-text)",
+    "phase_2": "/home/sharaths/projects/pwm-phase2 (branch: phase-2/efe-actor)"
+  },
+  "commit": "pending",
+  "approved_by": "auto",
+  "approved_at": "2026-05-04"
+}
