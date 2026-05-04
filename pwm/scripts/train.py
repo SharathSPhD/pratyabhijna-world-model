@@ -67,6 +67,7 @@ from pwm.memory.citta_store import CittaStore  # type: ignore[import]
 from pwm.memory.replay import ReplayBuffer, Transition  # type: ignore[import]
 from pwm.rewards.camatk import CamatkaraReward  # type: ignore[import]
 from pwm.pipeline.pancakrtya_loop import PancakrtyaLoop, LoopConfig  # type: ignore[import]
+from pwm.data.corpus_dataset import PhaseOneEnv  # type: ignore[import]
 
 log = logging.getLogger(__name__)
 
@@ -331,13 +332,35 @@ class PWMTrainer:
             cfg=loop_cfg,
         )
 
-        self.env = TextEnv(
-            batch_size=cfg.training.batch_size,
-            obs_dim=wm_cfg.obs_dim,
-            action_dim=wm_cfg.action_dim,
-            seq_len=cfg.training.seq_len,
-            device=self.device,
-        )
+        # Phase 1: Use real corpus environment (PhaseOneEnv) instead of TextEnv stub.
+        # corpus_dir resolves against the config; falls back to TextEnv if no .txt
+        # files are present (e.g. when the phase1 worktree corpus is not yet synced).
+        corpus_dir = Path(cfg.corpus.data_dir)
+        _txt_count = sum(1 for _ in corpus_dir.rglob('*.txt')) if corpus_dir.exists() else 0
+        if _txt_count > 0:
+            log.info('PhaseOneEnv: using real corpus at %s (%d files)', corpus_dir, _txt_count)
+            self.env: Any = PhaseOneEnv(
+                corpus_dir=corpus_dir,
+                batch_size=cfg.training.batch_size,
+                seq_len=cfg.training.seq_len,
+                obs_dim=wm_cfg.obs_dim,
+                action_dim=wm_cfg.action_dim,
+                device=self.device,
+                num_workers=0,
+            )
+        else:
+            log.warning(
+                'PhaseOneEnv: no .txt files found in %s -- falling back to TextEnv stub. '
+                'TODO: run corpus/build.py or sync corpus from main worktree.',
+                corpus_dir,
+            )
+            self.env = TextEnv(
+                batch_size=cfg.training.batch_size,
+                obs_dim=wm_cfg.obs_dim,
+                action_dim=wm_cfg.action_dim,
+                seq_len=cfg.training.seq_len,
+                device=self.device,
+            )
 
         self.opt_wm = torch.optim.Adam(
             self.world_model.parameters(),
@@ -480,7 +503,7 @@ class PWMTrainer:
                     hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
                     empowerment=0.0,
                 )
-                imag_rewards.append(camatk_tensor.expand(B))
+                imag_rewards.append(camatk_tensor.to(self.device).expand(B))
                 imag_dones.append(torch.zeros(B, dtype=torch.bool, device=self.device))
 
             # Stack trajectory: (B, H)
@@ -530,6 +553,11 @@ class PWMTrainer:
         imag_rewards: list[Tensor] = []
         imag_dones: list[Tensor] = []
 
+        # Reset GRU hidden state before Phase C imagination to avoid dtype
+        # mismatch: Phase B runs under bfloat16 autocast, Phase C does not.
+        for level in self.world_model._level_list:
+            level.sequence_model.reset_state()  # type: ignore[union-attr]
+
         with torch.no_grad():
             for t in range(H):
                 feat = self.world_model.get_features(imag_states, level=0)
@@ -542,7 +570,7 @@ class PWMTrainer:
                     hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
                     empowerment=0.0,
                 )
-                imag_rewards.append(camatk_tensor.expand(B))
+                imag_rewards.append(camatk_tensor.to(self.device).expand(B))
                 imag_dones.append(torch.zeros(B, dtype=torch.bool, device=self.device))
 
         feats_t = torch.stack(imag_feats, dim=1)          # (B, H, D)
@@ -607,7 +635,7 @@ class PWMTrainer:
         metrics["train/step"] = float(self.step)
         return metrics
 
-    def train(self, n_steps: int | None = None) -> None:
+    def train(self, n_steps: int | None = None) -> dict[str, float]:
         """
         Main training loop. Runs for `n_steps` or `cfg.training.max_steps` if None.
 
@@ -624,22 +652,31 @@ class PWMTrainer:
         obs = self.env.reset()
         loop_state = self.loop.init(self.env.batch_size, self.device)
 
+        # action_dim for replay storage (loop_state.action uses wm.strides[0]=1,
+        # not action_dim — store zero actions of correct shape for RSSM)
+        _action_dim = self.cfg.world_model.action_dim
         while len(self.replay) < min_buf:
             _, reward, done = self.env.step(loop_state.action)
             next_obs = obs  # stub: next obs same as obs for warm-up
-            self.replay.add(Transition(
-                obs=obs.cpu().numpy(),
-                action=loop_state.action.cpu().numpy(),
-                reward=float(reward.mean().item()),
-                done=bool(done.any().item()),
-                next_obs=next_obs.cpu().numpy(),
-                vfe=0.0,
-            ))
+            # Store each batch item as a separate transition so that
+            # _collate_sequences assembles (B, T, obs_dim) correctly.
+            B_env = obs.shape[0]
+            import numpy as _np
+            for b in range(B_env):
+                self.replay.add(Transition(
+                    obs=obs[b].cpu().numpy(),
+                    action=_np.zeros(_action_dim, dtype=_np.float32),
+                    reward=float(reward[b].item()),
+                    done=bool(done[b].item()),
+                    next_obs=next_obs[b].cpu().numpy(),
+                    vfe=0.0,
+                ))
             obs = next_obs
 
         log.info("Training for %d steps...", max_steps)
         t0 = time.perf_counter()
         done = torch.zeros(self.env.batch_size, dtype=torch.bool, device=self.device)
+        metrics: dict[str, float] = {}
 
         while self.step < max_steps:
             # Sample a sequence batch from replay
@@ -655,17 +692,25 @@ class PWMTrainer:
             batch = self._collate_sequences(seqs)
             metrics = self.train_step(batch)
 
-            # Collect one real transition per train step to keep buffer fresh
-            loop_state, _ = self.loop.step(obs, done, loop_state)
-            obs_new, reward, done = self.env.step(loop_state.action)
-            self.replay.add(Transition(
-                obs=obs.cpu().numpy(),
-                action=loop_state.action.cpu().numpy(),
-                reward=float(reward.mean().item()),
-                done=bool(done.any().item()),
-                next_obs=obs_new.cpu().numpy(),
-                vfe=metrics.get("loss/wm_total", 0.0),
-            ))
+            # Collect one real transition per train step to keep buffer fresh.
+            # Store each batch item separately so _collate_sequences sees (obs_dim,) obs.
+            # Phase 1: bypass loop.step() (its action has wrong shape for RSSM) —
+            # use env.step() with a zero action (actor is a stub in Phase 1).
+            _zero_action = torch.zeros(
+                self.env.batch_size, 1, device=self.device
+            )  # PancakrtyaLoop-compatible shape (B, strides[0])
+            obs_new, reward, done = self.env.step(_zero_action)
+            B_env = obs.shape[0]
+            _vfe = metrics.get("loss/wm_total", 0.0)
+            for b in range(B_env):
+                self.replay.add(Transition(
+                    obs=obs[b].cpu().numpy(),
+                    action=_np.zeros(_action_dim, dtype=_np.float32),
+                    reward=float(reward[b].item()),
+                    done=bool(done[b].item()),
+                    next_obs=obs_new[b].cpu().numpy(),
+                    vfe=_vfe,
+                ))
             obs = obs_new
 
             self.step += 1
@@ -695,6 +740,8 @@ class PWMTrainer:
 
         if _MLFLOW and self._use_mlflow:
             mlflow.end_run()  # type: ignore[union-attr]
+
+        return metrics
 
     def _collate_sequences(
         self, seqs: list[list[Transition]]

@@ -52,7 +52,13 @@ class GRUFallback(nn.Module):
         return out
 
     def step(self, x_t: torch.Tensor) -> torch.Tensor:
-        """x_t: (B, d_model) → (B, d_model). Single recurrent step."""
+        """x_t: (B, d_model) → (B, d_model). Single recurrent step.
+
+        Hidden state is cast to match x_t dtype to survive autocast context switches
+        (bfloat16 inside autocast ↔ float32 outside). One-line fix, zero cost.
+        """
+        if self._hidden is not None:
+            self._hidden = self._hidden.to(dtype=x_t.dtype, device=x_t.device)
         out, self._hidden = self.gru(x_t.unsqueeze(1), self._hidden)
         return out.squeeze(1)
 
