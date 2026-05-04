@@ -1,0 +1,23 @@
+# Phase 3: + Hopfield Citta-Store
+# Exit criteria: pattern completion +10% with Hopfield; sphurattā 0.5–2 events/100 steps
+
+defaults:
+  - phase2_efe
+  - _self_
+
+memory:
+  enabled: true
+  n_episodic_apara: 1000
+  n_semantic_apara: 64
+  beta_episodic_scale: 4.0    # High β → sharp recall
+  beta_semantic_scale: 0.25   # Low β → concept blending
+  sphuratta_percentile: 5
+  sphuratta_min_gap: 100
+
+reward:
+  alpha_1: 0.4                 # VFE reduction
+  alpha_2: 0.3                 # Hopfield information gain
+  alpha_3: 0.3                 # Empowerment
+
+training:
+  max_steps: 300_000

@@ -1,0 +1,28 @@
+# Phase 6: Full system — all ablations, H1–H9, paper data
+# Exit criteria: all 9 hypotheses assessed; paper draft complete
+
+defaults:
+  - phase5_llm
+  - _self_
+
+mala_regularisers:
+  enabled: true
+  lambda_anava: 0.01
+  lambda_mayiya: 0.01
+  lambda_karma: 0.01
+
+ablations:
+  # A1: EFE vs REINFORCE — run with actor.type=reinforce baseline
+  # A2: Hopfield on/off — run with memory.enabled=false
+  # A3: Sleep on/off — run with sleep.enabled=false
+  # A4: Vimarśa on/off — run with llm.enabled=false
+  # A5: Mala on/off — run with mala_regularisers.enabled=false
+  # A6: Trika 1 vs 3 level — run with world_model.levels=1
+  seeds: [42, 123, 456]
+
+evaluation:
+  human_eval_n: 200            # 200 outputs for human evaluation
+  benchmark_dir: "${oc.env:BENCHMARK_ROOT,data/benchmark}"
+
+training:
+  max_steps: 1_000_000

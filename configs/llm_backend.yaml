@@ -1,0 +1,70 @@
+# PWM LLM Backend Configuration
+# Switch provider: --set llm.provider=claude-api
+# Or set LLM_PROVIDER env var in .env
+
+llm:
+  provider: "${oc.env:LLM_PROVIDER,nemotron-local}"
+
+  nemotron-local:
+    primary:
+      model: "openai/nemotron-120b"
+      api_base: "${oc.env:LLM_PRIMARY_API_BASE,http://localhost:8000/v1}"
+      api_key: "${oc.env:LLM_PRIMARY_API_KEY,local}"
+      temperature: 0.7
+      max_tokens: 2048
+    fast:
+      model: "openai/nemotron-30b-gguf"
+      api_base: "${oc.env:LLM_FAST_API_BASE,http://localhost:8001/v1}"
+      api_key: "${oc.env:LLM_FAST_API_KEY,local}"
+      temperature: 0.9
+      max_tokens: 512
+
+  claude-api:
+    primary:
+      model: "claude-opus-4-6"
+      api_key: "${oc.env:ANTHROPIC_API_KEY}"
+      temperature: 0.7
+      max_tokens: 2048
+    fast:
+      model: "claude-haiku-4-5-20251001"
+      api_key: "${oc.env:ANTHROPIC_API_KEY}"
+      temperature: 0.9
+      max_tokens: 512
+
+  openai-api:
+    primary:
+      model: "gpt-4o"
+      api_key: "${oc.env:OPENAI_API_KEY}"
+      temperature: 0.7
+      max_tokens: 2048
+    fast:
+      model: "gpt-4o-mini"
+      api_key: "${oc.env:OPENAI_API_KEY}"
+      temperature: 0.9
+      max_tokens: 512
+
+  gemini-api:
+    primary:
+      model: "gemini/gemini-2.0-flash-thinking-exp"
+      api_key: "${oc.env:GOOGLE_API_KEY}"
+      temperature: 0.7
+      max_tokens: 2048
+    fast:
+      model: "gemini/gemini-2.0-flash"
+      api_key: "${oc.env:GOOGLE_API_KEY}"
+      temperature: 0.9
+      max_tokens: 512
+
+  custom:
+    primary:
+      model: "${oc.env:LLM_PRIMARY_MODEL,ollama/llama3.1:70b}"
+      api_base: "${oc.env:LLM_PRIMARY_API_BASE,http://localhost:11434}"
+      api_key: "${oc.env:LLM_PRIMARY_API_KEY,local}"
+      temperature: 0.7
+      max_tokens: 2048
+    fast:
+      model: "${oc.env:LLM_FAST_MODEL,ollama/llama3.1:8b}"
+      api_base: "${oc.env:LLM_FAST_API_BASE,http://localhost:11434}"
+      api_key: "${oc.env:LLM_FAST_API_KEY,local}"
+      temperature: 0.9
+      max_tokens: 512

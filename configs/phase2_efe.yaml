@@ -1,0 +1,19 @@
+# Phase 2: + EFE Actor (replace REINFORCE)
+# Exit criteria: EFE achieves first sphurattā in ≤50% episodes vs REINFORCE
+
+defaults:
+  - phase1_apara
+  - _self_
+
+actor:
+  type: "efe"                  # Switch to EFE minimisation
+  efe_alpha_ambiguity: 0.3
+  efe_alpha_risk: 0.3
+  efe_alpha_epistemic: 0.2
+  efe_alpha_novelty: 0.2
+  crspp_lr: 1e-4
+  epistemic_threshold: 0.3    # Above this → trigger deep jñāna
+
+training:
+  lr_actor: 3e-5
+  max_steps: 300_000           # Incremental from Phase 1 checkpoint

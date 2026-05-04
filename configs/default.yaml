@@ -1,0 +1,5 @@
+# Default config — inherits Phase 1 Aparā as starting point
+
+defaults:
+  - phase1_apara
+  - _self_

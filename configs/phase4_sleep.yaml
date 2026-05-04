@@ -1,0 +1,20 @@
+# Phase 4: + Sleep Consolidation (NREM/REM)
+# Exit criteria: forgetting reduced ≥20% vs no-sleep; H6 DTW > random baseline
+
+defaults:
+  - phase3_hopfield
+  - _self_
+
+sleep:
+  enabled: true
+  interval: 5000
+  nrem_batches: 100
+  rem_episodes: 20
+  dream_horizon: 30
+  therm_budget_petaflops: 1.0
+  shsy_rate: 0.01              # Synaptic homeostasis down-scale rate
+  consolidation_threshold: 0.1
+
+corpus:
+  domain: "multi"              # Sanskrit + English + Scientific for H3 (forgetting)
+  domains: ["sanskrit_poetry", "english_poetry", "scientific_creativity"]

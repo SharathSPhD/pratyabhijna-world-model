@@ -1,0 +1,70 @@
+# Phase 1: Aparā-only RSSM on Sanskrit poetry corpus (text-only)
+# Exit criteria: held-out perplexity competitive with LSTM; metre-cluster UMAP separation
+
+defaults:
+  - _self_
+  - llm_backend
+
+world_model:
+  levels: 1                    # Aparā only in Phase 1
+  stoch_dim: 32
+  stoch_classes: 32
+  hidden_dim_apara: 512
+  backbone_apara: "gru"
+  kl_balance_dyn: 0.5
+  kl_balance_rep: 0.1
+  free_bits: 1.0
+  obs_dim: 256                 # BPE embedding dimension
+  action_dim: 64
+  vocab_size: 32000            # BPE vocabulary
+
+actor:
+  type: "reinforce"            # Phase 1 uses REINFORCE; replaced in Phase 2
+  horizon: 15
+  gamma: 0.997
+  lam: 0.95
+  entropy_coef: 3e-4
+
+memory:
+  enabled: false               # Hopfield added in Phase 3
+
+sleep:
+  enabled: false               # Sleep added in Phase 4
+
+llm:
+  enabled: false               # LLM added in Phase 5
+
+reward:
+  alpha_1: 1.0                 # VFE only in Phase 1
+  alpha_2: 0.0
+  alpha_3: 0.0
+  lambda_ext: 0.0
+
+training:
+  batch_size: 32
+  seq_len: 64                  # 64 tokens per trajectory window
+  lr_wm: 1e-4
+  gradient_clip: 100.0
+  replay_capacity: 100_000
+  min_buffer_steps: 1000
+  mixed_precision: "bfloat16"
+  torch_compile: true
+  max_steps: 500_000
+  eval_interval: 10_000
+  checkpoint_interval: 50_000
+  seed: 42
+
+corpus:
+  domain: "sanskrit_poetry"
+  data_dir: "${oc.env:CORPUS_ROOT,data/corpus}/sanskrit"
+  window_size: 64
+  stride: 16
+  max_tokens: 500_000
+
+sphuratta:
+  percentile: 5               # Fire on bottom 5% VFE
+  min_gap: 100                # Minimum steps between events
+
+logging:
+  wandb_project: "${oc.env:WANDB_PROJECT,pratyabhijna-world-model}"
+  log_interval: 100

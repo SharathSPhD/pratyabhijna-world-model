@@ -1,0 +1,58 @@
+# Environment
+.env
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Model weights (store in /home/sharaths/models, not in repo)
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+checkpoints/
+weights/
+
+# Large data files
+data/corpus/**/*.txt
+data/corpus/**/*.json
+data/corpus/**/*.jsonl
+data/benchmark/**/*.txt
+!data/corpus/.gitkeep
+!data/benchmark/.gitkeep
+
+# Experiment artifacts (keep benchmarks/results JSON — they are the paper's evidence)
+mlruns/
+wandb/
+*.log
+
+# Paper build artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.synctex.gz
+paper/*.bbl
+paper/*.blg
+paper/_minted-*/
+paper/main.pdf
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Temporary
+tmp/
+*.tmp

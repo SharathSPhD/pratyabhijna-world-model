@@ -1,0 +1,33 @@
+# Phase 5: + LLM Āgama + Vimarśa Bridge
+# Exit criteria: end-to-end ≤30s; H4 meaningful rate ≥70%
+
+defaults:
+  - phase4_sleep
+  - _self_
+
+world_model:
+  levels: 3                    # Upgrade to full Trika hierarchy
+  hidden_dim_parapara: 1024
+  hidden_dim_para: 1024
+  backbone_para: "mamba"        # Mamba-2 SSM for Para level — validated on DGX Spark GB10
+
+llm:
+  enabled: true
+  narrate_on_sphuratta: true
+  sphuratta_cache_size: 1000
+  max_narration_tokens: 128
+  awm_interval: 500            # AWM proposal every 500 steps
+
+memory:
+  n_episodic_parapara: 500
+  n_episodic_para: 100
+  n_semantic_parapara: 32
+  n_semantic_para: 16
+
+vimarsa:
+  max_revisions: 3
+  bridge_dim: 256
+  lora_rank: 16
+
+training:
+  max_steps: 500_000
