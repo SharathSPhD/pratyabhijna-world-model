@@ -1,0 +1,18 @@
+{
+  "phase": 0,
+  "phase_name": "foundation",
+  "status": "pending",
+  "timestamp": null,
+  "criteria": {
+    "min_corpus_tokens": 100000,
+    "corpus_tokens_achieved": null,
+    "tests_pass": null,
+    "test_count": null,
+    "baseline_vfe_finite": null,
+    "baseline_vfe": null
+  },
+  "notes": "Phase 0 gate pending. Run: python -m corpus.build --sources all --min-tokens 100000; pytest tests/ -x",
+  "commit": "3d44672",
+  "approved_by": null,
+  "approved_at": null
+}

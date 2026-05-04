@@ -23,8 +23,8 @@ dependencies = [
     "scipy>=1.13",
     # Active inference
     "inferactively-pymdp>=0.0.7",
-    # Hopfield networks
-    "hflayers>=0.1.1",
+    # Hopfield networks (native implementation in pwm/memory/citta_store.py)
+    # hflayers available via: pip install git+https://github.com/ml-jku/hopfield-layers.git
     # LLM backend
     "litellm>=1.50.0",
     "smolagents>=1.9.0",
@@ -42,9 +42,7 @@ dependencies = [
     # Memory / retrieval
     "faiss-cpu>=1.8",
     "sentence-transformers>=3.0",
-    # Corpus annotation
-    "indic-nlp-library>=0.91",
-    "aksharamukha>=2.0",
+    # Corpus annotation (optional: pip install indic-nlp-library aksharamukha)
     # Evaluation
     "scipy>=1.13",
     "dtaidistance>=2.3",  # DTW for camatkāra timing correlation

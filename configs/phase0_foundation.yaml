@@ -1,0 +1,74 @@
+# Phase 0: Foundation — environment setup + corpus pipeline
+# Exit criteria:
+#   1. ≥100K tokens across corpus sources
+#   2. All unit tests pass (pytest tests/ -x)
+#   3. DreamerV3 Walker-Walk baseline within ±5% of published (Phase 0 gate)
+
+defaults:
+  - _self_
+
+phase: 0
+phase_name: "foundation"
+
+# ── Environment ───────────────────────────────────────────────────────────────
+python_env: "/home/sharaths/vllm-env"
+device: "cuda"
+
+# ── World Model (minimal Phase 0 config) ─────────────────────────────────────
+world_model:
+  obs_dim: 512
+  hidden_dim: 512
+  stoch_dim: 32
+  n_cats: 32
+  action_dim: 64
+  n_levels: 1              # Phase 0: Aparā only
+  backbone_apara: "gru"
+  backbone_para: "mamba"
+
+# ── Corpus ───────────────────────────────────────────────────────────────────
+corpus:
+  output_dir: "data/corpus"
+  min_tokens_per_doc: 50
+  target_total_tokens: 100_000
+  sources:
+    - "hf"          # HuggingFace poetry + Sanskrit datasets
+    - "gutenberg"   # Project Gutenberg public domain
+    - "arxiv"       # arXiv creativity papers
+    - "gretil"      # GRETIL Sanskrit (network-dependent)
+    - "poetry_foundation"  # Poetry Foundation (network-dependent)
+
+# ── Tokeniser ────────────────────────────────────────────────────────────────
+tokeniser:
+  vocab_size: 32_000
+  model_type: "bpe"
+  pad_id: 0
+  training_data: "data/corpus"
+
+# ── Training (Phase 0: smoke test only) ──────────────────────────────────────
+training:
+  batch_size: 4
+  seq_len: 16
+  phase_a_steps: 100      # smoke test
+  phase_b_steps: 0
+  phase_c_steps: 0
+  lr_wm: 1.0e-4
+  grad_clip_wm: 1000.0
+
+# ── LLM Backend (disabled in Phase 0) ────────────────────────────────────────
+llm:
+  enabled: false
+  provider: "none"
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+logging:
+  wandb: false
+  mlflow: false
+  log_every: 10
+
+# ── Phase Gate ───────────────────────────────────────────────────────────────
+phase_gate:
+  output: "benchmarks/results/phase_0_gate.json"
+  criteria:
+    min_corpus_tokens: 100_000
+    tests_pass: true
+    baseline_vfe_finite: true   # WM trains without NaN/Inf
