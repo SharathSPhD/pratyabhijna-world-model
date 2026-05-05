@@ -39,7 +39,7 @@ def collect_latents(
 
     Returns:
         h_latents: (N, hidden_dim) float32 array
-        z_indices:  (N,) int32 array of argmax category index per z_t
+        z_indices:  (N, stoch_dim) int32 array of argmax category per z_t dim
     """
     dev = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     world_model.train(False)
@@ -58,56 +58,29 @@ def collect_latents(
 
             B, T, _ = obs_seq.shape
             action_seq = torch.zeros(B, T, 64, device=dev)
-            init_states = world_model.init_state(B, dev)
+            states = world_model.init_state(B, dev)
 
             # Step through sequence, collect latents at each step
-            states = init_states
             for t in range(T):
                 obs_t = obs_seq[:, t]
                 act_t = action_seq[:, t]
-                try:
-                    states, extras = world_model.observe_step(obs_t, act_t, states, step=t)
-                    h_t, z_t = states[0]  # level 0 (Apara)
-                    h_list.append(h_t.float().cpu().numpy())    # (B, hidden_dim)
-                    z_list.append(z_t.float().cpu().numpy())    # (B, stoch_dim, stoch_classes)
-                except (AttributeError, TypeError):
-                    # Fallback: use world_model_loss to get representations
-                    break
+                # observe_step returns (new_states, logits_post, logits_prior)
+                states, logits_post, logits_prior = world_model.observe_step(obs_t, act_t, states, step=t)
+                h_t, z_t = states[0]  # level 0 (Apara)
+                h_list.append(h_t.float().cpu().numpy())         # (B, hidden_dim)
+                z_list.append(z_t.float().cpu().numpy())         # (B, stoch_dim, stoch_classes)
 
     world_model.train()
 
     if not h_list:
-        # Fallback: run full-sequence forward pass, collect final hidden state
-        with torch.no_grad():
-            for i, batch in enumerate(loader):
-                if i >= min(n_batches, 10):
-                    break
-                obs_seq = batch[0].to(dev) if isinstance(batch, (list, tuple)) else batch.to(dev)
-                if obs_seq.dim() == 2:
-                    obs_seq = obs_seq.unsqueeze(0)
-                B, T, _ = obs_seq.shape
-                action_seq = torch.zeros(B, T, 64, device=dev)
-                reward_seq = torch.zeros(B, T, device=dev)
-                done_seq = torch.zeros(B, T, device=dev)
-                init_states = world_model.init_state(B, dev)
-                loss_dict = world_model.world_model_loss(obs_seq, action_seq, reward_seq, done_seq, init_states)
-                # Use stochastic components if available
-                if "z_post" in loss_dict:
-                    z = loss_dict["z_post"].float().cpu().numpy()  # (B, T, stoch_dim, stoch_classes)
-                    z_flat = z.reshape(-1, z.shape[-2], z.shape[-1])
-                    z_list.append(z_flat)
-                    # Fake h latents as zeros (just for UMAP shape consistency)
-                    h_list.append(np.zeros((z_flat.shape[0], 512)))
+        log.warning("No latents collected from observe_step.")
+        return np.zeros((0, 512)), np.zeros((0, 1), dtype=np.int32)
 
-    if not z_list:
-        log.warning("Could not collect z_t latents — returning empty arrays.")
-        return np.zeros((0, 512)), np.zeros(0, dtype=np.int32)
+    h_latents = np.concatenate(h_list, axis=0)            # (N*T, hidden_dim)
+    z_arrays = np.concatenate(z_list, axis=0)              # (N*T, stoch_dim, stoch_classes)
+    z_indices = z_arrays.argmax(axis=-1).astype(np.int32)  # (N*T, stoch_dim)
 
-    # Convert z to discrete indices (argmax over stoch_classes dimension)
-    h_latents = np.concatenate(h_list, axis=0)           # (N, hidden_dim)
-    z_arrays = np.concatenate(z_list, axis=0)             # (N, stoch_dim, stoch_classes)
-    z_indices = z_arrays.argmax(axis=-1).astype(np.int32) # (N, stoch_dim)
-
+    log.info("Collected %d (h, z) pairs from %d batches.", h_latents.shape[0], i + 1)
     return h_latents, z_indices
 
 
@@ -137,12 +110,11 @@ def compute_sva_score(z_indices: np.ndarray, n_cats: int = 32) -> dict[str, floa
     sva_entropy = float(np.mean(entropies))
 
     # Coverage: fraction of (dim, category) combinations visited
-    visited = set()
+    visited: set[tuple[int, int]] = set()
     for d in range(D):
         for c in np.unique(z_indices[:, d]):
             visited.add((d, int(c)))
-    max_combos = D * n_cats
-    sva_coverage = len(visited) / max_combos
+    sva_coverage = len(visited) / (D * n_cats)
 
     # Sample diversity: mean Hamming on up to 1000 random pairs
     rng = np.random.default_rng(42)
@@ -150,7 +122,7 @@ def compute_sva_score(z_indices: np.ndarray, n_cats: int = 32) -> dict[str, floa
     idx = rng.choice(N, size=(n_pairs, 2), replace=True)
     hamming = (z_indices[idx[:, 0]] != z_indices[idx[:, 1]]).mean(axis=1).mean()
 
-    sva_score = sva_entropy / max_entropy  # in [0, 1]
+    sva_score = sva_entropy / max_entropy
 
     return {
         "sva_entropy_bits": sva_entropy,
@@ -169,11 +141,7 @@ def run_svat_report(
     n_batches: int = 100,
     stoch_classes: int = 32,
 ) -> dict[str, float]:
-    """
-    Full Svātantrya evaluation report.
-
-    Returns dict with sva_* metrics for gate JSON inclusion.
-    """
+    """Full Svātantrya evaluation report. Returns dict with sva_* metrics."""
     dev = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     h_latents, z_indices = collect_latents(
         world_model=world_model, loader=loader, n_batches=n_batches, device=dev
@@ -183,7 +151,6 @@ def run_svat_report(
         log.error("No latents collected — check WM forward interface.")
         return {"sva_score": 0.0, "sva_gate_pass": False, "error": "no_latents"}
 
-    log.info("Collected %d z_t samples (%d stoch dims).", z_indices.shape[0], z_indices.shape[1])
     metrics = compute_sva_score(z_indices, n_cats=stoch_classes)
     log.info(
         "Sva: entropy=%.3f/%.3f  coverage=%.3f  hamming=%.3f  pass=%s",
@@ -192,5 +159,4 @@ def run_svat_report(
         metrics["sva_gate_pass"],
     )
     metrics["n_samples"] = z_indices.shape[0]
-    metrics["h_latents_shape"] = list(h_latents.shape)
     return metrics

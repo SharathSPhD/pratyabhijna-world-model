@@ -132,7 +132,7 @@ def compute_wm_reconstruction(
                 )
 
             vfe = float(loss_dict["total"].item())
-            recon = float(loss_dict.get("obs_recon_loss", loss_dict["total"]).item())
+            recon = float(loss_dict.get("apara_obs", loss_dict.get("obs", loss_dict["total"])).item())
             recon_mses.append(recon)
             vfes.append(vfe)
 
