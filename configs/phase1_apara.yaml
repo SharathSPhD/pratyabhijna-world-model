@@ -14,7 +14,7 @@ world_model:
   kl_balance_dyn: 0.5
   kl_balance_rep: 0.1
   free_bits: 1.0
-  obs_dim: 256                 # BPE embedding dimension
+  obs_dim: 512                 # sentence-transformers all-MiniLM-L6-v2 (384-d) → Linear(384,512)
   action_dim: 64
   vocab_size: 32000            # BPE vocabulary
 
@@ -55,8 +55,8 @@ training:
   seed: 42
 
 corpus:
-  domain: "sanskrit_poetry"
-  data_dir: "${oc.env:CORPUS_ROOT,data/corpus}/sanskrit"
+  domain: "mixed"                # hf_wiki_philosophy + gutenberg (4.6M tokens ingested)
+  data_dir: "${oc.env:CORPUS_ROOT,data/corpus}"
   window_size: 64
   stride: 16
   max_tokens: 500_000
