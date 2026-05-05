@@ -1,14 +1,27 @@
 #!/bin/bash
-# Phase 2 re-run: 100K more steps with fixed camatkāra reward signal.
+# Phase 2 re-run v3: clean restart from Phase 1 WM with all fixes applied.
 #
-# Context:
-#   The initial 300K-step run trained the actor with zero reward (bug: curr_vfe=0.0
-#   in imagination → ΔF=0 always). The actor learned a max-entropy policy (useful
-#   exploration prior). This re-run continues from that checkpoint with the fix applied:
-#   _last_real_vfe is now cached in Phase A and passed to Phase B/C imagination.
+# Context / root-cause analysis:
+#   Run 1 (300K steps, seed=42): zero-reward bug — curr_vfe=0.0 hardcoded in
+#     _phase_b/_phase_c → ΔF=0 always → actor trained as max-entropy policy only.
+#   Run 2 (305K steps, seed=43): prior-entropy fix applied but action collection
+#     still stored np.zeros(action_dim) → WM GRU action-conditioning never trained
+#     → prior entropy constant regardless of action → reward still ~0.
 #
-# With real ΔF rewards, the EFE actor should learn to navigate toward novel WM states
-#   within ~10K–30K steps (reward signal is now non-zero and correlated with action).
+# Fixes applied before this run:
+#   Fix 1: Action collection → random one-hot (np.eye(D)[randint(D)]) in both
+#     the warm-up loop and the per-step collection in Trainer.train().
+#   Fix 2: Entropy computation → per-dimension Cat(32) entropy, NOT single Cat(1024).
+#     log_p = log_softmax(logits, dim=-1)  # (B, D, K) per-dim
+#     H_total = -(log_p.exp() * log_p).sum(-1).sum(-1).mean()
+#   Fix 3: Clean restart using PWM_RESUME_WM_ONLY (WM weights only from Phase 1)
+#     instead of PWM_RESUME_CHECKPOINT (full Phase 2 checkpoint with poisoned
+#     optimizer state from zero-reward training).
+#
+# Expected result:
+#   With action-conditioned WM and correct entropy metric, prior entropy varies
+#   across actions from step 0. Actor should discover first sphurattā within
+#   ~20K–50K steps and show clear advantage over REINFORCE by step 100K.
 #
 # Usage:
 #   cd /home/sharaths/projects/pwm-phase2
@@ -21,9 +34,9 @@ source /home/sharaths/vllm-env/bin/activate
 
 CORPUS_CACHE_DIR=/home/sharaths/projects/pwm-phase1/data/embed_cache \
 WANDB_PROJECT=pratyabhijna-world-model \
-PWM_RESUME_CHECKPOINT=/home/sharaths/projects/pwm-phase2/checkpoints/final.pt \
+PWM_RESUME_WM_ONLY=/home/sharaths/projects/pwm-phase1/checkpoints/final.pt \
 /home/sharaths/vllm-env/bin/python pwm/scripts/train.py \
   --config-name phase2_efe \
   training.max_steps=400000 \
-  training.seed=43 \
-  2>&1 | tee -a outputs/phase2_rerun.log
+  training.seed=44 \
+  2>&1 | tee -a outputs/phase2_rerun3.log

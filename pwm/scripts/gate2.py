@@ -129,11 +129,22 @@ def prior_neg_entropy(logits_prior: torch.Tensor) -> float:
     distributions → different entropy. The EFE actor's epistemic objective exactly
     aligns with maximising this signal — it is designed to seek high-entropy states.
 
-    Returns: negative entropy ∈ [-log(D*K), 0]  (more negative = higher entropy).
+    IMPORTANT: z_t ~ Cat(32×32) consists of 32 INDEPENDENT Cat(32) distributions.
+    We use per-dimension log_softmax (dim=-1 over the 32 class logits), then sum
+    the 32 per-dimension entropies. This is NOT a single Cat(1024) distribution.
+    Correct range: [-32·log(32), 0] nats ≈ [-111.0, 0] (more negative = higher entropy).
+
+    Args:
+        logits_prior: shape (B, stoch_dim, stoch_classes) e.g. (B, 32, 32)
+
+    Returns: negative total entropy as scalar float (negative = higher entropy = more novel).
     """
-    B = logits_prior.shape[0] if logits_prior.dim() >= 3 else 1
-    lp = F.log_softmax(logits_prior.reshape(B, -1), dim=-1)
-    return float((lp.exp() * lp).sum(-1).mean().item())
+    if logits_prior.dim() == 2:
+        logits_prior = logits_prior.unsqueeze(0)
+    log_p = F.log_softmax(logits_prior, dim=-1)          # (B, D, K), per-dim normalised
+    entropy_per_dim = -(log_p.exp() * log_p).sum(-1)     # (B, D), entropy of each Cat(K)
+    total_entropy = entropy_per_dim.sum(-1).mean()        # scalar: sum over D, mean over B
+    return float(-total_entropy.item())                   # negative entropy
 
 
 # ── REINFORCE baseline ────────────────────────────────────────────────────────

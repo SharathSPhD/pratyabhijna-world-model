@@ -551,11 +551,16 @@ class PWMTrainer:
                 # This is fully action-dependent: different actions → different h_t
                 # → different prior distributions → different entropy.
                 # The EFE actor's epistemic objective exactly aligns with maximising this.
+                #
+                # IMPORTANT: z_t ~ Cat(32×32) means 32 INDEPENDENT Cat(32) distributions.
+                # Use per-dimension log_softmax (dim=-1 over the 32 classes), NOT reshape
+                # to 1024 which would model a single Cat(1024) — statistically wrong.
                 lp_prior = logits_prior_list[0]  # (B, stoch_dim, stoch_classes)
-                lp_norm = nn.functional.log_softmax(lp_prior.reshape(B, -1), dim=-1)
-                prior_neg_entropy = float(
-                    (lp_norm.exp() * lp_norm).sum(-1).mean().item()
-                )  # range: [-log(D*K), 0]  (more negative = higher entropy = more novel)
+                log_p_b = nn.functional.log_softmax(lp_prior, dim=-1)  # (B, D, K) per-dim
+                entropy_per_dim_b = -(log_p_b.exp() * log_p_b).sum(-1)  # (B, D)
+                total_entropy_b = entropy_per_dim_b.sum(-1).mean()       # scalar
+                prior_neg_entropy = float(-total_entropy_b.item())
+                # range: [−32·log32, 0] nats; more negative = higher entropy = more novel
                 camatk_tensor, _ = self.camatk.compute(
                     curr_vfe=prior_neg_entropy,
                     hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
@@ -638,12 +643,11 @@ class PWMTrainer:
                 h_t, z_t = imag_states[0]
                 imag_feats.append(torch.cat([h_t, z_t.flatten(-2)], dim=-1))
 
-                # Same prior-entropy proxy as Phase B (action-dependent camatkāra signal).
-                lp_prior_c = logits_prior_list_c[0]
-                lp_norm_c = nn.functional.log_softmax(lp_prior_c.reshape(B, -1), dim=-1)
-                prior_neg_entropy_c = float(
-                    (lp_norm_c.exp() * lp_norm_c).sum(-1).mean().item()
-                )
+                # Same prior-entropy proxy as Phase B — per-dimension Cat(32) entropy.
+                lp_prior_c = logits_prior_list_c[0]  # (B, D, K)
+                log_p_c = nn.functional.log_softmax(lp_prior_c, dim=-1)
+                entropy_per_dim_c = -(log_p_c.exp() * log_p_c).sum(-1)  # (B, D)
+                prior_neg_entropy_c = float(-entropy_per_dim_c.sum(-1).mean().item())
                 camatk_tensor, _ = self.camatk.compute(
                     curr_vfe=prior_neg_entropy_c,
                     hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
@@ -731,8 +735,11 @@ class PWMTrainer:
         obs = self.env.reset()
         loop_state = self.loop.init(self.env.batch_size, self.device)
 
-        # action_dim for replay storage (loop_state.action uses wm.strides[0]=1,
-        # not action_dim — store zero actions of correct shape for RSSM)
+        # action_dim for replay storage. Store random one-hot actions so that the
+        # WM's GRU action-conditioning weights receive gradient signal for all action
+        # values, not just zero. This is critical: if the replay buffer contains only
+        # zero actions, the GRU learns to ignore action inputs entirely, making the
+        # prior entropy constant regardless of actor decisions (zero reward signal).
         _action_dim = self.cfg.world_model.action_dim
         while len(self.replay) < min_buf:
             _, reward, done = self.env.step(loop_state.action)
@@ -741,9 +748,12 @@ class PWMTrainer:
             # _collate_sequences assembles (B, T, obs_dim) correctly.
             B_env = obs.shape[0]
             for b in range(B_env):
+                rand_action = np.eye(_action_dim, dtype=np.float32)[
+                    np.random.randint(_action_dim)
+                ]  # random one-hot (action_dim,)
                 self.replay.add(Transition(
                     obs=obs[b].cpu().numpy(),
-                    action=np.zeros(_action_dim, dtype=np.float32),
+                    action=rand_action,
                     reward=float(reward[b].item()),
                     done=bool(done[b].item()),
                     next_obs=next_obs[b].cpu().numpy(),
@@ -781,9 +791,12 @@ class PWMTrainer:
             B_env = obs.shape[0]
             _vfe = metrics.get("loss/wm_total", 0.0)
             for b in range(B_env):
+                rand_action = np.eye(_action_dim, dtype=np.float32)[
+                    np.random.randint(_action_dim)
+                ]  # random one-hot — keeps action conditioning alive in WM GRU
                 self.replay.add(Transition(
                     obs=obs[b].cpu().numpy(),
-                    action=np.zeros(_action_dim, dtype=np.float32),
+                    action=rand_action,
                     reward=float(reward[b].item()),
                     done=bool(done[b].item()),
                     next_obs=obs_new[b].cpu().numpy(),
