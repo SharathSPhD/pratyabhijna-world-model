@@ -534,18 +534,30 @@ class PWMTrainer:
                 # Phase 2+: EFEActor selects action from (h, z); embed as one-hot
                 act_idx = self.efe_actor.select_action(h_t, z_t)          # (B,)
                 action = torch.nn.functional.one_hot(act_idx, num_classes=_action_dim).float()
-                imag_states, _ = self.world_model.imagine_step(action, imag_states, step=t)
+                imag_states, logits_prior_list = self.world_model.imagine_step(
+                    action, imag_states, step=t
+                )
 
                 h_t, z_t = imag_states[0]
                 imag_h_list.append(h_t)
                 imag_z_list.append(z_t)
 
-                # Camatkāra reward along imagined trajectory.
-                # Use the real VFE cached from Phase A (_last_real_vfe) so ΔF is
-                # non-zero when the WM is genuinely surprised by recent observations.
-                # This is the correct DreamerV3-style flow: real surprise → imagined value.
+                # Camatkāra reward: prior-entropy VFE proxy (action-dependent surprise).
+                #
+                # Using negative prior entropy as `curr_vfe` so that:
+                #   ΔF = max(H_prev_neg - H_curr_neg, 0) = max(ΔH_entropy_increase, 0)
+                # i.e., reward fires when the WM prior GAINS entropy → actor navigated
+                # the WM into a more uncertain/novel latent region (epistemic value).
+                # This is fully action-dependent: different actions → different h_t
+                # → different prior distributions → different entropy.
+                # The EFE actor's epistemic objective exactly aligns with maximising this.
+                lp_prior = logits_prior_list[0]  # (B, stoch_dim, stoch_classes)
+                lp_norm = nn.functional.log_softmax(lp_prior.reshape(B, -1), dim=-1)
+                prior_neg_entropy = float(
+                    (lp_norm.exp() * lp_norm).sum(-1).mean().item()
+                )  # range: [-log(D*K), 0]  (more negative = higher entropy = more novel)
                 camatk_tensor, _ = self.camatk.compute(
-                    curr_vfe=getattr(self, "_last_real_vfe", 0.0),
+                    curr_vfe=prior_neg_entropy,
                     hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
                     empowerment=0.0,
                 )
@@ -620,11 +632,20 @@ class PWMTrainer:
                 # Embed discrete action into continuous action_dim for WM step
                 _adim = self._action_dim
                 action_emb = torch.nn.functional.one_hot(action, num_classes=_adim).float()
-                imag_states, _ = self.world_model.imagine_step(action_emb, imag_states, step=t)
+                imag_states, logits_prior_list_c = self.world_model.imagine_step(
+                    action_emb, imag_states, step=t
+                )
                 h_t, z_t = imag_states[0]
                 imag_feats.append(torch.cat([h_t, z_t.flatten(-2)], dim=-1))
+
+                # Same prior-entropy proxy as Phase B (action-dependent camatkāra signal).
+                lp_prior_c = logits_prior_list_c[0]
+                lp_norm_c = nn.functional.log_softmax(lp_prior_c.reshape(B, -1), dim=-1)
+                prior_neg_entropy_c = float(
+                    (lp_norm_c.exp() * lp_norm_c).sum(-1).mean().item()
+                )
                 camatk_tensor, _ = self.camatk.compute(
-                    curr_vfe=getattr(self, "_last_real_vfe", 0.0),
+                    curr_vfe=prior_neg_entropy_c,
                     hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
                     empowerment=0.0,
                 )
