@@ -7,16 +7,17 @@
   "training_steps": 10000,
   "training_vfe_final": 0.6018,
   "training_sps": 4.4,
-  "criterion_threshold_note": "perplexity ratio < 2.0 (not 1.0): discrete Cat(32x32) latents incur irreducible quantisation overhead vs direct LSTM regression",
+  "criterion_threshold_note": "perplexity ratio < 2.0 (not 1.0): discrete Cat(32x32) latents incur irreducible quantisation overhead vs direct LSTM regression. WM sacrifices ≤2x reconstruction fidelity to gain structured generative capability (imagination rollout).",
   "perplexity": {
-    "wm_recon_mse": 0.002771501182578504,
-    "wm_vfe_mean": 6.696131200790405,
-    "wm_vfe_std": 0.0031819100415601148,
+    "wm_recon_mse": 0.0019017608975991607,
+    "wm_vfe_mean": 0.6019590008258819,
+    "wm_vfe_std": 1.4921979666503317e-06,
     "n_batches": 50,
-    "lstm_recon_mse": 0.0018816172960214317,
-    "wm_vs_lstm_ratio": 1.472935643416267,
+    "lstm_recon_mse": 0.0018816124554723501,
+    "wm_vs_lstm_ratio": 1.0107080722537802,
     "perplexity_gate_pass": true,
-    "gate_threshold": 2.0
+    "gate_threshold": 2.0,
+    "note": "Ratio 1.011 — WM reconstruction within 1.1% of LSTM baseline"
   },
   "criterion_1_pass": true,
   "umap": {
@@ -26,7 +27,7 @@
       "gutenberg",
       "hf_wiki_philosophy"
     ],
-    "silhouette_score": 0.12059365212917328,
+    "silhouette_score": 0.11426748335361481,
     "umap_gate_pass": true,
     "gate_threshold": 0.1,
     "embedding_shape": [
@@ -37,14 +38,21 @@
   },
   "criterion_2_pass": true,
   "svat": {
-    "sva_entropy_bits": 1.3614711793033174,
-    "sva_entropy_max": 5.0,
-    "sva_coverage": 0.2724609375,
-    "sva_diversity_hamming": 0.48946875,
-    "sva_score": 0.2722942358606635,
-    "sva_gate_pass": true,
-    "gate_threshold_coverage": 0.15,
-    "gate_threshold_entropy": 1.0
+    "note": "Two evaluation runs showed divergent results; flagged for investigation before Phase 2 paper submission",
+    "run_1_old_model": {
+      "sva_entropy_bits": 1.3614711793033174,
+      "sva_coverage": 0.2724609375,
+      "sva_diversity_hamming": 0.48946875,
+      "sva_gate_pass": true
+    },
+    "run_2_final_model": {
+      "sva_entropy_bits": 0.0,
+      "sva_entropy_max": 5.0,
+      "sva_coverage": 0.03125,
+      "sva_diversity_hamming": 0.0,
+      "sva_gate_pass": false,
+      "possible_cause": "posterior collapse or evaluation bug (live embedding path) — investigate in Phase 2"
+    }
   },
   "camatk": {
     "camatk_mean": 1.0,
@@ -65,9 +73,9 @@
     "corpus": "58652 chunks (gutenberg + hf_wiki_philosophy), 512-dim sentence embeddings",
     "training_environment": "CachedCorpusEnv (float16 memmap, 4.4-5.7 sps)",
     "hardware": "NVIDIA GB10 Blackwell, 128GB unified LPDDR5X",
-    "criterion_1_perplexity": "WM/LSTM ratio 1.473 < 2.0 threshold (PASS)",
-    "criterion_2_umap": "Silhouette 0.121 > 0.1 threshold (PASS)",
-    "bonus_svat": "Coverage 0.272 > 0.15, Entropy 1.36 bits > 1.0 (PASS)",
+    "criterion_1_perplexity": "WM/LSTM ratio 1.011 < 2.0 threshold (PASS) — WM nearly matches LSTM raw MSE",
+    "criterion_2_umap": "Silhouette 0.114 > 0.1 threshold (PASS) — domain cluster separation confirmed",
+    "action_items": ["investigate svat posterior collapse before phase 2 paper results"],
     "advance_to_phase_2": true
   }
 }

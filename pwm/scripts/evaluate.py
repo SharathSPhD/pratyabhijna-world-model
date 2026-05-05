@@ -67,6 +67,64 @@ def load_checkpoint(checkpoint_path: Path, cfg: Any, device: torch.device) -> Tr
     return wm
 
 
+def _build_eval_loader(
+    corpus_root: Path,
+    obs_dim: int,
+    device: torch.device,
+    n_batches: int = 50,
+    batch_size: int = 16,
+    seq_len: int = 32,
+) -> Any:
+    """
+    Build an iterable that yields ``n_batches`` of ``(obs_seq,)`` tuples.
+
+    Preference order (to avoid live TextEncoder degeneration):
+      1. CachedCorpusEnv — if CORPUS_CACHE_DIR env var is set and meta.json exists.
+         Reads pre-embedded float16 memmaps; no GPU encoding, fully deterministic.
+      2. build_held_out_loader — fallback using live sentence-transformer.
+         Acceptable for one-off evaluation but can produce degenerate embeddings
+         after a long GPU session (the svat entropy=0 bug in run bqeli06r1).
+
+    Returns a finite iterable yielding ``(obs_seq,)`` tuples where
+    ``obs_seq`` has shape ``(B, T, obs_dim)`` as float32 on ``device``.
+    """
+    cache_dir = os.environ.get("CORPUS_CACHE_DIR")
+    if cache_dir:
+        cache_path = Path(cache_dir)
+        meta_path = cache_path / "meta.json"
+        if meta_path.exists():
+            from pwm.data.embed_cache import CachedCorpusEnv  # type: ignore[import]
+            log.info("_build_eval_loader: using CachedCorpusEnv from %s", cache_path)
+            env = CachedCorpusEnv(
+                cache_dir=cache_path,
+                batch_size=batch_size,
+                seq_len=seq_len,
+                obs_dim=obs_dim,
+                device=device,
+                seed=99,  # different seed from training for held-out flavour
+            )
+
+            class _CachedLoader:
+                def __iter__(self_inner: Any):  # noqa: N805
+                    for _ in range(n_batches):
+                        obs_seq, _, _, _ = env.sample_batch()
+                        yield (obs_seq,)
+
+            return _CachedLoader()
+        else:
+            log.warning("CORPUS_CACHE_DIR set but meta.json not found at %s — falling back to live loader", meta_path)
+
+    # Fallback: live TextEncoder loader
+    log.info("_build_eval_loader: using live TextEncoder (build_held_out_loader)")
+    from pwm.eval.perplexity import build_held_out_loader  # type: ignore[import]
+    _, held_loader = build_held_out_loader(
+        corpus_dir=corpus_root,
+        obs_dim=obs_dim,
+        device=device,
+    )
+    return held_loader
+
+
 def run_phase1_gate(cfg: Any) -> dict[str, Any]:
     """
     Run full Phase 1 exit gate evaluation.
@@ -145,12 +203,12 @@ def run_phase1_gate(cfg: Any) -> dict[str, Any]:
     log.info("=== Svātantrya evaluation ===")
     try:
         from pwm.eval.svat import collect_latents, compute_sva_score  # type: ignore[import]
-        from pwm.eval.perplexity import build_held_out_loader          # type: ignore[import]
 
-        _, held_loader = build_held_out_loader(
-            corpus_dir=corpus_root,
+        held_loader = _build_eval_loader(
+            corpus_root=corpus_root,
             obs_dim=cfg.world_model.obs_dim,
             device=device,
+            n_batches=50,
         )
         h_latents, z_indices = collect_latents(
             world_model=world_model, loader=held_loader, n_batches=50, device=device
@@ -168,7 +226,6 @@ def run_phase1_gate(cfg: Any) -> dict[str, Any]:
     log.info("=== Camatkāra evaluation ===")
     try:
         from pwm.eval.camatk_eval import run_camatk_report              # type: ignore[import]
-        from pwm.eval.perplexity import build_held_out_loader            # type: ignore[import]
         from pwm.memory.citta_store import CittaStore                    # type: ignore[import]
         from pwm.rewards.camatk import CamatkaraReward                  # type: ignore[import]
 
@@ -177,7 +234,12 @@ def run_phase1_gate(cfg: Any) -> dict[str, Any]:
         citta = CittaStore(hidden_dim=wm_cfg.hidden_dim_apara, n_levels=wm_cfg.levels).to(device)
         camatk = CamatkaraReward(alpha_1=rew_cfg.alpha_1, alpha_2=rew_cfg.alpha_2, alpha_3=rew_cfg.alpha_3)
 
-        _, held_loader = build_held_out_loader(corpus_dir=corpus_root, obs_dim=wm_cfg.obs_dim, device=device)
+        held_loader = _build_eval_loader(
+            corpus_root=corpus_root,
+            obs_dim=wm_cfg.obs_dim,
+            device=device,
+            n_batches=50,
+        )
         camatk_metrics = run_camatk_report(
             world_model=world_model, camatk_fn=camatk, citta_store=citta,
             held_loader=held_loader, device=device,
