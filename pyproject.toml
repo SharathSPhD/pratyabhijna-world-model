@@ -81,6 +81,7 @@ pwm-train = "pwm.scripts.train:main"
 pwm-eval = "pwm.scripts.evaluate:main"
 pwm-trace = "pwm.scripts.trace:main"
 pwm-serve = "pwm.scripts.serve_llm:main"
+pwm-gate2 = "pwm.scripts.gate2:main"
 pwm-corpus = "corpus.build:main"
 
 [tool.hatch.build.targets.wheel]
