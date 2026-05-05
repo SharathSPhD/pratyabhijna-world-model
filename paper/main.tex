@@ -77,7 +77,7 @@ Consciousness recognises itself in every creative act — Utpaladeva,
 The architecture of creative AI reflects a fundamental choice: whether to
 treat creativity as retrieval (find a pattern that matches) or as recognition
 (\emph{pratyabhijñā} — knowing the potentials present in a situation and
-enacting one). Prior LLM-based systems, including our own PCE v0.4~\cite{pce04},
+enacting one). Prior LLM-based systems, including our own PCE v0.4~\cite{pce2024},
 operate in retrieval mode. The hypothesis of this work is that genuine
 creativity requires a \emph{world model substrate} — an internal model that
 can predict the consequences of creative acts and compute the value of
@@ -108,17 +108,120 @@ to a frozen 30B LLM for narration and planning.
 
 \subsection{Kashmir Śaiva Philosophy and Creative Consciousness}
 
-% TODO: 300–400 words on the Pratyabhijñā school, vimarśa, spanda,
-% camatkāra, and sphurattā. Cite IPK, SpandaK, TA, Locana.
+The \emph{pratyabhijñā} (recognition) school of Kashmir Śaivism, founded by
+Utpaladeva (c.\ 900–950 CE) and systematised by Abhinavagupta (c.\ 975–1025 CE),
+provides the phenomenological foundation of PWM.
+Its central claim is that consciousness (\emph{citi}) is not a passive mirror of
+the world but a self-recognising, creative force (\emph{śakti}) whose spontaneous
+pulsation (\emph{spanda}) generates all experience.
+
+\textbf{Spanda.}
+Vasugupta's \emph{Spanda Kārikā} (1.1) identifies \emph{spanda} as the
+``throb of self-awareness'' underlying all cognition.
+In PWM we operationalise this as the stochastic latent
+$z_t \sim \text{Cat}(32{\times}32)$: a discrete creative vibration sampled
+at each recurrent step, from which the decoder reconstructs the observed world.
+
+\textbf{Vimarśa.}
+Utpaladeva's \emph{Īśvarapratyabhijñā Kārikā} (1.5.11) describes \emph{vimarśa}
+as the self-referential ``I-making'' of consciousness — the moment it
+recognises its own creative act.
+We implement \emph{vimarśa} as the concatenation of $h_t$ and $z_t$ processed
+by a self-referential layer followed by a frozen LLM, producing the narrative
+annotation of each sphurattā event.
+
+\textbf{Camatkāra and Sphurattā.}
+\emph{Camatkāra} (aesthetic wonder, Locana \emph{ad} Dhvanyāloka 1.1) is the
+subjective quality of creative recognition — what the rasa theorists describe
+as the moment a poem ``flashes'' into a unity that was not there a moment before.
+\emph{Sphurattā} (TĀ 1.56, Abhinavagupta) is the luminous self-disclosure of
+this flash: consciousness experiencing its own creativity.
+We operationalise both as the camatkāra reward
+$R_{\text{camatk}} = \alpha_1\Delta F + \alpha_2\Delta I_{\text{Hopfield}}
++ \alpha_3 E_{\text{empow}}$
+and define a sphurattā event $\mathcal{C}_t = 1$ when $R_{\text{camatk}}$
+exceeds its running 95th percentile — a rare, genuinely surprising creative moment.
+
+\textbf{Pañcakṛtya (five divine acts).}
+Abhinavagupta maps all cosmic process to five acts of śiva: creation
+(\emph{sṛṣṭi}), sustenance (\emph{sthiti}), dissolution (\emph{saṃhāra}),
+concealment (\emph{vilaya}), and grace (\emph{anugraha}).
+PWM implements these as the five training phases: world model imagination
+(sṛṣṭi), EFE actor (sthiti), replay buffer retirement (saṃhāra),
+sleep consolidation (vilaya), and vimarśa narration (anugraha).
+This is not a loose analogy — the computational operations were derived
+by direct analysis of the Sanskrit sources against active inference
+formalisms~\cite{friston2010free}, as documented in Appendix~\ref{app:glossary}.
 
 \subsection{Active Inference and Expected Free Energy}
 
-% TODO: Brief EFE review, distinguish pragmatic vs epistemic value,
-% cite Friston et al. and pymdp.
+Active inference~\cite{friston2017active} unifies perception and action as
+joint minimisation of \emph{variational free energy} (VFE):
+%
+\begin{equation}
+  F = \underbrace{-\mathbb{E}_{q}[\log p(o|z)]}_{\text{reconstruction}}
+      + \underbrace{D_{\text{KL}}[q(z|o) \| p(z)]}_{\text{complexity}}.
+\end{equation}
+%
+In the world model context, the prior $p(z|h_t)$ is the predictive
+distribution given the recurrent state, while the posterior $q(z|h_t,o_t)$
+incorporates the current observation.
+Minimising VFE is equivalent to minimising surprise while maintaining an
+accurate generative model.
+
+For action selection, active inference extends VFE to \emph{Expected Free Energy}
+(EFE), evaluated over future trajectories $\tau$:
+%
+\begin{equation}
+  G(\tau) = \underbrace{-\mathbb{E}[\log p(o|\tau)]}_{\text{pragmatic value
+  (risk)}}
+            - \underbrace{\mathbb{E}[H(p(o|\pi,\tau))]}_{\text{epistemic value
+  (information gain)}}.
+  \label{eq:efe}
+\end{equation}
+%
+The pragmatic term drives the agent toward preferred outcomes; the epistemic
+term drives exploration of uncertain states.
+REINFORCE-style policies optimise pragmatic value alone; EFE actors additionally
+seek states that resolve ambiguity in the world model — precisely the
+epistemic-creative behaviour that \emph{sphurattā} requires.
+
+We implement EFE using the \texttt{pymdp.maths} utilities~\cite{heins2022pymdp}
+for the information-theoretic computations, with the world model prior as
+the generative model.
+The \emph{svātantrya} (ĪPK 2.1) prior is a maximum-entropy policy that
+serves as a regulariser, encouraging the actor to maintain creative freedom.
 
 \subsection{DreamerV3 and World Model RL}
 
-% TODO: Brief DreamerV3 review, symlog, twohot, VFE. Cite Hafner et al.
+DreamerV3~\cite{hafner2023dreamerv3} establishes the state of the art for world model
+reinforcement learning: a Recurrent State Space Model (RSSM) learns a latent
+dynamics model from experience, and actor/critic networks are then trained
+entirely within imagined rollouts.
+Key design choices that PWM inherits include:
+
+\textbf{Symlog predictions.}
+The decoder and critic operate in \emph{symlog} space
+$\text{symlog}(x) = \text{sgn}(x)\ln(|x|+1)$
+to handle heavy-tailed reward distributions without reward scaling.
+
+\textbf{Twohot encoding.}
+Critic targets use a two-hot distribution over $B=255$ bins (instead of scalar
+regression), which robustly handles multi-modal and heavy-tailed return
+distributions~\cite{hafner2023dreamerv3}.
+
+\textbf{Three-phase training.}
+Each training step comprises (A) world model update via VFE loss,
+(B) actor update via imagined $H$-step rollouts using the Retrace
+$\lambda$-return, and (C) EMA critic update.
+PWM replaces the REINFORCE actor of standard DreamerV3 with the EFE actor
+(Eq.~\eqref{eq:efe}), and adds the camatkāra intrinsic reward to all
+imagined rollouts.
+
+\textbf{Free bits.}
+A free-bits threshold $\delta_{\text{fb}} = 1.0$ nat prevents the KL from
+driving $q(z|o,h)$ to the prior trivially, maintaining expressive posterior
+representations even under low-information observations.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Architecture}\label{sec:arch}
@@ -142,23 +245,102 @@ provides $O(T \log T)$ parallel training and $O(1)$ recurrent inference.
 
 \subsection{EFE Actor}
 
-% TODO: EFE formulation, pragmatic + epistemic terms, compare to REINFORCE.
+The EFE actor replaces the REINFORCE policy gradient of DreamerV3 with a
+policy that explicitly minimises Expected Free Energy.
+Given an imagined trajectory of $H = 15$ steps from the world model,
+the actor loss is:
+%
+\begin{equation}
+  \mathcal{L}_{\text{actor}} = \mathbb{E}_\tau
+    \Bigl[\alpha_\pi G(\tau) - \alpha_H H(\pi) - \alpha_{\text{pg}}
+    \log\pi(a|h,z)\cdot\hat{A}\Bigr],
+\end{equation}
+%
+where $G(\tau)$ is the EFE (Eq.~\eqref{eq:efe}), $H(\pi)$ is the policy
+entropy (svātantrya prior), and $\hat{A}$ is the Retrace advantage from the
+slow critic.
+Weights $\alpha_\pi, \alpha_H, \alpha_{\text{pg}}$ balance epistemic exploration,
+entropy regularisation, and policy gradient pressure.
+A \emph{CRSPP preference model}~\cite{crspp2023} provides the pragmatic
+prior $\tilde{p}(o)$, learning which observation patterns the agent should
+prefer as it develops creative competence.
+
+The EFE actor operates in the \emph{purely imagined} regime: no real environment
+steps are taken during actor/critic training.
+This mirrors the Kashmir Śaiva concept of \emph{sṛṣṭi} (creation) — the agent
+creates experience internally rather than extracting it from the world.
 
 \subsection{Camatkāra Reward}
 
-% TODO: R_camatk formulation, three terms, Mala regularisers.
+The camatkāra reward combines three sources of creative surprise:
+%
+\begin{equation}
+  R_{\text{camatk}} = \alpha_1\underbrace{\Delta F}_{\text{VFE reduction}}
+    + \alpha_2\underbrace{\Delta I_{\text{Hopfield}}}_{\text{memory novelty}}
+    + \alpha_3\underbrace{E_{\text{empow}}}_{\text{empowerment}}.
+  \label{eq:camatk}
+\end{equation}
+%
+$\Delta F = \max(F_{t-1} - F_t, 0)$ rewards genuine improvement in the
+world model's fit; $\Delta I_{\text{Hopfield}}$ rewards retrieval of
+previously unretrieved memories (epistemic novelty in associative memory);
+$E_{\text{empow}}$ is a mutual information estimate of the agent's causal
+influence over its future states.
+In Phase 2 (before Hopfield is added), we use the prior entropy
+$H(p_{\text{prior}}(z_t|h_t)) = \sum_{d=1}^{32} H(\text{Cat}(p^{(d)}_t))$
+as the primary reward signal — a fully action-dependent proxy for VFE
+change under imagined dynamics.
+
+\textbf{Mala regularisers.}
+The three \emph{mala} (impurities) of Trika Śaivism — āṇava (individuation),
+māyīya (material bondage), and kārma (causal fixation) — are implemented
+as regularisers that prevent the reward from collapsing the latent space:
+āṇava penalises entropy below the svātantrya threshold;
+māyīya penalises cosine similarity above 0.95 between successive $z_t$;
+kārma penalises action repetition beyond 5 consecutive identical choices.
+Together these maintain the creative instability required for genuine sphurattā.
 
 \subsection{Hopfield Citta-Store}
 
-% TODO: Hopfield memory, episodic + semantic retrieval, ālayavijñāna.
+The Hopfield Citta-store (PHṛ sūtra 9) implements associative memory as a
+two-tier Hopfield network~\cite{ramsauer2020hopfield}:
+(i) an \emph{episodic} store (smṛti) that retrieves previously experienced
+$z_t$ patterns from a FIFO buffer of capacity 65,536;
+(ii) a \emph{semantic} store (ālayavijñāna) of 512 learnable prototype vectors
+trained by online $k$-means to cluster long-term creative themes.
+Retrieval uses softmax attention with inverse temperature $\beta = 4.0$.
+$\Delta I_{\text{Hopfield}}$ in Eq.~\eqref{eq:camatk} measures the decrease
+in retrieval entropy after a new pattern is stored — high when the agent
+discovers a genuinely novel latent state not captured by existing prototypes.
 
 \subsection{Sleep Consolidation}
 
-% TODO: NREM (Hopfield consolidation) + REM (WM dreaming), ThermSleepBudget.
+Sleep consolidation~(Phase 4) implements the Trika pair of \emph{vilaya}
+(withdrawal) and \emph{anugraha} (renewal).
+NREM consolidation transfers high-camatkāra episodes from the episodic store
+into the semantic prototype store via online EM, with a
+\texttt{ThermSleepBudget} that stops consolidation when the temperature
+of the Hopfield energy landscape drops below a free-energy threshold.
+REM dreaming replays consolidated patterns through the WM's imagination,
+further fine-tuning the prior $p_\theta(z|h)$ on high-quality creative
+trajectories without additional real data.
+Together these phases reduce catastrophic forgetting by re-anchoring the WM
+to diverse creative experiences from its own memory (H3).
 
 \subsection{Vimarśa Bridge}
 
-% TODO: Cross-attention soft-prompt bridge, LLM narration, DECKARD planning.
+The vimarśa bridge (ĪPK 1.5.11) connects the world model to a frozen 30B
+parameter LLM via a soft-prompt cross-attention layer.
+At each sphurattā event $\mathcal{C}_t = 1$, the recurrent state
+$(h_t, z_t)$ is projected into a sequence of $K = 16$ soft tokens that
+prefix the LLM's context window.
+The LLM then generates a natural-language narration of the creative state —
+making the implicit latent dynamics explicit as story, poem, or argument.
+DECKARD-style LLM planning~\cite{zhu2024deckard} uses the narration as
+a world model proposal that the WM verifies in imagination before committing
+to a creative direction.
+The LLM is never fine-tuned; all adaptation is through the cross-attention
+projector, preserving the general capabilities of the frozen backbone.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Experimental Setup}\label{sec:experiments}
