@@ -890,6 +890,15 @@ if _HYDRA:
         if resume_ckpt and Path(resume_ckpt).exists():
             trainer.load_checkpoint(resume_ckpt)
 
+        # Cross-phase warm-start: load WM weights only from a Phase 1 checkpoint.
+        # Leaves efe_actor/critic at random init (Phase 2 trains these from scratch
+        # on top of the pre-trained world model substrate).
+        wm_ckpt = os.environ.get("PWM_RESUME_WM_ONLY")
+        if wm_ckpt and Path(wm_ckpt).exists() and not resume_ckpt:
+            ckpt = torch.load(wm_ckpt, map_location=trainer.device, weights_only=False)
+            trainer.world_model.load_state_dict(ckpt["world_model"])
+            log.info("Loaded WM-only from Phase 1 checkpoint: %s (step=%d)", wm_ckpt, ckpt.get("step", -1))
+
         trainer.train()
 else:
     def main() -> None:  # type: ignore[misc,no-redef]
