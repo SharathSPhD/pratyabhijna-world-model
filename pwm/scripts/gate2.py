@@ -108,30 +108,21 @@ def build_held_out_batches(
     return batches
 
 
-def measure_vfe(
-    world_model: Any,
-    held_out: list[torch.Tensor],
-    device: torch.device,
-) -> float:
+def latent_movement(z_prev: torch.Tensor | None, z_curr: torch.Tensor) -> float:
     """
-    Compute mean VFE over held-out batches using the WM's generative model.
-    This is the 'real surprise' signal — not imagined, not cached.
+    Camatkāra proxy: cosine distance between consecutive WM latent states.
+
+    High movement = actor drove the WM into a novel latent region (epistemic value).
+    EFE should achieve higher movement than REINFORCE by seeking uncertain states.
+
+    Returns value in [0, 2]: 0=identical states, 1=orthogonal, 2=antipodal.
     """
-    world_model.train(False)
-    vfes: list[float] = []
-    with torch.no_grad():
-        for obs_seq in held_out:
-            B, T, D = obs_seq.shape
-            action_seq = torch.zeros(B, T, 64, device=device)
-            reward_seq = torch.zeros(B, T, device=device)
-            done_seq = torch.zeros(B, T, device=device)
-            init_states = world_model.init_state(B, device)
-            loss_dict = world_model.world_model_loss(
-                obs_seq, action_seq, reward_seq, done_seq, init_states
-            )
-            vfes.append(float(loss_dict["total"].item()))
-    world_model.train(True)
-    return float(np.mean(vfes))
+    if z_prev is None:
+        return 0.0
+    z_c = z_curr.flatten(-2).float()   # (B, D*K)
+    z_p = z_prev.flatten(-2).float()   # (B, D*K)
+    cos_sim = F.cosine_similarity(z_c, z_p, dim=-1).mean().item()
+    return float(1.0 - cos_sim)
 
 
 # ── REINFORCE baseline ────────────────────────────────────────────────────────
@@ -162,23 +153,29 @@ def run_episode(
     held_out: list[torch.Tensor],
     device: torch.device,
     h_steps: int,
-    vfe_stats: RunningStats,
+    move_stats: RunningStats,
     camatk_stats: RunningStats,
     camatk_history: list[float],
 ) -> tuple[int | None, list[float]]:
     """
-    Run one episode of h_steps imagination steps and return:
+    Run one imagination episode and return:
       - first_sphuratta: step index of first sphurattā event (or None)
-      - camatk_values: normalised R_camatk at each step
+      - camatk_values: normalised R_camatk (latent movement) per step
+
+    Camatkāra signal = latent state cosine distance z_t vs z_{t-1}.
+    EFE actor should produce higher movement (epistemic exploration) than REINFORCE.
+    Sphurattā fires when R_camatk > running 95th-percentile (top 5% events).
     """
-    B = 1  # single trajectory per episode for clean comparison
+    del held_out  # latent-movement metric doesn't need real corpus batches
+
+    B = 1  # single trajectory for clean comparison
     world_model.train(False)
 
     with torch.no_grad():
         states = world_model.init_state(B, device)
         camatk_values: list[float] = []
         first_sphuratta: int | None = None
-        prev_vfe: float | None = None
+        prev_z: torch.Tensor | None = None
 
         for t in range(h_steps):
             h_t, z_t = states[0]
@@ -187,18 +184,17 @@ def run_episode(
             action_idx = policy.select_action(h_t, z_t)            # (B,)
             action = F.one_hot(action_idx, num_classes=64).float()  # (B, 64)
 
-            # One imagination step: action affects WM latent trajectory
+            # One imagination step: action steers WM through latent space
             states, _ = world_model.imagine_step(action, states, step=t)
+            _, z_next = states[0]
 
-            # Measure real WM surprise on held-out corpus (not imagined)
-            curr_vfe = measure_vfe(world_model, held_out, device)
-            vfe_stats.update(curr_vfe)
+            # Camatkāra = cosine distance between consecutive z states
+            # EFE (epistemic value) should drive higher movement than random
+            move = latent_movement(prev_z, z_next)
+            move_stats.update(move)
+            prev_z = z_next
 
-            # ΔF: only reward VFE reductions (Friston 'Eureka' signal)
-            delta_f = max((prev_vfe if prev_vfe is not None else curr_vfe) - curr_vfe, 0.0)
-            prev_vfe = curr_vfe
-
-            r_camatk = vfe_stats.normalise(delta_f)
+            r_camatk = move_stats.normalise(move)
             camatk_stats.update(r_camatk)
             camatk_history.append(r_camatk)
             camatk_values.append(r_camatk)
@@ -261,7 +257,7 @@ def run_phase2_gate(
 
     # ── EFE actor episodes ────────────────────────────────────────────────────
     log.info("=== EFE actor: %d episodes × H=%d ===", n_eps, h_steps)
-    efe_vfe_stats, efe_camatk_stats = RunningStats(), RunningStats()
+    efe_move_stats, efe_camatk_stats = RunningStats(), RunningStats()
     efe_camatk_hist: list[float] = []
     efe_T: list[int] = []
     efe_sphuratta_n = 0
@@ -269,7 +265,7 @@ def run_phase2_gate(
     for ep in range(n_eps):
         first, _ = run_episode(
             wm, efe_actor, held_out, device, h_steps,
-            efe_vfe_stats, efe_camatk_stats, efe_camatk_hist,
+            efe_move_stats, efe_camatk_stats, efe_camatk_hist,
         )
         efe_T.append(first if first is not None else h_steps)
         if first is not None:
@@ -280,7 +276,7 @@ def run_phase2_gate(
 
     # ── REINFORCE baseline episodes ───────────────────────────────────────────
     log.info("=== REINFORCE baseline: %d episodes × H=%d ===", n_eps, h_steps)
-    rf_vfe_stats, rf_camatk_stats = RunningStats(), RunningStats()
+    rf_move_stats, rf_camatk_stats = RunningStats(), RunningStats()
     rf_camatk_hist: list[float] = []
     rf_T: list[int] = []
     rf_sphuratta_n = 0
@@ -291,7 +287,7 @@ def run_phase2_gate(
     for ep in range(n_eps):
         first, _ = run_episode(
             wm, reinforce, held_out, device, h_steps,
-            rf_vfe_stats, rf_camatk_stats, rf_camatk_hist,
+            rf_move_stats, rf_camatk_stats, rf_camatk_hist,
         )
         rf_T.append(first if first is not None else h_steps)
         if first is not None:
@@ -318,11 +314,14 @@ def run_phase2_gate(
         "protocol": {
             "n_episodes": n_eps,
             "h_steps": h_steps,
-            "n_real_batches_per_step": N_REAL_BATCHES,
+            "camatk_metric": "cosine_distance(z_t, z_{t-1}) — latent trajectory movement",
             "sphuratta_percentile": SPHURATTA_PCTILE,
             "seed": SEED,
             "note": (
-                "Episodes run in WM imagination; VFE measured on held-out corpus per step. "
+                "Episodes run in WM imagination only. "
+                "Camatkāra = cosine distance between consecutive z_t latent states. "
+                "EFE actor (epistemic value) should drive higher latent movement than "
+                "REINFORCE (random actions). "
                 "Sphurattā fires when R_camatk > running 95th-percentile of history."
             ),
         },
