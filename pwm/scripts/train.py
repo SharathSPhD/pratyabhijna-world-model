@@ -332,14 +332,33 @@ class PWMTrainer:
             cfg=loop_cfg,
         )
 
-        # Phase 1: Use real corpus environment (PhaseOneEnv) instead of TextEnv stub.
-        # corpus_dir resolves against the config; falls back to TextEnv if no .txt
-        # files are present (e.g. when the phase1 worktree corpus is not yet synced).
+        # Phase 1: Corpus environment selection (priority order):
+        #   1. CachedCorpusEnv — if CORPUS_CACHE_DIR env var set and meta.json exists.
+        #      ~100K step/sec; pre-embed once with: python -m pwm.data.embed_cache
+        #   2. PhaseOneEnv    — live sentence-transformer embedding from .txt files.
+        #      ~1 step/sec (sentence-transformer bottleneck per train step).
+        #   3. TextEnv stub   — random observations, corpus not found.
         corpus_dir = Path(cfg.corpus.data_dir)
-        _txt_count = sum(1 for _ in corpus_dir.rglob('*.txt')) if corpus_dir.exists() else 0
-        if _txt_count > 0:
+        cache_dir_env = os.environ.get("CORPUS_CACHE_DIR", "")
+        _cache_dir = Path(cache_dir_env) if cache_dir_env else Path("data/embed_cache")
+        _cache_ready = (_cache_dir / "meta.json").exists() and (_cache_dir / "embeddings.npy").exists()
+
+        if _cache_ready:
+            from pwm.data.embed_cache import CachedCorpusEnv  # type: ignore[import]
+            log.info("CachedCorpusEnv: loading pre-embedded corpus from %s", _cache_dir)
+            self.env: Any = CachedCorpusEnv(
+                cache_dir=_cache_dir,
+                batch_size=cfg.training.batch_size,
+                seq_len=cfg.training.seq_len,
+                obs_dim=wm_cfg.obs_dim,
+                action_dim=wm_cfg.action_dim,
+                device=self.device,
+            )
+        elif corpus_dir.exists() and sum(1 for _ in corpus_dir.rglob('*.txt')) > 0:
+            _txt_count = sum(1 for _ in corpus_dir.rglob('*.txt'))
             log.info('PhaseOneEnv: using real corpus at %s (%d files)', corpus_dir, _txt_count)
-            self.env: Any = PhaseOneEnv(
+            log.info('TIP: run "python -m pwm.data.embed_cache --corpus-dir %s" for 100× speedup', corpus_dir)
+            self.env = PhaseOneEnv(
                 corpus_dir=corpus_dir,
                 batch_size=cfg.training.batch_size,
                 seq_len=cfg.training.seq_len,
@@ -350,8 +369,8 @@ class PWMTrainer:
             )
         else:
             log.warning(
-                'PhaseOneEnv: no .txt files found in %s -- falling back to TextEnv stub. '
-                'TODO: run corpus/build.py or sync corpus from main worktree.',
+                'PhaseOneEnv: corpus not found at %s — falling back to TextEnv stub. '
+                'Run corpus/build.py or set CORPUS_ROOT to real data.',
                 corpus_dir,
             )
             self.env = TextEnv(
@@ -661,11 +680,10 @@ class PWMTrainer:
             # Store each batch item as a separate transition so that
             # _collate_sequences assembles (B, T, obs_dim) correctly.
             B_env = obs.shape[0]
-            import numpy as _np
             for b in range(B_env):
                 self.replay.add(Transition(
                     obs=obs[b].cpu().numpy(),
-                    action=_np.zeros(_action_dim, dtype=_np.float32),
+                    action=np.zeros(_action_dim, dtype=np.float32),
                     reward=float(reward[b].item()),
                     done=bool(done[b].item()),
                     next_obs=next_obs[b].cpu().numpy(),
@@ -705,7 +723,7 @@ class PWMTrainer:
             for b in range(B_env):
                 self.replay.add(Transition(
                     obs=obs[b].cpu().numpy(),
-                    action=_np.zeros(_action_dim, dtype=_np.float32),
+                    action=np.zeros(_action_dim, dtype=np.float32),
                     reward=float(reward[b].item()),
                     done=bool(done[b].item()),
                     next_obs=obs_new[b].cpu().numpy(),
@@ -820,7 +838,7 @@ if _HYDRA:
         config_name="default",
         version_base=None,
     )
-    def main(cfg: DictConfig) -> None:
+    def main(cfg: DictConfig) -> None:  # type: ignore[misc,no-redef]
         """
         Hydra entry point. All config overrides go through `--config-name` or `+key=val`.
         See `configs/` for phase-specific presets.
