@@ -251,6 +251,35 @@ $z_t$ is not degenerate.
 % TODO: Insert Figure 2 (VFE learning curve, steps 0-10000).
 
 \subsection{Phase 2: EFE Actor (H1)}
+
+\paragraph{Training stability.}
+The EFE actor (6.35M parameters) was jointly trained with the WM for 300{,}000
+steps using CachedCorpusEnv.
+The WM remained stable at VFE $= 0.6018 \pm 0.0001$ throughout (validation at
+every 10{,}000 steps), confirming that the Phase 1 substrate was at a stable
+minimum that EFE training did not disturb.
+
+\paragraph{Zero-reward diagnostic.}
+The initial 300K run revealed a plumbing bug: imagination rollouts passed
+\texttt{curr\_vfe=0.0} to the camatkāra reward, making $\Delta F = 0$ for all
+300K steps. The actor trained as a max-entropy policy (svātantrya prior only),
+which is a valid exploration warm-start but not sufficient for H1 evaluation.
+
+\paragraph{Fix and re-run.}
+We replaced the static \texttt{curr\_vfe=0.0} with the WM's imagined prior
+entropy $H(p_{\text{prior}}(z_t|h_t))$ as the intrinsic reward signal:
+%
+\begin{equation}
+R_{\text{camatk}} \propto \Delta H_{\text{prior}} = \max\bigl(H(p^{(t-1)}) - H(p^{(t)}), 0\bigr)
+\end{equation}
+%
+This signal is fully action-dependent (different actions $\to$ different $h_t$
+$\to$ different prior distributions $\to$ different entropy) and aligns exactly
+with EFE's epistemic objective.
+
+% TODO: Fill after Phase 2 re-run completes. H1 result:
+%   EFE mean_T vs REINFORCE mean_T, ratio, PASS/FAIL.
+
 \subsection{Phase 3: Hopfield Memory (H2)}
 \subsection{Phase 4: Sleep Consolidation (H3)}
 \subsection{Phase 5: Vimarśa Bridge (H4, H5, H6)}
