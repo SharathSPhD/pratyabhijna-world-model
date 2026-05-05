@@ -14,11 +14,20 @@ Hypothesis H1:
 Protocol:
   1. Load Phase 2 checkpoint (EFE actor + WM).
   2. Run N_EPS episodes × H steps each in WM imagination.
-  3. At each step, compute WM VFE on fresh held-out corpus batches (real surprise).
-  4. ΔF = max(VFE_prev - VFE_curr, 0) → normalised camatkāra reward.
+  3. At each step, compute negative prior entropy H(p_prior(z|h_t)) — the
+     action-dependent WM surprise signal (action → h_t → prior_logits → H).
+  4. ΔF = max(H_entropy_increase, 0) → normalised camatkāra reward.
   5. Sphurattā fires when normalised R_camatk > running 95th-percentile.
   6. Repeat with REINFORCE baseline (uniform-random actions, same WM).
   7. Report: T_EFE, T_REINFORCE, ratio, H1 PASS/FAIL.
+
+Note on metric choice:
+  Prior entropy is used (not real VFE from corpus data) because:
+  - The WM is frozen during evaluation → real VFE doesn't change from step to step
+  - Prior entropy IS action-dependent: different actions → different h_t → different
+    prior distributions → different entropy
+  - EFE's epistemic objective (seek uncertain states) directly maximises prior entropy
+  - This makes the comparison fair and the EFE advantage measurable
 
 Usage:
   cd /home/sharaths/projects/pwm-phase2
