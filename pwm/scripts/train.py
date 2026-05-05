@@ -491,6 +491,10 @@ class PWMTrainer:
         nn.utils.clip_grad_norm_(self.world_model.parameters(), self._WM_GRAD_CLIP)
         self.opt_wm.step()
 
+        # Cache real VFE so Phase B/C imagination can use ΔF as camatkāra signal.
+        # Without this, curr_vfe=0.0 in imagination → ΔF=0 always → zero reward.
+        self._last_real_vfe: float = float(wm_loss.item())
+
         return {
             "loss/wm_total": float(wm_loss.item()),
             **{
@@ -536,9 +540,12 @@ class PWMTrainer:
                 imag_h_list.append(h_t)
                 imag_z_list.append(z_t)
 
-                # Camatkāra reward along imagined trajectory
+                # Camatkāra reward along imagined trajectory.
+                # Use the real VFE cached from Phase A (_last_real_vfe) so ΔF is
+                # non-zero when the WM is genuinely surprised by recent observations.
+                # This is the correct DreamerV3-style flow: real surprise → imagined value.
                 camatk_tensor, _ = self.camatk.compute(
-                    curr_vfe=0.0,          # VFE not available in imagination; uses ΔI + empowerment
+                    curr_vfe=getattr(self, "_last_real_vfe", 0.0),
                     hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
                     empowerment=0.0,
                 )
@@ -617,7 +624,7 @@ class PWMTrainer:
                 h_t, z_t = imag_states[0]
                 imag_feats.append(torch.cat([h_t, z_t.flatten(-2)], dim=-1))
                 camatk_tensor, _ = self.camatk.compute(
-                    curr_vfe=0.0,
+                    curr_vfe=getattr(self, "_last_real_vfe", 0.0),
                     hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
                     empowerment=0.0,
                 )
