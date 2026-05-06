@@ -638,14 +638,60 @@ The actor loss trajectory ($-7.09$ at step~100; improving across 400K steps)
 indicates genuine policy gradient signal, in contrast to seed=44 which showed
 flat actor loss throughout.
 
-\paragraph{H1 gate (v4, step 200K checkpoint).}
-Gate evaluation (\texttt{gate2.py}, $N{=}200$ stochastic episodes,
-$H{=}15$ steps per episode) will be reported at the step-200K checkpoint;
-results will be updated in the final version.
-\emph{Expected outcome:} EFE mean-$T_{\text{sphurattā}} \leq 0.5 \times$
-REINFORCE mean-$T_{\text{sphurattā}}$ (H1 PASS threshold), because the
-IDL-trained $\mathbf{W}_a$ makes prior entropy action-dependent, and the EFE
-actor's epistemic objective is explicitly designed to seek high-entropy states.
+\paragraph{Bug 4 — free\_bits ceiling and prior uniformity.}
+After confirming IDL convergence (cos\_sim $\to -1.0$ within 1{,}300 steps),
+we re-ran \texttt{gate2.py} on the v4 step-200K checkpoint and found
+$0/200$ sphurattā for both EFE and REINFORCE ($T_{\text{EFE}} = T_{\text{RF}} = 15$,
+ratio $= 1.0$, H1 FAIL).
+Systematic diagnosis revealed a \emph{fourth} failure layer: the \texttt{free\_bits}
+floor ($= 1.0$ per dimension, $32 \times 1.0 = 32$ nats total) prevents the KL term
+in VFE from falling below its floor.
+Consequently, the prior network $f_\theta(h_t)$ receives \emph{zero gradient}
+from VFE whenever KL $<$ free\_bits — which is always the case in the passive corpus
+environment (all VFE is dominated by reconstruction loss alone).
+Result: $p_{\theta}(z | h_t) \approx \text{Uniform}(32{\times}32)$ for all $h_t$
+(measured entropy $= 110.90 \pm 0.00$ nats $\approx 32\ln 32$), making prior entropy
+action-invariant regardless of $\mathbf{W}_a$ geometry.
+
+\paragraph{Revised proxy: recurrent activation norm.}
+We replaced the broken prior-entropy proxy with the recurrent hidden-state norm
+$\|h_t\|_2$ as the camatkāra signal.
+IDL's antipodal geometry makes $\|h_t\|_2$ systematically action-dependent
+(even-indexed actions produce $\|h_t\| \approx 2.4$, odd-indexed produce $\approx 1.3$
+from zero init).
+Under this revised metric, both EFE and REINFORCE fire sphurattā at a 32\% rate
+($N{=}200$ episodes, $H{=}15$), confirming the metric is functional.
+However, $T_{\text{EFE}} = 10.84$ vs.\ $T_{\text{RF}} = 10.97$ (ratio $= 0.99$,
+H1 FAIL): EFE and REINFORCE are statistically indistinguishable because the actor
+distribution entropy is $4.16/4.16$ (near-uniform) at step~200K.
+The actor cannot converge beyond a uniform distribution because the reward signal
+(prior entropy variation) is zero under the free\_bits ceiling.
+
+\paragraph{Diagnostic summary: four-layer H1 failure.}
+Table~\ref{tab:h1_diagnosis} summarises the compounding failure chain.
+Each layer was resolved in sequence; layer 4 (free\_bits ceiling) is the remaining
+architectural constraint.
+The correct long-term resolution requires either (a) reducing free\_bits
+$\to 0.1$ and retraining, allowing the prior to become informative; or (b) adding a
+genuine interactive evaluation environment where $p(o_{t+1}|s_t, a_t) \neq p(o_{t+1}|s_t)$.
+Both are future-work items; the current Phase 2 result is an honestly-documented
+negative with clear causal chain.
+
+\begin{table}[h]
+  \caption{H1 Failure Diagnostics — Four Compounding Layers}
+  \label{tab:h1_diagnosis}
+  \centering\small
+  \begin{tabular}{clcc}
+    \toprule
+    Layer & Root Cause & Signal & Fix \\
+    \midrule
+    1 & \texttt{curr\_vfe=0.0} hardcoded & $\Delta F = 0$ always & Replace w/ prior $H$ \\
+    2 & Zero-action replay buffer & $\mathbf{W}_a \to 0$ & Random one-hot $a_t$ \\
+    3 & Passive corpus env & $\nabla_{\mathbf{W}_a}\mathcal{L}_{\text{VFE}}=0$ & IDL \\
+    4 & free\_bits ceiling & $p_\theta\approx\text{Uniform}$ & Reduce free\_bits \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \subsection{Phase 3: Hopfield Memory (H2)}
 
@@ -693,11 +739,14 @@ H9 ($S_{\text{svāt.}}$ vs.\ human novelty ratings, Spearman $\rho$).
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Discussion}\label{sec:discussion}
 
-\subsection{The Passive Environment Problem in Creative World Models}
+\subsection{The Free\_bits–Passive-Environment Double Constraint}
 
-The central technical finding of Phase 2 is a general failure mode for
-action-conditioned world models trained on static corpora:
-when the observation at $t{+}1$ is independent of the action at $t$,
+The central technical finding of Phase 2 is a compounding failure chain
+unique to DreamerV3-class models trained on static text corpora.
+Two constraints interact to suppress all EFE signal:
+
+\textbf{Constraint 1 — Passive environment.}
+When the observation at $t{+}1$ is independent of the action at $t$,
 the world model's reconstruction loss carries no gradient through the
 action-conditioning weights.
 This is not a bug in any specific implementation; it is a structural
@@ -707,38 +756,51 @@ Standard DreamerV3 avoids this because its environments (Atari, DMC, Crafter)
 are interactive: $p(o_{t+1}|s_t, a_t) \neq p(o_{t+1}|s_t)$ by construction.
 In a creative text corpus there is no such coupling.
 
-IDL addresses this by providing a supervision signal that is \emph{purely
-imagined}: it never queries the corpus, only the world model itself.
-This is consistent with the \emph{vimarśa} (reflexive self-modification)
-principle of Kashmir Śaivism — the WM improves its own action representations
-by imagining the consequences of taking distinct actions, without requiring
-external feedback.
-The philosophical coherence of this fix is not accidental: the pratyabhijñā
-framework anticipates that creative consciousness must be able to distinguish
-the potential of its own actions from within (svātantrya, autonomous
-self-determination), without waiting for the external world to confirm those
-distinctions.
+IDL addresses Constraint~1 by providing a supervision signal that is
+\emph{purely imagined}: it never queries the corpus, only the WM itself.
+IDL confirmed: $\cos\text{sim}(h_t(a_1), h_t(a_2)) \to -1.0$ within 1{,}300
+training steps, confirming $\mathbf{W}_a$ is active and action-differentiating.
+
+\textbf{Constraint 2 — free\_bits ceiling.}
+DreamerV3's free\_bits hyperparameter floors the KL divergence at
+$\delta_{\text{fb}} = 1.0$ nats per latent dimension.
+With $D = 32$ dimensions, the effective floor is 32 nats.
+In the passive corpus environment, all VFE reduction comes from reconstruction
+loss; the KL term is always at or below its floor.
+Consequently, the prior network $f_\theta(h_t)$ receives zero gradient from
+the VFE objective, and $p_\theta(z|h_t) \approx \text{Uniform}(32{\times}32)$
+for all $h_t$ (measured entropy $110.90 \pm 0.00$ nats at step 200K).
+This makes prior entropy \emph{completely action-invariant}, eliminating
+the epistemic camatkāra signal even after IDL activates $\mathbf{W}_a$.
+
+\textbf{Interaction.}
+The two constraints are coupled: IDL makes $h_t$ action-dependent,
+but free\_bits prevents the prior from responding to $h_t$.
+The result is an ``action-blind prior'' — the geometric structure IDL
+creates in $h$-space cannot propagate to the distributional signal that
+EFE is designed to maximise.
+Constraint~1 alone can be fixed (IDL, vimarśa); Constraint~2 requires
+reducing free\_bits (architectural change) or replacing the prior-entropy
+metric with a signal that bypasses the prior network (e.g.\ $\|h_t\|_2$
+norm or CRSPP log-probability).
 
 \subsection{Antipodal Action Geometry and Its Implications}
 
-IDL converges to $\cos\text{sim}(h_t(a_1), h_t(a_2)) \approx -0.96$,
-meaning the GRU hidden states for any two distinct actions are nearly antipodal.
-This is stronger than orthogonality (which would suffice for differentiating
-entropy signals) and reflects the fact that the IDL gradient has exclusive
-ownership of $\mathbf{W}_a$ in a passive environment — VFE provides no
-counterpressure.
-The antipodal geometry is \emph{sufficient} for H1: prior entropy
-$H(p(z|h_t))$ is maximally action-sensitive when any two actions produce
-maximally separated hidden states, enabling the EFE actor to find the
-highest-entropy action reliably.
-However, antipodal geometry may be \emph{too rigid} for later phases
-(H2–H9) where semantic similarity across actions is important for Hopfield
-memory retrieval and vimarśa narration.
-Future work should explore a \emph{metric IDL}: instead of plain cosine
-similarity, use a triplet loss that pulls semantically related actions
-(same grammatical category, same rasa mood) closer while pushing
-unrelated actions apart, producing a structured action manifold rather
-than a binary polarity.
+IDL converges to $\cos\text{sim}(h_t(a_1), h_t(a_2)) \approx -1.00$
+(from $+0.257$ at step~100 to $-0.991$ at step~1{,}300), meaning GRU hidden
+states for any two distinct actions are maximally antipodal.
+This is geometrically extreme: the IDL gradient has exclusive ownership of
+$\mathbf{W}_a$ in a passive environment (VFE provides no counterpressure).
+A useful structural consequence: even-indexed actions consistently produce
+$\|h_t\| \approx 2.4$, odd-indexed produce $\approx 1.3$ from zero init,
+creating the action-dependent norm signal used in the revised gate metric.
+However, the antipodal geometry is \emph{brittle} under Constraint~2:
+entropy is negation-invariant ($H(\text{Cat}(\mathbf{l})) =
+H(\text{Cat}(-\mathbf{l}))$ for linear prior), so antipodal $h$-space
+maps to identical prior distributions.
+Future work should explore \emph{metric IDL} — a triplet loss pulling
+semantically related actions closer while pushing unrelated ones apart —
+and reduce free\_bits to $\leq 0.1$ to allow informative priors.
 
 \subsection{Philosophy as Engineering Specification}
 
