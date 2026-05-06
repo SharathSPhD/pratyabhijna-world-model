@@ -468,23 +468,61 @@ class PWMTrainer:
 
     # ── Phase A: World Model ──────────────────────────────────────────────────
 
+    # Imagination diversity loss weight — trains WM to produce different h_t
+    # for different actions even in a passive (non-interactive) environment.
+    # Without this, the corpus env's action-independence drives W_a → 0, making
+    # prior entropy constant and the EFE advantage unmeasurable.
+    _DIV_LOSS_WEIGHT: float = 0.05
+
     def _phase_a(self, batch: tuple[Tensor, Tensor, Tensor, Tensor]) -> dict[str, float]:
         """
-        Phase A: Variational Free Energy minimisation.
+        Phase A: Variational Free Energy minimisation + imagination diversity.
 
         The world model observes a (B, T, D) sequence from replay and minimises
         VFE = KL(q||p) + reconstruction_loss across all active Trika levels.
         grad_clip=1000 (DreamerV3 §A.1) is large because the KL divergence can spike
         when the prior collapses; clipping prevents catastrophic gradient steps.
+
+        Imagination Diversity Loss (IDL):
+        Adds a contrastive term that penalises cosine similarity between h_t
+        computed from two DIFFERENT random one-hot actions applied to the same
+        initial state. This trains W_a (the action columns of input_proj) to be
+        non-trivially non-zero, giving the EFE actor a signal it can exploit.
+
+        Without IDL: VFE loss drives W_a → 0 (action is uninformative in corpus env).
+        With IDL:    W_a learns to route action identity into distinct h_t directions.
+        Weight 0.05 keeps IDL below VFE (~0.6) but large enough to maintain W_a signal.
         """
         obs_seq, action_seq, reward_seq, done_seq = batch
-        init_states = self.world_model.init_state(obs_seq.shape[0], self.device)
+        B = obs_seq.shape[0]
+        init_states = self.world_model.init_state(B, self.device)
 
         with torch.autocast(device_type=self.device.type, dtype=self._mp_dtype, enabled=self._use_amp):
             loss_dict = self.world_model.world_model_loss(
                 obs_seq, action_seq, reward_seq, done_seq.float(), init_states
             )
-            wm_loss: Tensor = loss_dict["total"]  # type: ignore[assignment]
+            vfe_loss: Tensor = loss_dict["total"]  # type: ignore[assignment]
+
+            # ── Imagination Diversity Loss ────────────────────────────────────
+            # Sample two distinct random one-hot actions for each batch element.
+            _adim = self._action_dim
+            idx1 = torch.randint(0, _adim, (B,), device=self.device)
+            idx2 = (idx1 + torch.randint(1, _adim, (B,), device=self.device)) % _adim  # guaranteed ≠ idx1
+            a1 = nn.functional.one_hot(idx1, num_classes=_adim).float()  # (B, adim)
+            a2 = nn.functional.one_hot(idx2, num_classes=_adim).float()  # (B, adim)
+
+            # Single imagination step: different actions → should yield different h_t
+            fresh_states = self.world_model.init_state(B, self.device)
+            states1, _ = self.world_model.imagine_step(a1, fresh_states, step=0)
+            states2, _ = self.world_model.imagine_step(a2, fresh_states, step=0)
+            h1 = states1[0][0]  # (B, hidden_dim) — Aparā level h_t
+            h2 = states2[0][0]  # (B, hidden_dim)
+
+            # Diversity objective: minimise cosine similarity (maximise dissimilarity)
+            cos_sim = nn.functional.cosine_similarity(h1, h2, dim=-1).mean()
+            div_loss = cos_sim  # minimise → h1, h2 become more orthogonal
+
+            wm_loss: Tensor = vfe_loss + self._DIV_LOSS_WEIGHT * div_loss
 
         self.opt_wm.zero_grad(set_to_none=True)
         wm_loss.backward()
@@ -492,11 +530,13 @@ class PWMTrainer:
         self.opt_wm.step()
 
         # Cache real VFE so Phase B/C imagination can use ΔF as camatkāra signal.
-        # Without this, curr_vfe=0.0 in imagination → ΔF=0 always → zero reward.
-        self._last_real_vfe: float = float(wm_loss.item())
+        self._last_real_vfe: float = float(vfe_loss.item())
 
         return {
             "loss/wm_total": float(wm_loss.item()),
+            "loss/vfe": float(vfe_loss.item()),
+            "loss/div": float(div_loss.item()),
+            "train/action_cos_sim": float(cos_sim.item()),
             **{
                 f"loss/{k}": float(v.item() if isinstance(v, Tensor) else v)
                 for k, v in loss_dict.items()
@@ -810,9 +850,12 @@ class PWMTrainer:
                 elapsed = time.perf_counter() - t0
                 sps = self.step / elapsed
                 log.info(
-                    "step=%d  wm=%.4f  actor=%.4f  critic=%.4f  sps=%.1f",
+                    "step=%d  wm=%.4f  vfe=%.4f  div=%.4f  cos_sim=%.3f  actor=%.4f  critic=%.4f  sps=%.1f",
                     self.step,
                     metrics.get("loss/wm_total", 0.0),
+                    metrics.get("loss/vfe", metrics.get("loss/wm_total", 0.0)),
+                    metrics.get("loss/div", 0.0),
+                    metrics.get("train/action_cos_sim", 0.0),
                     metrics.get("loss/actor", 0.0),
                     metrics.get("loss/critic", 0.0),
                     sps,
