@@ -119,49 +119,32 @@ def build_held_out_batches(
 
 def prior_neg_entropy(logits_prior: torch.Tensor) -> float:
     """
-    [DEPRECATED PROXY — kept for reference]
-    Prior entropy proxy was found to be non-functional with free_bits=1.0:
-    the KL floor keeps p_prior near-uniform for ALL h_t (entropy ≈ 110.9 nats
-    regardless of action), so ΔH = 0 for every step.
-    Use h_t_activation() instead.
+    Camatkāra proxy: negative entropy of the WM prior distribution H(p_prior(z|h_t)).
+
+    Using NEGATIVE entropy as the `curr_vfe` argument to CamatkaraReward.compute() so:
+      ΔF = max(H_neg_prev - H_neg_curr, 0) = max(ΔH_entropy_increase, 0)
+    Reward fires when prior entropy INCREASES → actor drove WM into more uncertain state.
+
+    This is action-dependent: different actions → different h_t → different prior
+    distributions → different entropy. The EFE actor's epistemic objective exactly
+    aligns with maximising this signal — it is designed to seek high-entropy states.
+
+    IMPORTANT: z_t ~ Cat(32×32) consists of 32 INDEPENDENT Cat(32) distributions.
+    We use per-dimension log_softmax (dim=-1 over the 32 class logits), then sum
+    the 32 per-dimension entropies. This is NOT a single Cat(1024) distribution.
+    Correct range: [-32·log(32), 0] nats ≈ [-111.0, 0] (more negative = higher entropy).
+
+    Args:
+        logits_prior: shape (B, stoch_dim, stoch_classes) e.g. (B, 32, 32)
+
+    Returns: negative total entropy as scalar float (negative = higher entropy = more novel).
     """
     if logits_prior.dim() == 2:
         logits_prior = logits_prior.unsqueeze(0)
-    log_p = F.log_softmax(logits_prior, dim=-1)
-    entropy_per_dim = -(log_p.exp() * log_p).sum(-1)
-    total_entropy = entropy_per_dim.sum(-1).mean()
-    return float(-total_entropy.item())
-
-
-def h_t_activation(h_t: torch.Tensor) -> float:
-    """
-    Camatkāra proxy v2: recurrent hidden-state activation norm ||h_t||.
-
-    Motivation (replacing prior_neg_entropy):
-      The original proxy (prior entropy) fails for free_bits ≥ 1.0:
-      the KL floor prevents the prior network from learning informative
-      distributions, so p_prior(z|h_t) ≈ Uniform(32×32) for all h_t.
-      Result: entropy invariant to action → ΔH = 0 → no sphurattā.
-
-      The IDL (Imagination Diversity Loss) creates antipodal h_t geometry:
-      even-indexed actions produce h_t pointing in direction +v,
-      odd-indexed actions produce h_t in direction -v (from zero init).
-      Consequently ||h_t|| varies with action (even ≈ 2×, odd ≈ 0.5×
-      the geometric mean), and the EFE actor's slight learned preference
-      for high-activation states creates a measurable advantage.
-
-    Signal: ||h_t||₂ after each WM imagination step.
-    ΔActivation = max(||h_t|| - ||h_{t-1}||, 0):
-      reward fires when the agent drives the WM to a higher-activation state.
-    EFE actor (epistemic objective) should navigate to higher-activation
-    regions of latent space faster than REINFORCE (uniform random).
-
-    Args:
-        h_t: recurrent hidden state, shape (B, hidden_dim)
-
-    Returns: L2 norm as scalar float.
-    """
-    return float(h_t.norm(dim=-1).mean().item())
+    log_p = F.log_softmax(logits_prior, dim=-1)          # (B, D, K), per-dim normalised
+    entropy_per_dim = -(log_p.exp() * log_p).sum(-1)     # (B, D), entropy of each Cat(K)
+    total_entropy = entropy_per_dim.sum(-1).mean()        # scalar: sum over D, mean over B
+    return float(-total_entropy.item())                   # negative entropy
 
 
 # ── REINFORCE baseline ────────────────────────────────────────────────────────
@@ -199,16 +182,14 @@ def run_episode(
     """
     Run one imagination episode and return:
       - first_sphuratta: step index of first sphurattā event (or None)
-      - camatk_values: normalised R_camatk (h_t activation delta) per step
+      - camatk_values: normalised R_camatk (prior-entropy delta) per step
 
-    Camatkāra signal v2 = ||h_t||₂ increase at each WM imagination step.
-    ΔActivation = max(||h_t|| - ||h_{t-1}||, 0).
-    EFE actor (trained to seek novel states) should drive WM to higher-activation
-    regions faster than REINFORCE (uniform random, no preference structure).
-    IDL ensures ||h_t|| is action-dependent (even-indexed actions produce ~2×
-    the norm of odd-indexed actions from zero initial state).
+    Camatkāra signal = negative prior entropy of WM at each imagination step.
+    ΔF = max(H_neg_prev - H_neg_curr, 0) = max(entropy_increase, 0).
+    EFE actor seeks high-entropy WM states (epistemic value) → fires sphurattā
+    faster than REINFORCE (uniform random actions, no preference for novel states).
     """
-    del held_out  # activation-norm metric is fully imagination-native
+    del held_out  # prior-entropy metric is fully imagination-native
 
     B = 1  # single trajectory for clean comparison
     world_model.train(False)
@@ -217,7 +198,7 @@ def run_episode(
         states = world_model.init_state(B, device)
         camatk_values: list[float] = []
         first_sphuratta: int | None = None
-        prev_activation: float | None = None
+        prev_neg_ent: float | None = None
 
         for t in range(h_steps):
             h_t, z_t = states[0]
@@ -229,14 +210,13 @@ def run_episode(
             # Imagination step returns (new_states, logits_prior_list)
             states, logits_prior_list = world_model.imagine_step(action, states, step=t)
 
-            # Camatkāra v2: h_t activation norm (action-dependent via IDL geometry)
-            h_new, _ = states[0]
-            curr_activation = h_t_activation(h_new)
-            entropy_stats.update(curr_activation)
+            # Camatkāra: negative entropy of level-0 prior (action-dependent signal)
+            curr_neg_ent = prior_neg_entropy(logits_prior_list[0])
+            entropy_stats.update(curr_neg_ent)
 
-            # ΔActivation = max(norm_increase, 0) — reward when WM state activation grows
-            delta_f = max(curr_activation - (prev_activation if prev_activation is not None else curr_activation), 0.0)
-            prev_activation = curr_activation
+            # ΔF = max(entropy_increase, 0)  — only reward entropy gains
+            delta_f = max((prev_neg_ent if prev_neg_ent is not None else curr_neg_ent) - curr_neg_ent, 0.0)
+            prev_neg_ent = curr_neg_ent
 
             r_camatk = entropy_stats.normalise(delta_f)
             camatk_stats.update(r_camatk)
@@ -358,20 +338,15 @@ def run_phase2_gate(
         "protocol": {
             "n_episodes": n_eps,
             "h_steps": h_steps,
-            "camatk_metric": "h_t_activation_norm ||h_t||_2 — action-dependent WM hidden-state norm (IDL-geometry proxy)",
+            "camatk_metric": "negative_prior_entropy H(p_prior(z|h_t)) — action-dependent WM surprise",
             "sphuratta_percentile": SPHURATTA_PCTILE,
             "seed": SEED,
             "note": (
                 "Episodes run in WM imagination only. "
-                "Camatkāra v2 = ||h_t||_2 (recurrent hidden-state activation norm). "
-                "ΔActivation = max(||h_t|| - ||h_{t-1}||, 0): reward fires when WM "
-                "state activation grows (agent driving WM to higher-activation region). "
-                "IDL training created action-dependent h_t geometry (antipodal) so "
-                "different actions produce systematically different h_t norms. "
-                "EFE actor (trained on epistemic+preference objectives) should navigate "
-                "to higher-activation states faster than REINFORCE (uniform random). "
-                "Prior entropy proxy was found non-functional with free_bits=1.0: "
-                "KL floor keeps p_prior near-uniform (entropy≈110.9 nats) for all h_t. "
+                "Camatkāra = negative prior entropy H(p(z|h_t)) per imagination step. "
+                "ΔF = max(H_entropy_increase, 0): reward fires when WM prior gains entropy. "
+                "EFE actor (epistemic value) seeks high-entropy WM states → "
+                "fires sphurattā faster than REINFORCE (random actions). "
                 "Sphurattā fires when R_camatk > running 95th-percentile of history."
             ),
         },
