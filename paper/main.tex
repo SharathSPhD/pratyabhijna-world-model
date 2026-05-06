@@ -648,9 +648,47 @@ IDL-trained $\mathbf{W}_a$ makes prior entropy action-dependent, and the EFE
 actor's epistemic objective is explicitly designed to seek high-entropy states.
 
 \subsection{Phase 3: Hopfield Memory (H2)}
+
+Phase 3 adds the Hopfield Citta-store (Section~\ref{sec:arch}) to the trained
+Phase 2 WM.
+H2 evaluates occlusion completion accuracy: the WM receives a partially-masked
+embedding (40\% dimensions zeroed) and must reconstruct the full embedding via
+Hopfield retrieval from an episodic buffer of 512 stored patterns.
+Planned ablation: Citta-store disabled vs.\ enabled; metric is cosine similarity
+between reconstructed and ground-truth embeddings.
+\emph{Results pending Phase 3 training.}
+
 \subsection{Phase 4: Sleep Consolidation (H3)}
+
+Phase 4 adds NREM/REM consolidation cycles after every 10K training steps.
+H3 evaluates catastrophic forgetting across three sequential creative domains
+(Sanskrit verse, English lyric, philosophical prose): the forgetting rate is
+the difference in domain-specific VFE before and after sequential training,
+normalised by the initial VFE.
+The ThermSleepBudget controls replay intensity; preliminary analysis predicts
+$\geq 40\%$ forgetting reduction (H3 PASS threshold).
+\emph{Results pending Phase 4 training.}
+
 \subsection{Phase 5: Vimarśa Bridge (H4, H5, H6)}
+
+Phase 5 activates the cross-attention projector from WM hidden state to the
+frozen 30B LLM (Nemotron-3-Nano-30B GGUF).
+H4 (human meaningful rate $\geq 70\%$) evaluates LLM-generated narrations
+at sphurattā events.
+H5 (PWM $>$ PCE v0.4 on $R_{\text{camatk}}$ density + $S_{\text{svāt.}}$) is
+the primary system-level comparison.
+H6 evaluates the DTW correlation between automated $R_{\text{camatk}}$ and
+human camatkāra ratings (12 raters, 500 items).
+\emph{Results pending Phase 5 training and human evaluation.}
+
 \subsection{Ablations (H7, H8, H9)}
+
+All six ablations (A1–A6) and three ablation hypotheses run from a single
+config change within \texttt{configs/phase6\_full.yaml}:
+H7 (3-level Trika vs.\ 1-level Aparā, 16-step imagination MSE),
+H8 (Mala regularisers vs.\ none, metre satisfaction rate),
+H9 ($S_{\text{svāt.}}$ vs.\ human novelty ratings, Spearman $\rho$).
+\emph{Results pending Phase 6 ablation runs.}
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Discussion}\label{sec:discussion}
