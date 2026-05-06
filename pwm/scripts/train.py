@@ -359,17 +359,32 @@ class PWMTrainer:
         _cache_dir = Path(cache_dir_env) if cache_dir_env else Path("data/embed_cache")
         _cache_ready = (_cache_dir / "meta.json").exists() and (_cache_dir / "embeddings.npy").exists()
 
+        self._domain_selective: bool = bool(getattr(cfg, "domain_selective", False))
         if _cache_ready:
-            from pwm.data.embed_cache import CachedCorpusEnv  # type: ignore[import]
-            log.info("CachedCorpusEnv: loading pre-embedded corpus from %s", _cache_dir)
-            self.env: Any = CachedCorpusEnv(
-                cache_dir=_cache_dir,
-                batch_size=cfg.training.batch_size,
-                seq_len=cfg.training.seq_len,
-                obs_dim=wm_cfg.obs_dim,
-                action_dim=wm_cfg.action_dim,
-                device=self.device,
-            )
+            if self._domain_selective:
+                from pwm.data.embed_cache import DomainSelectiveCachedCorpusEnv  # type: ignore[import]
+                log.info(
+                    "DomainSelectiveCachedCorpusEnv (v5): action→domain coupling from %s", _cache_dir
+                )
+                self.env: Any = DomainSelectiveCachedCorpusEnv(
+                    cache_dir=_cache_dir,
+                    batch_size=cfg.training.batch_size,
+                    seq_len=cfg.training.seq_len,
+                    obs_dim=wm_cfg.obs_dim,
+                    action_dim=wm_cfg.action_dim,
+                    device=self.device,
+                )
+            else:
+                from pwm.data.embed_cache import CachedCorpusEnv  # type: ignore[import]
+                log.info("CachedCorpusEnv: loading pre-embedded corpus from %s", _cache_dir)
+                self.env: Any = CachedCorpusEnv(
+                    cache_dir=_cache_dir,
+                    batch_size=cfg.training.batch_size,
+                    seq_len=cfg.training.seq_len,
+                    obs_dim=wm_cfg.obs_dim,
+                    action_dim=wm_cfg.action_dim,
+                    device=self.device,
+                )
         elif corpus_dir.exists() and sum(1 for _ in corpus_dir.rglob('*.txt')) > 0:
             _txt_count = sum(1 for _ in corpus_dir.rglob('*.txt'))
             log.info('PhaseOneEnv: using real corpus at %s (%d files)', corpus_dir, _txt_count)
@@ -782,18 +797,22 @@ class PWMTrainer:
         # prior entropy constant regardless of actor decisions (zero reward signal).
         _action_dim = self.cfg.world_model.action_dim
         while len(self.replay) < min_buf:
-            _, reward, done = self.env.step(loop_state.action)
+            B_env = obs.shape[0]
+            rand_actions_np = np.eye(_action_dim, dtype=np.float32)[
+                np.random.randint(_action_dim, size=B_env)
+            ]  # (B, action_dim) random one-hot — consistent with train-loop convention
+            if self._domain_selective:
+                step_action = torch.tensor(rand_actions_np, device=self.device)
+            else:
+                step_action = loop_state.action
+            _, reward, done = self.env.step(step_action)
             next_obs = obs  # stub: next obs same as obs for warm-up
             # Store each batch item as a separate transition so that
             # _collate_sequences assembles (B, T, obs_dim) correctly.
-            B_env = obs.shape[0]
             for b in range(B_env):
-                rand_action = np.eye(_action_dim, dtype=np.float32)[
-                    np.random.randint(_action_dim)
-                ]  # random one-hot (action_dim,)
                 self.replay.add(Transition(
                     obs=obs[b].cpu().numpy(),
-                    action=rand_action,
+                    action=rand_actions_np[b],
                     reward=float(reward[b].item()),
                     done=bool(done[b].item()),
                     next_obs=next_obs[b].cpu().numpy(),
@@ -822,21 +841,29 @@ class PWMTrainer:
 
             # Collect one real transition per train step to keep buffer fresh.
             # Store each batch item separately so _collate_sequences sees (obs_dim,) obs.
-            # Phase 1: bypass loop.step() (its action has wrong shape for RSSM) —
-            # use env.step() with a zero action (actor is a stub in Phase 1).
-            _zero_action = torch.zeros(
-                self.env.batch_size, 1, device=self.device
-            )  # PancakrtyaLoop-compatible shape (B, strides[0])
-            obs_new, reward, done = self.env.step(_zero_action)
+            #
+            # Phase 2 v5 (domain_selective): generate the random action BEFORE stepping
+            # so the env uses it to pick the corpus domain.  This creates a genuine
+            # causal chain: rand_action_t → obs_{t+1} ∈ domain(rand_action_t).
+            # The WM then trains on (obs_t, rand_action_t, obs_{t+1}) sequences where
+            # obs_{t+1} is NOT independent of action_t — breaking Layer-3 passivity.
+            #
+            # Passive mode: use _zero_action (PancakrtyaLoop-compatible shape).
             B_env = obs.shape[0]
             _vfe = metrics.get("loss/wm_total", 0.0)
+            rand_actions_np = np.eye(_action_dim, dtype=np.float32)[
+                np.random.randint(_action_dim, size=B_env)
+            ]  # (B, action_dim) random one-hot for each batch item
+            if self._domain_selective:
+                # Pass one-hot actions so DomainSelectiveCachedCorpusEnv can decode them
+                step_action = torch.tensor(rand_actions_np, device=self.device)
+            else:
+                step_action = torch.zeros(B_env, 1, device=self.device)
+            obs_new, reward, done = self.env.step(step_action)
             for b in range(B_env):
-                rand_action = np.eye(_action_dim, dtype=np.float32)[
-                    np.random.randint(_action_dim)
-                ]  # random one-hot — keeps action conditioning alive in WM GRU
                 self.replay.add(Transition(
                     obs=obs[b].cpu().numpy(),
-                    action=rand_action,
+                    action=rand_actions_np[b],
                     reward=float(reward[b].item()),
                     done=bool(done[b].item()),
                     next_obs=obs_new[b].cpu().numpy(),

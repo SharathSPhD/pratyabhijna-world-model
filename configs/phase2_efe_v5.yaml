@@ -1,0 +1,20 @@
+# Phase 2 v5: EFE Actor + Domain-Selective Corpus + Reduced Free-Bits
+#
+# Root causes fixed vs v4 (IDL only):
+#   Layer 3 (passive env): DomainSelectiveCachedCorpusEnv makes obs_{t+1} depend on
+#     action_t — actions 0-31 → gutenberg domain, 32-63 → philosophy domain.
+#     VFE gradients now flow through W_a (action columns of GRU input_proj).
+#   Layer 4 (free_bits ceiling): reduced from 1.0→0.1 nats per categorical variable.
+#     Old: 32×1.0 = 32 nat floor → prior_net gradient = 0 whenever KL < 32 nats.
+#     New: 32×0.1 = 3.2 nat floor → prior learns domain-conditional distributions.
+#
+# Launch: source ~/vllm-env/bin/activate && bash scripts/launch_phase2_v5.sh
+
+defaults:
+  - phase2_efe
+  - _self_
+
+world_model:
+  free_bits: 0.1               # Layer 4 fix: allow prior gradients for KL > 3.2 nats
+
+domain_selective: true         # Layer 3 fix: action→corpus-domain coupling
