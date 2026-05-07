@@ -667,31 +667,77 @@ receive identical camatkāra signals regardless of action choice, so gradient-ba
 improvement over the uniform baseline is impossible.
 
 \paragraph{Phase 2 v5: domain-selective corpus + reduced free\_bits.}
-Two architectural changes together remove both remaining constraints.
+Two architectural changes together remove Layers 3 and 4.
 \textbf{Layer 3 (passive env):} \texttt{DomainSelectiveCachedCorpusEnv} maps
 actions $0$--$31 \to$ Gutenberg domain (11{,}069 chunks, literary prose) and
-$32$--$63 \to$ philosophy domain (47{,}583 chunks).
-The modal action of each training batch selects the corpus slice, so
-$p(o_{t+1}|a_t) \neq p(o_{t+1})$: VFE gradients flow through $\mathbf{W}_a$ at
-every real environment step, not only through IDL imagination rollouts.
+$32$--$63 \to$ philosophy domain (47{,}583 chunks) with per-item (not modal-batch)
+action-to-domain routing, so $p(o_{t+1}^b|a_t^b) \neq p(o_{t+1}^b)$ for every
+transition in the replay buffer.
+VFE gradients therefore flow through $\mathbf{W}_a$ at every real environment step,
+not only through IDL imagination rollouts.
 The inter-domain mean absolute embedding difference is $0.049$ (float16 space),
 large enough for the WM encoder to detect.
 \textbf{Layer 4 (free\_bits ceiling):} \texttt{free\_bits} reduced from $1.0 \to 0.1$
 nats per categorical variable, dropping the KL floor from $32 \to 3.2$ nats.
-The prior network can now receive gradients whenever $\text{KL} > 3.2$ nats,
+The prior network now receives gradients whenever $\text{KL} > 3.2$ nats,
 allowing $p_\theta(z|h_t)$ to specialise per corpus domain.
-v5 warm-starts from the v4 IDL-trained checkpoint (seed=46, preserving
-$\cos\!\sin \to -1.0$ WM geometry), so the domain-signal immediately flows through
-the already action-conditional $\mathbf{W}_a$ columns.
+v5 warm-started from the v4 IDL-trained checkpoint (seed=46, preserving
+$\cos\!\sin \to -1.0$ WM geometry).
 
-\paragraph{Diagnostic summary: four-layer H1 failure.}
+\paragraph{Phase 2 v5 failure: Layer 5 encoder+prior+$\mathbf{W}_z$ collapse.}
+Post-mortem checkpoint analysis at v5 step 43{,}000 revealed that v4 IDL training
+(400{,}000 steps, free\_bits$=1.0$) caused catastrophic forgetting of
+\emph{all} observation-processing modules via the following mechanism:
+IDL gradient$\,\gg\,$VFE gradient (KL clamped by 32-nat floor) while AdamW weight
+decay eroded parameters that received zero KL gradient.
+Table~\ref{tab:collapse} shows the weight-norm collapse between Phase~1 and v4~final:
+
+\begin{table}[h]
+  \caption{Weight-norm collapse: Phase 1 final vs.\ v4 final (seed=45, step=400K)}
+  \label{tab:collapse}
+  \centering\small
+  \begin{tabular}{lcc}
+    \toprule
+    Parameter & Phase 1 norm & v4 final norm \\
+    \midrule
+    \texttt{encoder.0.weight} & 5.47 & 0.00 \\
+    \texttt{prior.0.weight}   & 4.91 & 0.00 \\
+    \texttt{input\_proj} $\mathbf{W}_z$ & 4.23 & 0.00 \\
+    \texttt{input\_proj} $\mathbf{W}_a$ & 0.00 & 0.22 \quad (IDL-trained) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The collapse creates a self-reinforcing fixed point: encoder$\to 0$ implies
+posterior$\approx$prior, hence $\text{KL}\to 0$ below the free\_bits floor,
+hence zero gradient through the encoder, hence encoder stays at zero.
+v5 inherited this collapsed state from the v4 warm-start; the VFE
+remained at the free\_bits floor ($0.0617$) for all 43{,}000 steps
+with critic$=0.000$ and actor$\approx 0$ — zero reward signal throughout.
+
+\paragraph{Phase 2 v6: Phase 1 warm-start (Layer 5 fix).}
+The fix is to warm-start from Phase~1's checkpoint rather than from v4.
+Phase~1's WM retains healthy encoder, prior, and $\mathbf{W}_z$ norms ($>4.0$),
+while $\mathbf{W}_a=0$ (action-blind, as expected from a passive corpus run).
+With free\_bits$=0.1$, the KL gradient activates immediately (Phase 1's prior
+is non-uniform), so encoder/prior/$\mathbf{W}_z$ receive VFE gradient from step~0,
+preventing weight-decay erosion.
+IDL then trains $\mathbf{W}_a$ in parallel: the antipodal geometry
+($\cos\!\sin \to -1.0$) re-converges in 300 steps (vs.\ 3{,}700 in v4,
+because Phase 1's GRU already has structured latent dynamics).
+Early v6 signals (seed=47, step=600): $\cos\!\sin=-1.000$, actor$=-10.3$,
+critic$=1.87$ — the actor learns from step 0 because Phase 1's non-zero
+prior immediately produces camatkāra reward differentials, unlike v5 where
+the uniform prior gave constant entropy ($\Delta H = 0$ always).
+
+\paragraph{Diagnostic summary: five-layer H1 failure.}
 Table~\ref{tab:h1_diagnosis} summarises the compounding failure chain.
-Each layer was identified and fixed in sequence; v5 resolves Layers 3 and 4 simultaneously.
+Each layer was identified and fixed in sequence; v6 resolves all five layers.
 The current Phase 2 result is an honest negative with a complete causal chain and
 a concrete architectural fix now under training.
 
 \begin{table}[h]
-  \caption{H1 Failure Diagnostics — Four Compounding Layers}
+  \caption{H1 Failure Diagnostics — Five Compounding Layers}
   \label{tab:h1_diagnosis}
   \centering\small
   \begin{tabular}{clcc}
@@ -702,6 +748,7 @@ a concrete architectural fix now under training.
     2 & Zero-action replay & $\mathbf{W}_a \to 0$ & Random one-hot $a_t$ (seed=44) \\
     3 & Passive corpus env & $\nabla_{\mathbf{W}_a}\mathcal{L}_{\text{VFE}}=0$ & Domain-selective env (v5) \\
     4 & free\_bits $=1.0$ ceiling & $p_\theta\approx\text{Uniform}$ & free\_bits $=0.1$ (v5) \\
+    5 & Encoder+prior+$\mathbf{W}_z$ collapse & VFE floor trap & Phase 1 warm-start (v6) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -896,19 +943,22 @@ that prior LLM-native creative systems (including PCE v0.4) lacked.
 The EFE actor replaces REINFORCE with an epistemic-value objective that
 directly optimises prior entropy increase — the computational analogue
 of seeking genuinely novel creative states (\emph{sphurattā}).
-H1 evaluation is ongoing (Phase 2 v5, seed=46, domain-selective corpus + free\_bits$=0.1$);
-preliminary v4 results (ratio $\approx 1.0$) exposed a four-layer failure chain that
-v5 is architecturally designed to resolve.
+H1 evaluation is ongoing (Phase 2 v6, seed=47, all five failure layers resolved);
+preliminary results exposed a five-layer failure chain (Layers 1--4 from v4 analysis,
+Layer~5 encoder+prior collapse discovered in v5 post-mortem) that v6 is designed to
+resolve with Phase~1 warm-start + free\_bits$=0.1$ + domain-selective corpus.
 
 \item \textbf{Imagination Diversity Loss and domain-selective corpus.}
 IDL resolves action-blindness (Layer 3 partial fix) by training $\mathbf{W}_a$ through
 imagined multi-action rollouts, producing antipodal $h_t$ geometry ($\cos\!\sin \to -1.0$
-within 3{,}700 steps).
+within 300--3{,}700 steps depending on WM initialisation quality).
 The complementary \texttt{DomainSelectiveCachedCorpusEnv} (Layer 3 full fix) breaks corpus
-passivity at collection time, ensuring stored transitions carry genuine
-$p(o_{t+1}|a_t)$ coupling.
-Together with reduced free\_bits (Layer 4 fix), these techniques enable action-conditional
-priors on static creative corpora without requiring a live interactive environment.
+passivity at collection time with per-item action-to-domain routing, ensuring stored
+transitions carry genuine $p(o_{t+1}^b|a_t^b)$ coupling.
+Together with reduced free\_bits (Layer 4 fix) and Phase~1 warm-start (Layer 5 fix),
+these techniques enable action-conditional priors on static creative corpora without
+requiring a live interactive environment, while avoiding the encoder-collapse trap that
+arises when IDL gradient dominates VFE gradient under a high free\_bits floor.
 \end{enumerate}
 
 Phase 1 is complete (gate PASS).
