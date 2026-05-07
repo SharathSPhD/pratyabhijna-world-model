@@ -271,24 +271,61 @@ class DomainSelectiveCachedCorpusEnv(CachedCorpusEnv):
         action: "torch.Tensor",
     ) -> "tuple[torch.Tensor, torch.Tensor, torch.Tensor]":
         """
-        Domain-selective step: action index determines which corpus domain to sample.
+        Per-item domain-selective step.
+
+        Each batch item's own action index determines which corpus domain its
+        next observation is drawn from, creating genuine per-item causal coupling:
+
+            p(o_{t+1}^b | a_t^b)  ≠  p(o_{t+1}^b)
+
+        Without this per-item approach, the modal-action trick creates a
+        batch-level domain choice but zero coupling at the individual transition
+        level (item b with action=5 might receive a philosophy obs if the modal
+        happened to be 40). The replay then stores (action=5, obs_from_philosophy)
+        — statistically indistinguishable from the passive case.
 
         Action encoding:
-          - Integer / long tensor  (B,)         → direct indices
-          - One-hot float          (B, action_dim) → argmax indices
-          - Zero / scalar shape    (B, 1)         → fall back to uniform (passive)
+          - Integer / long tensor (B,) or (B,1) if dtype is int → direct indices
+          - One-hot float         (B, action_dim)               → argmax per item
+          - Scalar / (B, 1) float zeros                         → passive fallback
 
-        The modal action across the batch selects the domain. This creates genuine
-        p(o_{t+1} | a_t) conditioning, supplying VFE gradients through W_a.
+        Returns: (obs, reward, done) where obs[b] is from action[b]'s domain.
         """
-        domain_idx = self._decode_action_domain(action)
-        obs_seq = self._sample_obs_seq_domain(domain_idx)
-        rew = torch.zeros(self.batch_size, device=self.device)
-        done = torch.zeros(self.batch_size, dtype=torch.bool, device=self.device)
-        return obs_seq[:, 0], rew, done
+        a = action.detach().cpu()
+
+        # Passive fallback: (B, 1) float zeros (non-domain-selective callers)
+        if a.dtype not in (torch.int32, torch.int64) and a.shape[-1] == 1:
+            return super().step(action)
+
+        # Decode per-item action indices
+        if a.dtype in (torch.int32, torch.int64):
+            per_item_idx = a.flatten()[:self.batch_size].tolist()
+        else:
+            per_item_idx = a.float().argmax(dim=-1).flatten()[:self.batch_size].tolist()
+
+        # Per-item sampling: obs[b] comes from the domain for action[b]
+        obs_list = []
+        for action_idx in per_item_idx:
+            domain_idx = self._action_to_domain(int(action_idx))
+            start, end = self._domain_ranges[domain_idx]
+            # Sample a single embedding (not a full sequence)
+            max_i = end - 1
+            if max_i <= start:
+                i = int(self._rng.integers(0, self.meta["n"]))
+            else:
+                i = int(self._rng.integers(start, max_i))
+            obs_list.append(
+                torch.tensor(self.embeddings[i].astype(np.float32), device=self.device)
+            )  # (obs_dim,)
+
+        obs = torch.stack(obs_list, dim=0)  # (B, obs_dim)
+        B = len(per_item_idx)
+        rew = torch.zeros(B, device=self.device)
+        done = torch.zeros(B, dtype=torch.bool, device=self.device)
+        return obs, rew, done
 
     def _decode_action_domain(self, action: "torch.Tensor") -> int:
-        """Extract domain index from an action tensor of arbitrary encoding."""
+        """Extract modal domain index from an action tensor (for sample_batch)."""
         a = action.detach().cpu()
         if a.dtype in (torch.int32, torch.int64):
             # Integer indices (B,) — take mode
