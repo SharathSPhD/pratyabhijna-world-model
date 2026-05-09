@@ -273,10 +273,13 @@ def run_phase2_gate(
     from pwm.world_model.trika import TrikaWorldModel    # type: ignore[import]
     from pwm.active_inference.efe_actor import EFEActor  # type: ignore[import]
 
+    # v7 checkpoint uses decoder_z_only=True (decoder input 1024 not 1536)
+    # and free_bits=0.1 — must match checkpoint architecture exactly.
     wm = TrikaWorldModel(
         obs_dim=512, action_dim=64, n_levels=1,
         hidden_dim=512, stoch_dim=32, stoch_classes=32,
-        free_bits=1.0, kl_balance_dyn=0.5, kl_balance_rep=0.1,
+        free_bits=0.1, kl_balance_dyn=0.5, kl_balance_rep=0.1,
+        decoder_z_only=True,
     ).to(device)
     wm.load_state_dict(ckpt["world_model"])
 
