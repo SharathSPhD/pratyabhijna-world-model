@@ -1008,11 +1008,18 @@ if _HYDRA:
         wm_ckpt = os.environ.get("PWM_RESUME_WM_ONLY")
         if wm_ckpt and Path(wm_ckpt).exists() and not resume_ckpt:
             ckpt = torch.load(wm_ckpt, map_location=trainer.device, weights_only=False)
-            # Use strict=False: decoder shape changes when decoder_z_only=True (v7+).
-            # The decoder is freshly init'd; all other weights (encoder, prior, GRU) are loaded.
-            missing, unexpected = trainer.world_model.load_state_dict(
-                ckpt["world_model"], strict=False
-            )
+            # strict=False ignores missing/unexpected keys but still raises on shape
+            # mismatches. Filter by shape first so the decoder (1536→1024 in v7) is
+            # skipped and freshly initialised while encoder/prior/GRU are loaded.
+            ckpt_wm_sd = ckpt["world_model"]
+            model_sd = trainer.world_model.state_dict()
+            filtered_sd = {k: v for k, v in ckpt_wm_sd.items()
+                           if k in model_sd and v.shape == model_sd[k].shape}
+            skipped = [k for k in ckpt_wm_sd if k not in filtered_sd]
+            if skipped:
+                log.info("WM warm-start: skipping %d shape-mismatched keys (fresh init): %s",
+                         len(skipped), skipped[:5])
+            missing, unexpected = trainer.world_model.load_state_dict(filtered_sd, strict=False)
             if missing:
                 log.info("WM warm-start: %d keys not in checkpoint (fresh init): %s",
                          len(missing), missing[:5])
