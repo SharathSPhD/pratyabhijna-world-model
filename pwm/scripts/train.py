@@ -288,6 +288,7 @@ class PWMTrainer:
             free_bits=wm_cfg.free_bits,
             kl_balance_dyn=wm_cfg.kl_balance_dyn,
             kl_balance_rep=wm_cfg.kl_balance_rep,
+            decoder_z_only=getattr(wm_cfg, 'decoder_z_only', False),
         ).to(self.device)
 
         feature_dim = wm_cfg.hidden_dim_apara + wm_cfg.stoch_dim * wm_cfg.stoch_classes

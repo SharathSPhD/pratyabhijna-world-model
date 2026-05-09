@@ -108,6 +108,7 @@ class TrikaCoreLevel(nn.Module):
         free_bits: float = 1.0,
         kl_balance_dyn: float = 0.5,
         kl_balance_rep: float = 0.1,
+        decoder_z_only: bool = False,
     ) -> None:
         super().__init__()
         self.level = level
@@ -117,6 +118,10 @@ class TrikaCoreLevel(nn.Module):
         self.free_bits = free_bits
         self.kl_balance_dyn = kl_balance_dyn
         self.kl_balance_rep = kl_balance_rep
+        # Layer 6 fix (v7+): decoder_z_only=True prevents GRU posterior bypass.
+        # When True, decoder input is z_t only (latent_dim), not (h_t, z_t).
+        # This forces encoder to carry o_t information → non-zero reconstruction gradient.
+        self.decoder_z_only = decoder_z_only
 
         latent_dim = stoch_dim * stoch_classes
 
@@ -149,14 +154,17 @@ class TrikaCoreLevel(nn.Module):
             nn.Linear(hidden_dim, latent_dim),
         )
 
-        # Decoder p_θ(o_t | h_t, z_t) — generative model
+        # Decoder p_θ(o_t | z_t) when decoder_z_only=True (v7+)
+        # or p_θ(o_t | h_t, z_t) otherwise (legacy).
+        # z-only: architecturally prevents GRU from bypassing encoder.
+        decoder_in = latent_dim if decoder_z_only else hidden_dim + latent_dim
         self.decoder = nn.Sequential(
-            nn.Linear(hidden_dim + latent_dim, hidden_dim),
+            nn.Linear(decoder_in, hidden_dim),
             nn.SiLU(),
             nn.Linear(hidden_dim, obs_dim),
         )
 
-        # Reward head p_θ(r_t | h_t, z_t)
+        # Reward head p_θ(r_t | h_t, z_t) — always uses both (not the bottleneck)
         self.reward_head = SymlogTwohotHead(hidden_dim + latent_dim)
 
         # Continue head p_θ(c_t | h_t, z_t)
@@ -227,7 +235,13 @@ class TrikaCoreLevel(nn.Module):
         return h_t, z_t, logits_prior
 
     def decode(self, h: Tensor, z: Tensor) -> Tensor:
-        """Decode latent state to observation space."""
+        """Decode latent state to observation space.
+
+        v7+: when decoder_z_only=True, only z_t is used — prevents GRU posterior bypass.
+        Legacy: both h_t and z_t (decoder can learn to ignore z_t → encoder collapse).
+        """
+        if self.decoder_z_only:
+            return self.decoder(z.flatten(-2))
         return self.decoder(torch.cat([h, z.flatten(-2)], dim=-1))
 
     def compute_vfe(self, logits_post: Tensor, logits_prior: Tensor) -> Tensor:
@@ -284,7 +298,9 @@ class TrikaCoreLevel(nn.Module):
         feat = torch.cat([h_seq, z_seq.flatten(-2)], dim=-1)  # (B, T, hidden+latent)
 
         # Prediction losses (accuracy term)
-        obs_pred = self.decoder(feat)
+        # v7+: decoder uses only z_t (decoder_z_only=True) — prevents GRU posterior bypass
+        obs_pred = (self.decoder(z_seq.flatten(-2)) if self.decoder_z_only
+                    else self.decoder(feat))
         l_obs = symlog_mse_loss(obs_pred, obs_seq)
 
         reward_logits = self.reward_head(feat)

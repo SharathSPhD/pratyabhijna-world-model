@@ -1,0 +1,49 @@
+# Phase 2 v7: Fix Layer 6 — Deterministic GRU Posterior Bypass
+#
+# Root cause (Layer 6, diagnosed 2026-05-09):
+#   GRU sequence model (norm~2.9) reconstructs o_t from h_{t-1} alone.
+#   Decoder learns to ignore z_t (w_z -> 0).
+#   Encoder receives zero reconstruction gradient; decays under weight decay.
+#   KL stays below free_bits=0.1 floor -> no KL gradient either.
+#   VFE stuck at 0.0617 floor for full 400K steps in v6.
+#   Probe: encoder.0.weight=0.000, prior.0.weight=0.000, W_z=0.000
+#
+# Fix: decoder_z_only=True
+#   Decoder input: latent_dim=1024 only (Cat(32x32) one-hot)
+#   z_t MUST carry o_t information -> encoder is forced to participate
+#   Encoder gets non-zero reconstruction gradient from step 0
+#   Actor/critic still use (h_t, z_t) concatenated — unaffected
+#   Prior p(z|h_t) still conditions on h_t — prior gradient preserved
+#
+# All previous fixes preserved:
+#   Layer 1: curr_vfe uses real VFE (seed=44 fix)
+#   Layer 2: replay stores real one-hot actions (seed=44 fix)
+#   Layer 3: DomainSelectiveCachedCorpusEnv (per-item action->domain, commit 1002baa)
+#   Layer 4: free_bits=0.1 (KL floor 3.2 nats, commit 2d6add4)
+#   Layer 5: Phase 1 warm-start (encoder/prior/W_z healthy, this file)
+#   Layer 6: decoder_z_only=True — THIS VERSION
+#
+# Expected signals:
+#   Step    100: VFE > 0.2  (encoder forced to use z_t; reconstruction non-trivial)
+#   Step   3700: cos_sim -> -1.000 (IDL re-converges, W_a trained)
+#   Step  10000: KL rising, domain clusters forming in prior
+#   Step  50000: VFE floor breakout above 0.062 (prior domain-adapting)
+#   Step 200000: EFE > REINFORCE sphuratta rate (H1 gate early read)
+#   Step 400000: H1 gate final (200 eps)
+#
+# If VFE < 0.10 at step 100: STOP — Layer 6 fix failed for unknown reason.
+# If VFE > 0.20 at step 100: Layer 6 fix working — encoder is forced.
+#
+# Launch:
+#   source ~/vllm-env/bin/activate
+#   bash scripts/launch_phase2_v7.sh
+
+defaults:
+  - phase2_efe
+  - _self_
+
+world_model:
+  free_bits: 0.1               # Layer 4 fix: KL floor 32 nats -> 3.2 nats
+  decoder_z_only: true         # Layer 6 fix: prevents GRU posterior bypass
+
+domain_selective: true         # Layer 3 fix: per-item action->corpus-domain coupling
