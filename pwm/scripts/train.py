@@ -911,9 +911,8 @@ class PWMTrainer:
             if self.step % log_interval == 0:
                 elapsed = time.perf_counter() - t0
                 sps = self.step / elapsed
-                # Layer 6 canary: encoder.0.weight norm detects GRU-bypass collapse
-                _enc_w = self.world_model.state_dict().get("levels.0.encoder.0.weight")
-                enc_norm = _enc_w.norm().item() if _enc_w is not None else 0.0
+                # Layer 7 canary: encoder.0.weight norm (direct access, no state_dict copy)
+                enc_norm = self.world_model.levels[0].encoder[0].weight.data.norm().item()  # type: ignore[index,union-attr]
                 log.info(
                     "step=%d  wm=%.4f  vfe=%.4f  div=%.4f  cos_sim=%.3f  actor=%.4f  critic=%.4f  enc=%.3f  sps=%.1f",
                     self.step,
