@@ -775,14 +775,35 @@ at step 300: $\cos\!\sin = -1.000$ (IDL re-converges); actor bounded in $\pm0.00
 The l$_{\text{pred}} = \text{VFE} - \text{KL\_floor} \approx 0.0017$ at step~2{,}500
 indicates the z-only decoder has learned to reconstruct from Phase~1's informative $z_t$
 within $\sim$2{,}500 steps.
-Gate results pending full 400K-step run (expected 2026-05-09 23:00).
+However, post-mortem checkpoint analysis at step~100K revealed a seventh failure layer:
+encoder norm fell from 2.13 (step~50K) to 0.000 (step~100K).
+After IDL convergence ($\cos\!\sin = -1.0$, step~300), IDL gradient vanishes;
+the z-only decoder simultaneously decays (norm $0.46{\to}0.008$ by step 100K),
+eliminating the reconstruction gradient through $z_t$;
+KL remains at the free-bits floor throughout, eliminating the KL gradient.
+All WM gradient sources vanish while weight decay persists, collapsing the encoder
+via positive feedback (weaker encoder $\to$ weaker gradient $\to$ faster collapse).
 
-\paragraph{Diagnostic summary: six-layer H1 failure chain.}
+\paragraph{Phase 2 v8: WM-freeze fix (training, 2026-05-09).}
+v8 introduces a two-phase protocol within Phase~2.
+\emph{Phase 2a} (steps 0--10K) trains the full WM including IDL:
+by step~10K, $\mathbf{W}_a$ has norm 0.52, $\cos\!\sin = -1.0$,
+and encoder norm is $\approx 2.49$ (healthy).
+\emph{Phase 2b} (steps 10K--400K) freezes the WM entirely; only the EFE actor
+and critic are updated.
+The actor and critic exploit imagined trajectories from the frozen WM,
+whose action-dependent $h_t$ (via trained $\mathbf{W}_a$) provides the epistemic
+signal for EFE minimisation.
+This two-phase design matches the DreamerV3 actor--critic paradigm adapted for the
+corpus environment where no continuous reward signal keeps the WM learning alive.
+Gate results pending full 400K-step run (seed=49, expected 2026-05-10 01:00~UTC).
+
+\paragraph{Diagnostic summary: seven-layer H1 failure chain.}
 Table~\ref{tab:h1_diagnosis} summarises all compounding failure layers.
-Each layer was identified by post-mortem checkpoint analysis; v7 targets Layer~6.
+Each layer was identified by post-mortem checkpoint analysis.
 
 \begin{table}[h]
-  \caption{H1 Failure Diagnostics — Six Compounding Layers}
+  \caption{H1 Failure Diagnostics — Seven Compounding Layers}
   \label{tab:h1_diagnosis}
   \centering\small
   \begin{tabular}{clcc}
@@ -795,6 +816,7 @@ Each layer was identified by post-mortem checkpoint analysis; v7 targets Layer~6
     4 & free\_bits $=1.0$ ceiling & $p_\theta\approx\text{Uniform}$ & free\_bits $=0.1$ (v5) \\
     5 & Encoder+prior+$\mathbf{W}_z$ collapse & VFE floor trap & Phase 1 warm-start (v6) \\
     6 & Deterministic GRU posterior bypass & $\partial\mathcal{L}/\partial z_t=0$ & Decoder uses only $z_t$ (v7) \\
+    7 & Gradient starvation after IDL convergence & Encoder $\to$ 0 by step 100K & WM freeze at step 10K (v8) \\
     \bottomrule
   \end{tabular}
 \end{table}
