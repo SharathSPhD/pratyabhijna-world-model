@@ -645,6 +645,9 @@ class PWMTrainer:
             z_for_actor = torch.stack(imag_z_list, dim=1)                       # (B, H, D, K)
             z_for_actor = z_for_actor.reshape(B * H, *z_for_actor.shape[2:])   # (B*H, D, K)
             advantage = returns_t.reshape(B * H)
+            adv_std = advantage.std()
+            if adv_std > 1e-6:
+                advantage = (advantage - advantage.mean()) / (adv_std + 1e-8)
             efe_losses = self.efe_actor.actor_loss(h_flat, z_for_actor, advantage)
             actor_loss = efe_losses["actor_total"]
             actor_entropy = efe_losses["entropy"]
