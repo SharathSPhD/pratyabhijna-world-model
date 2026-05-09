@@ -805,14 +805,31 @@ whose action-dependent $h_t$ (via trained $\mathbf{W}_a$) provides the epistemic
 signal for EFE minimisation.
 This two-phase design matches the DreamerV3 actor--critic paradigm adapted for the
 corpus environment where no continuous reward signal keeps the WM learning alive.
-Gate results pending full 400K-step run (seed=49, expected 2026-05-09 21:23~UTC).
+Gate result (step=400{,}000, 2026-05-09 19:45~UTC): EFE=0/200, REINFORCE=1/200,
+ratio=1.004 $\to$ \textbf{FAIL}.
+Post-mortem reveals two compounding causes.
+\emph{Proximal}: the gate evaluates $H{=}15$ steps per episode but sphurattā
+requires $|\text{history}| \ge 20$ — mechanically impossible in episode~1.
+\emph{Distal (deeper)}: the $\|h_t\|_2$ proxy gives \emph{action-independent} rewards.
+The GRU charges from zero initialisation ($\|h_0\|\!\approx\!4.5 \to \|h_{15}\|\!\approx\!18.6$)
+regardless of which action is taken (ΔActivation positive on 94.7\% of steps for any actor);
+advantage normalisation nullifies this constant signal.
+Consequently the EFE actor remains essentially uniform: action entropy
+$5.99$ bits vs maximum $6.00$ bits (ratio 0.999).
+The critic converged ($4.8 \to 0.62$) but found no action-dependent landscape to
+guide the actor.
+Root cause: $\|h_t\|_2$ norm growth is driven by GRU initialisation dynamics,
+not by action choice, even though IDL created antipodal \emph{directional} geometry.
+The fix (\textbf{v9}): replace the norm-growth proxy with a domain-affinity
+reward that is explicitly action-dependent in the domain-selective environment
+(actions 0--31 $\to$ Gutenberg; 32--63 $\to$ philosophy).
 
-\paragraph{Diagnostic summary: seven-layer H1 failure chain.}
+\paragraph{Diagnostic summary: eight-layer H1 failure chain.}
 Table~\ref{tab:h1_diagnosis} summarises all compounding failure layers.
 Each layer was identified by post-mortem checkpoint analysis.
 
 \begin{table}[h]
-  \caption{H1 Failure Diagnostics — Seven Compounding Layers}
+  \caption{H1 Failure Diagnostics — Eight Compounding Layers}
   \label{tab:h1_diagnosis}
   \centering\small
   \begin{tabular}{clcc}
@@ -826,6 +843,7 @@ Each layer was identified by post-mortem checkpoint analysis.
     5 & Encoder+prior+$\mathbf{W}_z$ collapse & VFE floor trap & Phase 1 warm-start (v6) \\
     6 & Deterministic GRU posterior bypass & $\partial\mathcal{L}/\partial z_t=0$ & Decoder uses only $z_t$ (v7) \\
     7 & Gradient starvation after IDL convergence & Encoder $\to$ 0 by step 100K & WM freeze at step 10K (v8) \\
+    8 & $\|h_t\|_2$ proxy is action-independent & Actor entropy $= 0.999 \times$ max & Domain-affinity reward (v9) \\
     \bottomrule
   \end{tabular}
 \end{table}
