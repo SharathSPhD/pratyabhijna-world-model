@@ -34,6 +34,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.distributions import Categorical
 from dotenv import load_dotenv  # type: ignore[import]
 
 load_dotenv()
@@ -612,9 +613,10 @@ class PWMTrainer:
                 # Use per-dimension log_softmax (dim=-1 over the 32 classes), NOT reshape
                 # to 1024 which would model a single Cat(1024) — statistically wrong.
                 lp_prior = logits_prior_list[0]  # (B, stoch_dim, stoch_classes)
-                log_p_b = nn.functional.log_softmax(lp_prior, dim=-1)  # (B, D, K) per-dim
-                entropy_per_dim_b = -(log_p_b.exp() * log_p_b).sum(-1)  # (B, D)
-                total_entropy_b = entropy_per_dim_b.sum(-1).mean()       # scalar
+                # Use Categorical.entropy() per-dimension — NaN-safe (handles p=0 via torch.where)
+                # p*log_p manual form produces NaN in bfloat16 when policy peaks.
+                prior_entropy_per_dim = Categorical(logits=lp_prior).entropy()   # (B, D)
+                total_entropy_b = prior_entropy_per_dim.sum(-1).mean()     # scalar
                 prior_neg_entropy = float(-total_entropy_b.item())
                 # range: [−32·log32, 0] nats; more negative = higher entropy = more novel
                 camatk_tensor, _ = self.camatk.compute(
@@ -708,11 +710,11 @@ class PWMTrainer:
                 h_t, z_t = imag_states[0]
                 imag_feats.append(torch.cat([h_t, z_t.flatten(-2)], dim=-1))
 
-                # Same prior-entropy proxy as Phase B — per-dimension Cat(32) entropy.
+                # Same prior-entropy proxy as Phase B — NaN-safe Categorical.entropy().
                 lp_prior_c = logits_prior_list_c[0]  # (B, D, K)
-                log_p_c = nn.functional.log_softmax(lp_prior_c, dim=-1)
-                entropy_per_dim_c = -(log_p_c.exp() * log_p_c).sum(-1)  # (B, D)
-                prior_neg_entropy_c = float(-entropy_per_dim_c.sum(-1).mean().item())
+                prior_neg_entropy_c = float(
+                    -Categorical(logits=lp_prior_c).entropy().sum(-1).mean().item()
+                )
                 camatk_tensor, _ = self.camatk.compute(
                     curr_vfe=prior_neg_entropy_c,
                     hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
