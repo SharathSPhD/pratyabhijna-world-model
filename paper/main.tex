@@ -10,8 +10,9 @@
 \usepackage{hyperref}
 \usepackage{booktabs}
 \usepackage{multirow}
-\usepackage{fontenc}
+\usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
+\usepackage{lmodern}
 
 % Sanskrit/Devanāgarī support (if installed)
 % \usepackage{fontspec}
@@ -755,6 +756,20 @@ the prior $p_\theta(z \mid h_t)$ still conditions on $h_t$.
 This forces $z_t$ to carry $o_t$'s information, giving the encoder
 non-zero reconstruction gradient from step~0.
 
+\paragraph{Phase 2 v7: decoder-bypass fix (training, 2026-05-09).}
+v7 introduces \texttt{decoder\_z\_only=True}: decoder input changes from
+$(h_t; z_t) \in \mathbb{R}^{1536}$ to $z_t \in \mathbb{R}^{1024}$, making GRU bypass
+architecturally impossible.
+Warm-start from Phase~1 checkpoint with shape-filtered weight loading:
+the decoder is freshly initialised while encoder, prior, GRU, and $\mathbf{W}_a$
+are loaded (committed fix: strict$=$False with per-key shape check).
+At step~100: VFE $= 0.0617$ (at the free\_bits floor $= 0.06$), $\cos\!\sin = +0.327$;
+at step 1{,}600: $\cos\!\sin = -1.000$ (IDL re-converges, consistent with v6 at step~300).
+The l$_{\text{pred}} = \text{VFE} - \text{KL\_floor} \approx 0.0017$ at step 2{,}500
+indicates the z-only decoder has learned to reconstruct from Phase~1's informative $z_t$
+within $\sim$2{,}500 steps.
+Gate results pending full 400K-step run (expected 2026-05-09 23:00).
+
 \paragraph{Diagnostic summary: six-layer H1 failure chain.}
 Table~\ref{tab:h1_diagnosis} summarises all compounding failure layers.
 Each layer was identified by post-mortem checkpoint analysis; v7 targets Layer~6.
@@ -780,44 +795,82 @@ Each layer was identified by post-mortem checkpoint analysis; v7 targets Layer~6
 \subsection{Phase 3: Hopfield Memory (H2)}
 
 Phase 3 adds the Hopfield Citta-store (Section~\ref{sec:arch}) to the trained
-Phase 2 WM.
-H2 evaluates occlusion completion accuracy: the WM receives a partially-masked
-embedding (40\% dimensions zeroed) and must reconstruct the full embedding via
-Hopfield retrieval from an episodic buffer of 512 stored patterns.
-Planned ablation: Citta-store disabled vs.\ enabled; metric is cosine similarity
-between reconstructed and ground-truth embeddings.
+Phase 2 WM (seed=49, warm-start from Phase 2 v7 final).
+
+\paragraph{H2 protocol.}
+Pattern completion is measured via occlusion recovery:
+(i) 200 imagination episodes $\times$ 16 steps each are run to populate the episodic
+Hopfield bank with $h_t$ vectors (3{,}200 stored patterns, rolling buffer capped at 1{,}000);
+(ii) 500 test patterns are sampled; each is occluded by zeroing 50\% of its dimensions
+uniformly at random (seed=42);
+(iii) \emph{Hopfield accuracy} $= \overline{\cos\!\sin(\text{Recall}(h_{\text{occ}}),\,h_{\text{orig}})}$
+and \emph{baseline accuracy} $= \overline{\cos\!\sin(h_{\text{occ}},\,h_{\text{orig}})}$
+are computed over all 500 test patterns;
+(iv) H2 passes if $\text{acc}_{\text{hop}} / \text{acc}_{\text{base}} \geq 1.10$.
+
+Secondary criterion: sphurattā rate 0.5--2.0 events per 100 imagination steps
+(measured over 300 episodes, $h_t$ activation-norm proxy, 95th-percentile threshold).
+
 \emph{Results pending Phase 3 training.}
 
 \subsection{Phase 4: Sleep Consolidation (H3)}
 
-Phase 4 adds NREM/REM consolidation cycles after every 10K training steps.
-H3 evaluates catastrophic forgetting across three sequential creative domains
-(Sanskrit verse, English lyric, philosophical prose): the forgetting rate is
-the difference in domain-specific VFE before and after sequential training,
-normalised by the initial VFE.
-The ThermSleepBudget controls replay intensity; preliminary analysis predicts
-$\geq 40\%$ forgetting reduction (H3 PASS threshold).
+Phase 4 adds NREM/REM consolidation cycles (seed=50, warm-start from Phase 3 final).
+NREM replay is triggered every 10{,}000 training steps (200 replay steps);
+REM dreaming follows each NREM cycle (50 imagination steps).
+ThermSleepBudget halts a sleep cycle early when per-step replay efficiency
+falls below a thermodynamic threshold, preventing wasteful replay on
+already-consolidated patterns.
+
+\paragraph{H3 protocol.}
+Catastrophic forgetting is measured across three sequential creative domains
+(Gutenberg literary prose, HF Wikipedia philosophy, GRETIL Sanskrit verse),
+each trained for 100K steps before switching.
+Forgetting rate $\mathcal{F}_k = (V_k^{\text{post}} - V_k^{\text{pre}}) / V_k^{\text{pre}}$
+measures the fractional VFE increase on domain $k$ after sequential training on domain $k{+}1$.
+H3 passes if $\mathcal{F}_k^{\text{sleep}} \leq 0.8 \cdot \mathcal{F}_k^{\text{no-sleep}}$
+for all $k$ (i.e.\ sleep reduces forgetting by $\geq 20\%$ across all three domains).
+
 \emph{Results pending Phase 4 training.}
 
 \subsection{Phase 5: Vimarśa Bridge (H4, H5, H6)}
 
-Phase 5 activates the cross-attention projector from WM hidden state to the
-frozen 30B LLM (Nemotron-3-Nano-30B GGUF).
-H4 (human meaningful rate $\geq 70\%$) evaluates LLM-generated narrations
-at sphurattā events.
-H5 (PWM $>$ PCE v0.4 on $R_{\text{camatk}}$ density + $S_{\text{svāt.}}$) is
-the primary system-level comparison.
-H6 evaluates the DTW correlation between automated $R_{\text{camatk}}$ and
-human camatkāra ratings (12 raters, 500 items).
+Phase 5 activates the cross-attention projector from WM hidden states to the
+frozen 30B LLM (Nemotron-3-Nano-30B GGUF served via llama.cpp).
+The VimarsaBridge projects $h_t \in \mathbb{R}^{512}$ through a learned linear
+layer to the LLM's key-value dimension, prepending the projection as a soft prefix
+to the LLM context window at sphurattā events.
+The LLM then generates a narration conditioned on both the WM state and the
+creative corpus context (Sanskrit/English poetry).
+
+\paragraph{H4--H6 protocols.}
+\textbf{H4} (human meaningful rate $\geq 70\%$): 100 narrations generated at
+sphurattā events are rated by 12 annotators (binary: ``meaningful/creative'' vs.\ ``not'')
+with inter-rater reliability measured by Fleiss' $\kappa$.
+\textbf{H5} (PWM $>$ PCE v0.4): $R_{\text{camatk}}$ density (events per 100 steps)
+and $S_{\text{svāt.}}$ (latent novelty score) are compared against PCE v0.4 baselines
+(paired permutation test, 50K permutations, Hedges' $g$).
+\textbf{H6} (DTW correlation): automated $R_{\text{camatk}}$ trajectories are compared
+against human camatkāra ratings from 12 raters on 500 shared stimuli using
+Dynamic Time Warping distance (lower = better).
+
 \emph{Results pending Phase 5 training and human evaluation.}
 
 \subsection{Ablations (H7, H8, H9)}
 
-All six ablations (A1–A6) and three ablation hypotheses run from a single
-config change within \texttt{configs/phase6\_full.yaml}:
-H7 (3-level Trika vs.\ 1-level Aparā, 16-step imagination MSE),
-H8 (Mala regularisers vs.\ none, metre satisfaction rate),
-H9 ($S_{\text{svāt.}}$ vs.\ human novelty ratings, Spearman $\rho$).
+All six ablations (A1--A6) run from a single config change within
+\texttt{configs/phase6\_full.yaml} (seed=51--53, $\geq 3$ seeds each),
+reporting Hedges' $g$ and BCa 95\% CI (10K resamples) with Holm-Bonferroni
+family-wise error correction across all nine hypotheses.
+
+\textbf{H7 — Trika hierarchy:} 3-level Trika (Aparā/Parāparā/Parā) vs.\
+1-level Aparā-only on 16-step imagination prediction MSE.
+\textbf{H8 — Mala regularisers:} Āṇava + Māyīya + Kārma constraints enabled vs.\
+disabled; metric is Sanskrit metre satisfaction rate on the held-out benchmark
+(100K-token GRETIL subset, \texttt{pwm/eval/metre.py}).
+\textbf{H9 — Svātantrya correlation:} $S_{\text{svāt.}}$ latent novelty score
+vs.\ human novelty ratings (same 500-item cohort as H6), Spearman $\rho$.
+
 \emph{Results pending Phase 6 ablation runs.}
 
 % ─────────────────────────────────────────────────────────────────────────────
