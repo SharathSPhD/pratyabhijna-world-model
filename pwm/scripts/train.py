@@ -1008,8 +1008,18 @@ if _HYDRA:
         wm_ckpt = os.environ.get("PWM_RESUME_WM_ONLY")
         if wm_ckpt and Path(wm_ckpt).exists() and not resume_ckpt:
             ckpt = torch.load(wm_ckpt, map_location=trainer.device, weights_only=False)
-            trainer.world_model.load_state_dict(ckpt["world_model"])
-            log.info("Loaded WM-only from Phase 1 checkpoint: %s (step=%d)", wm_ckpt, ckpt.get("step", -1))
+            # Use strict=False: decoder shape changes when decoder_z_only=True (v7+).
+            # The decoder is freshly init'd; all other weights (encoder, prior, GRU) are loaded.
+            missing, unexpected = trainer.world_model.load_state_dict(
+                ckpt["world_model"], strict=False
+            )
+            if missing:
+                log.info("WM warm-start: %d keys not in checkpoint (fresh init): %s",
+                         len(missing), missing[:5])
+            if unexpected:
+                log.info("WM warm-start: %d unexpected keys (ignored): %s",
+                         len(unexpected), unexpected[:5])
+            log.info("Loaded WM-only from checkpoint: %s (step=%d)", wm_ckpt, ckpt.get("step", -1))
 
         trainer.train()
 else:
