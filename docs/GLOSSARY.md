@@ -42,17 +42,35 @@ Canonical mapping between Kashmir Śaiva philosophical concepts and their comput
 | Śiva | Śiva | TĀ 1 | The world model as a whole (TrikaWorldModel) |
 | Śakti | Śakti | ĪPK 1.6 | The śakti cascade (PañcakṛtyaLoop) — Śiva's dynamic power |
 | Anuttara | Anuttara | TĀ 1.1 | The unconditioned prior p_θ — pre-observation latent distribution |
-| Pañcakṛtya | Pañcakṛtya | TĀ 6 | Five acts = sṛṣṭi, sthiti, saṃhāra, tirodhāna, anugraha |
+| Pañcakṛtya | Pañcakṛtya | TĀ 6 | Outer cosmic container: five acts (Sṛṣṭi, Sthiti, Saṃhāra, Tirodhāna, Anugraha) |
+| Ānanda | Ānanda | SpandaK 1.5; ĪPK 1.6 | Bliss/surprise signal — Camatkāra reward R_camatk (step 2 of śakti cascade) |
 
-## Pañcakṛtya (Five Acts) Mapping
+## Pañcakṛtya — Cosmological Mapping
 
-| Act | Sanskrit | Computational Step in PañcakṛtyaLoop |
-|-----|----------|--------------------------------------|
-| Creation | Sṛṣṭi | Generative imagination (posterior z_t, imagine_step) |
-| Maintenance | Sthiti | CittaStore retrieval + memory blending |
-| Dissolution | Saṃhāra | EFE actor → action selection → env step |
-| Concealment | Tirodhāna | Sleep consolidation (NREM/REM) |
-| Grace | Anugraha | VimarshaAgent commit → LLM narration |
+The five acts of Śiva (TĀ 6) as the **outer architectural container** of PWM:
+
+| Cosmic Act | Sanskrit | System Component |
+|------------|----------|-----------------|
+| Creation | Sṛṣṭi | World model (3-level Trika RSSM + EFE actor) |
+| Maintenance | Sthiti | Hopfield CittaStore (episodic smṛti + semantic ālayavijñāna) |
+| Dissolution | Saṃhāra | Sleep consolidation (NREM replay + REM dreaming) |
+| Concealment | Tirodhāna | Mala regularisers (āṇava, māyīya, kārma impurity dampening) |
+| Grace | Anugraha | VimarshaAgent commit + LLM narration (sphurattā gated) |
+
+## Śakti Cascade — Computational Step Mapping
+
+The inner seven-step sequence in `pwm/pipeline/pancakrtya_loop.py` (MV 1.4; ĪPK 3.1–3.2).
+Steps 1–6 share one continuous `(h_t, z_t)` tensor; step 7 (vimarśa) is a true agent (rare):
+
+| Step | Sanskrit | Act (MV) | Computational Primitive |
+|------|----------|----------|------------------------|
+| 1 | Cit | ābhāsana — the world manifests | RSSM `observe(o_t, h, z, a)` → `h_t, z_t` |
+| 2 | Ānanda | rakti — pleasure/surprise arises | Camatkāra reward `R = αΔF + βΔI + γEmp` |
+| 3 | Icchā | will selects the next action | EFE actor `π(a \| h_t, z_t)` |
+| 4 | Apohana | smṛti context refined | Hopfield CittaStore read/write |
+| 5 | Jñāna | patterns named (LLM fast-path) | Nemotron call on sphurattā only |
+| 6 | Kriyā | the act is performed | Action commit + skill-library emit |
+| 7 | Vimarśa | self-reflexive deliberation | VimarshaAgent (smolagents, sphurattā-gated) |
 
 ## Sleep Concepts
 
