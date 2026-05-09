@@ -1,8 +1,9 @@
 # Phase 3: + Hopfield Citta-Store
 # Exit criteria: pattern completion +10% with Hopfield; sphurattā 0.5–2 events/100 steps
+# Inherits v7 architecture fixes: decoder_z_only, free_bits=0.1, domain_selective
 
 defaults:
-  - phase2_efe
+  - phase2_efe_v7
   - _self_
 
 memory:
