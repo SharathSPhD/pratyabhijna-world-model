@@ -730,14 +730,37 @@ critic$=1.87$ — the actor learns from step 0 because Phase 1's non-zero
 prior immediately produces camatkāra reward differentials, unlike v5 where
 the uniform prior gave constant entropy ($\Delta H = 0$ always).
 
-\paragraph{Diagnostic summary: five-layer H1 failure.}
-Table~\ref{tab:h1_diagnosis} summarises the compounding failure chain.
-Each layer was identified and fixed in sequence; v6 resolves all five layers.
-The current Phase 2 result is an honest negative with a complete causal chain and
-a concrete architectural fix now under training.
+\paragraph{Phase 2 v6 outcome: Layer 6 — deterministic GRU posterior bypass.}
+v6 training completed at step 400K (seed=47, 2026-05-07).
+Final gate (200 episodes): EFE 42\% vs REINFORCE 45.5\%,
+ratio$=1.050 > 1.0$ --- FAIL.
+Probe of the final checkpoint reveals encoder+prior+$\mathbf{W}_z$ have again
+collapsed to zero norm, despite the healthy Phase~1 warm-start.
+
+Post-mortem reveals a \emph{sixth} failure layer: the GRU sequence model
+(norm $\approx 2.9$) is expressive enough to reconstruct $o_t$ from
+$h_{t-1}$ alone without $z_t$.
+The decoder therefore learns weights $\mathbf{w}_z \approx 0$, producing
+$\partial \mathcal{L}_\text{rec}/\partial z_t \approx 0$.
+With no reconstruction gradient reaching the encoder, and the KL
+below the free\_bits$=0.1$ floor so that $\partial \mathcal{L}_\text{KL}/\partial z_t = 0$
+as well, the encoder receives zero total gradient and decays under weight decay.
+This \emph{posterior bypass} locks in within $\sim$10{,}000 steps of the Phase~1
+warm-start, well before the domain signal can differentiate the prior.
+
+The fix for v7 is architectural: the reconstruction decoder receives \emph{only}
+$z_t$ as input (not $h_t$), physically preventing bypass.
+The actor/critic continue to use the full feature $[h_t; z_t]$;
+the prior $p_\theta(z \mid h_t)$ still conditions on $h_t$.
+This forces $z_t$ to carry $o_t$'s information, giving the encoder
+non-zero reconstruction gradient from step~0.
+
+\paragraph{Diagnostic summary: six-layer H1 failure chain.}
+Table~\ref{tab:h1_diagnosis} summarises all compounding failure layers.
+Each layer was identified by post-mortem checkpoint analysis; v7 targets Layer~6.
 
 \begin{table}[h]
-  \caption{H1 Failure Diagnostics — Five Compounding Layers}
+  \caption{H1 Failure Diagnostics — Six Compounding Layers}
   \label{tab:h1_diagnosis}
   \centering\small
   \begin{tabular}{clcc}
@@ -749,6 +772,7 @@ a concrete architectural fix now under training.
     3 & Passive corpus env & $\nabla_{\mathbf{W}_a}\mathcal{L}_{\text{VFE}}=0$ & Domain-selective env (v5) \\
     4 & free\_bits $=1.0$ ceiling & $p_\theta\approx\text{Uniform}$ & free\_bits $=0.1$ (v5) \\
     5 & Encoder+prior+$\mathbf{W}_z$ collapse & VFE floor trap & Phase 1 warm-start (v6) \\
+    6 & Deterministic GRU posterior bypass & $\partial\mathcal{L}/\partial z_t=0$ & Decoder uses only $z_t$ (v7) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -943,10 +967,12 @@ that prior LLM-native creative systems (including PCE v0.4) lacked.
 The EFE actor replaces REINFORCE with an epistemic-value objective that
 directly optimises prior entropy increase — the computational analogue
 of seeking genuinely novel creative states (\emph{sphurattā}).
-H1 evaluation is ongoing (Phase 2 v6, seed=47, all five failure layers resolved);
-preliminary results exposed a five-layer failure chain (Layers 1--4 from v4 analysis,
-Layer~5 encoder+prior collapse discovered in v5 post-mortem) that v6 is designed to
-resolve with Phase~1 warm-start + free\_bits$=0.1$ + domain-selective corpus.
+Phase 2 v6 (seed=47, 400K steps) has completed: gate ratio$=1.050$, FAIL.
+Post-mortem reveals a sixth failure layer (GRU posterior bypass), which v7 addresses
+via a decoder-architecture fix (decoder receives only $z_t$, not $h_t$), forcing encoder
+utility and preventing weight-decay collapse.
+The six-layer failure chain constitutes an unusually complete negative-result case study
+in active-inference RSSM training dynamics.
 
 \item \textbf{Imagination Diversity Loss and domain-selective corpus.}
 IDL resolves action-blindness (Layer 3 partial fix) by training $\mathbf{W}_a$ through
@@ -955,16 +981,16 @@ within 300--3{,}700 steps depending on WM initialisation quality).
 The complementary \texttt{DomainSelectiveCachedCorpusEnv} (Layer 3 full fix) breaks corpus
 passivity at collection time with per-item action-to-domain routing, ensuring stored
 transitions carry genuine $p(o_{t+1}^b|a_t^b)$ coupling.
-Together with reduced free\_bits (Layer 4 fix) and Phase~1 warm-start (Layer 5 fix),
+Together with reduced free\_bits (Layer 4 fix), Phase~1 warm-start (Layer 5 fix),
+and the forthcoming decoder-only-$z_t$ fix (Layer 6, v7),
 these techniques enable action-conditional priors on static creative corpora without
-requiring a live interactive environment, while avoiding the encoder-collapse trap that
-arises when IDL gradient dominates VFE gradient under a high free\_bits floor.
+requiring a live interactive environment.
 \end{enumerate}
 
 Phase 1 is complete (gate PASS).
-Phase 2 diagnosed two compounding implementation bugs and one architectural
-limitation (passive environment); all three are documented with statistical
-rigour and addressed in the v4 re-run.
+Phase 2 has identified a six-layer compounding failure chain through iterative
+post-mortem checkpoint analysis; each layer is documented with its causal mechanism
+and applied fix, constituting a reproducible diagnostic methodology for RSSM training.
 Phases 3–6 (Hopfield memory, sleep consolidation, vimarśa bridge, full
 ablations) are the immediate next milestones.
 
