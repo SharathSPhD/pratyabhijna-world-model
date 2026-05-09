@@ -50,6 +50,7 @@ class TrikaWorldModel(nn.Module):
         free_bits: float = 1.0,
         kl_balance_dyn: float = 0.5,
         kl_balance_rep: float = 0.1,
+        decoder_z_only: bool = False,
     ) -> None:
         super().__init__()
         assert 1 <= n_levels <= 3, f"n_levels must be 1, 2, or 3; got {n_levels}"
@@ -81,6 +82,7 @@ class TrikaWorldModel(nn.Module):
                     free_bits=free_bits,
                     kl_balance_dyn=kl_balance_dyn,
                     kl_balance_rep=kl_balance_rep,
+                    decoder_z_only=decoder_z_only,
                 )
             )
         self._level_list = level_list           # typed for internal use

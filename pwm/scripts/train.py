@@ -288,6 +288,7 @@ class PWMTrainer:
             free_bits=wm_cfg.free_bits,
             kl_balance_dyn=wm_cfg.kl_balance_dyn,
             kl_balance_rep=wm_cfg.kl_balance_rep,
+            decoder_z_only=getattr(wm_cfg, 'decoder_z_only', False),
         ).to(self.device)
 
         feature_dim = wm_cfg.hidden_dim_apara + wm_cfg.stoch_dim * wm_cfg.stoch_classes
@@ -645,6 +646,15 @@ class PWMTrainer:
             efe_losses = self.efe_actor.actor_loss(h_flat, z_for_actor, advantage)
             actor_loss = efe_losses["actor_total"]
             actor_entropy = efe_losses["entropy"]
+
+        if not torch.isfinite(actor_loss):
+            log.warning("Actor loss is NaN/Inf at step %d — skipping update", self.step)
+            return {
+                "loss/actor": float("nan"),
+                "loss/actor_efe": float("nan"),
+                "train/actor_entropy": float("nan"),
+                "train/returns_mean": float(returns_t.mean().item()),
+            }
 
         self.opt_actor.zero_grad(set_to_none=True)
         actor_loss.backward()
@@ -1007,8 +1017,25 @@ if _HYDRA:
         wm_ckpt = os.environ.get("PWM_RESUME_WM_ONLY")
         if wm_ckpt and Path(wm_ckpt).exists() and not resume_ckpt:
             ckpt = torch.load(wm_ckpt, map_location=trainer.device, weights_only=False)
-            trainer.world_model.load_state_dict(ckpt["world_model"])
-            log.info("Loaded WM-only from Phase 1 checkpoint: %s (step=%d)", wm_ckpt, ckpt.get("step", -1))
+            # strict=False ignores missing/unexpected keys but still raises on shape
+            # mismatches. Filter by shape first so the decoder (1536→1024 in v7) is
+            # skipped and freshly initialised while encoder/prior/GRU are loaded.
+            ckpt_wm_sd = ckpt["world_model"]
+            model_sd = trainer.world_model.state_dict()
+            filtered_sd = {k: v for k, v in ckpt_wm_sd.items()
+                           if k in model_sd and v.shape == model_sd[k].shape}
+            skipped = [k for k in ckpt_wm_sd if k not in filtered_sd]
+            if skipped:
+                log.info("WM warm-start: skipping %d shape-mismatched keys (fresh init): %s",
+                         len(skipped), skipped[:5])
+            missing, unexpected = trainer.world_model.load_state_dict(filtered_sd, strict=False)
+            if missing:
+                log.info("WM warm-start: %d keys not in checkpoint (fresh init): %s",
+                         len(missing), missing[:5])
+            if unexpected:
+                log.info("WM warm-start: %d unexpected keys (ignored): %s",
+                         len(unexpected), unexpected[:5])
+            log.info("Loaded WM-only from checkpoint: %s (step=%d)", wm_ckpt, ckpt.get("step", -1))
 
         trainer.train()
 else:
