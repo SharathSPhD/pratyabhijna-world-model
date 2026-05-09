@@ -891,8 +891,10 @@ class PWMTrainer:
             if self.step % log_interval == 0:
                 elapsed = time.perf_counter() - t0
                 sps = self.step / elapsed
+                # Layer 6 canary: encoder.0.weight norm detects GRU-bypass collapse
+                enc_norm = self.world_model.levels[0].encoder[0].weight.data.norm().item()
                 log.info(
-                    "step=%d  wm=%.4f  vfe=%.4f  div=%.4f  cos_sim=%.3f  actor=%.4f  critic=%.4f  sps=%.1f",
+                    "step=%d  wm=%.4f  vfe=%.4f  div=%.4f  cos_sim=%.3f  actor=%.4f  critic=%.4f  enc=%.3f  sps=%.1f",
                     self.step,
                     metrics.get("loss/wm_total", 0.0),
                     metrics.get("loss/vfe", metrics.get("loss/wm_total", 0.0)),
@@ -900,9 +902,10 @@ class PWMTrainer:
                     metrics.get("train/action_cos_sim", 0.0),
                     metrics.get("loss/actor", 0.0),
                     metrics.get("loss/critic", 0.0),
+                    enc_norm,
                     sps,
                 )
-                self._log_metrics({**metrics, "train/steps_per_sec": sps})
+                self._log_metrics({**metrics, "train/steps_per_sec": sps, "probe/enc_norm": enc_norm})
 
             if self.step % self._CHECKPOINT_EVERY == 0:
                 ckpt_path = self._checkpoint_dir / f"step_{self.step:07d}.pt"
