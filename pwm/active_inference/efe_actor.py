@@ -80,19 +80,21 @@ class EFEActor(nn.Module):
         inp = torch.cat([h, z_flat], dim=-1)
         logits = self.net(inp)  # (B, action_dim)
 
+        # Build distribution first — Categorical.entropy() handles p*log(p) safely
+        # (avoids 0 × -inf = NaN from manual p * log_p computation in bfloat16).
+        dist = Categorical(logits=logits)
+
         # Pragmatic value: alignment with preference model
         log_pref = F.log_softmax(self.log_preference, dim=-1)
-        log_pi = F.log_softmax(logits, dim=-1)
+        probs = dist.probs  # (B, action_dim) — already normalised
 
-        # Epistemic value: entropy of policy (information gain proxy)
-        # EFE ≈ -H[π] - E_π[log p(a|pref)]
-        entropy = -(log_pi.exp() * log_pi).sum(-1)           # (B,) — higher = more exploratory
-        pragmatic = (log_pi.exp() * log_pref.unsqueeze(0)).sum(-1)  # (B,) — higher = better aligned
+        # Epistemic value: policy entropy via Categorical.entropy() (NaN-safe)
+        entropy = dist.entropy()  # (B,)
+        pragmatic = (probs * log_pref.unsqueeze(0)).sum(-1)  # (B,)
 
-        # EFE (to minimise): negate epistemic (want high entropy) + negate pragmatic (want high pref)
+        # EFE (to minimise): negate epistemic (want high entropy) + negate pragmatic
         efe = -entropy - pragmatic  # (B,)
 
-        dist = Categorical(logits=logits)
         return dist, efe
 
     def select_action(self, h: Tensor, z: Tensor, deterministic: bool = False) -> Tensor:

@@ -647,6 +647,15 @@ class PWMTrainer:
             actor_loss = efe_losses["actor_total"]
             actor_entropy = efe_losses["entropy"]
 
+        if not torch.isfinite(actor_loss):
+            log.warning("Actor loss is NaN/Inf at step %d — skipping update", self.step)
+            return {
+                "loss/actor": float("nan"),
+                "loss/actor_efe": float("nan"),
+                "train/actor_entropy": float("nan"),
+                "train/returns_mean": float(returns_t.mean().item()),
+            }
+
         self.opt_actor.zero_grad(set_to_none=True)
         actor_loss.backward()
         nn.utils.clip_grad_norm_(
