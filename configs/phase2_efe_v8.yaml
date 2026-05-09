@@ -1,0 +1,52 @@
+# Phase 2 v8: Fix Layer 7 — WM Encoder Collapse via Gradient Starvation
+#
+# Root cause (Layer 7, diagnosed 2026-05-09):
+#   After IDL converges (cos_sim=-1.0, ~step 300), IDL gradient -> 0.
+#   Decoder decays (norm 0.46->0.008 by step 100K) -> reconstruction gradient -> 0.
+#   KL stays at free_bits floor -> KL gradient -> 0.
+#   All WM gradient sources dry up while weight decay continues.
+#   Positive feedback: weaker encoder -> weaker reconstruction signal -> faster decay.
+#   Observed: encoder.0.weight 2.13 (step 50K) -> 0.000 (step 100K).
+#
+# Fix: WM freeze at step 10K (after IDL converges and W_a is trained)
+#   Phase 2a (steps 0-10K): train WM + IDL -> cos_sim=-1.0, W_a=0.52 healthy
+#   Phase 2b (steps 10K-400K): freeze WM; train only EFE actor + critic
+#   Actor/critic use frozen WM for imagination rollouts.
+#   Encoder stays healthy at Phase-1-warm-start values (encoder=2.49 at step 10K).
+#   This is the canonical two-phase DreamerV3 design adapted for corpus env.
+#
+# All previous fixes preserved:
+#   Layer 1: curr_vfe uses real VFE (seed=44 fix)
+#   Layer 2: replay stores real one-hot actions (seed=44 fix)
+#   Layer 3: DomainSelectiveCachedCorpusEnv (per-item action->domain, commit 1002baa)
+#   Layer 4: free_bits=0.1 (KL floor 3.2 nats, commit 2d6add4)
+#   Layer 5: Phase 1 warm-start (encoder/prior/W_z healthy, v6 fix)
+#   Layer 6: decoder_z_only=True (prevents GRU posterior bypass, v7 fix)
+#   Layer 7: WM freeze at step 10K — THIS VERSION
+#
+# Expected signals:
+#   Step    300: cos_sim -> -1.000 (IDL converges, W_a training begins)
+#   Step  10000: WM frozen; encoder=2.49, W_a=0.52 (healthy at freeze point)
+#   Step  10000: Actor/critic training begins on frozen WM imagination
+#   Step  50000: Actor develops domain preferences (EFE epistemic signal)
+#   Step 200000: EFE vs REINFORCE gate (interim check)
+#   Step 400000: H1 gate final (200 eps)
+#
+# Monitoring:
+#   Encoder norm should be CONSTANT after step 10K (frozen).
+#   Actor loss should evolve from ~0 to meaningful negative (EFE minimisation).
+#   Critic loss should fall as value estimates improve.
+#
+# Launch:
+#   source ~/vllm-env/bin/activate
+#   bash scripts/launch_phase2_v8.sh
+
+defaults:
+  - phase2_efe
+  - _self_
+
+world_model:
+  free_bits: 0.1               # Layer 4 fix: KL floor 32 nats -> 3.2 nats
+  decoder_z_only: true         # Layer 6 fix: prevents GRU posterior bypass
+
+domain_selective: true         # Layer 3 fix: per-item action->corpus-domain coupling

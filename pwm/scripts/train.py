@@ -254,6 +254,12 @@ class PWMTrainer:
     _WM_LR: float = 1e-4
     _WM_WD: float = 1e-6
     _WM_GRAD_CLIP: float = 1000.0
+    # Layer 7 fix: freeze WM after IDL converges to prevent encoder collapse.
+    # IDL converges at ~step 300 (cos_sim=-1.0). We run WM training to step 10K
+    # to ensure W_a is well-trained, then freeze. Actor/critic use the frozen WM
+    # for imagination rollouts. This is the principled two-phase design for corpus
+    # env (no continuous env reward to keep WM learning signal alive).
+    _WM_FREEZE_STEP: int = 10_000
 
     _ACTOR_LR: float = 3e-5
     _ACTOR_GRAD_CLIP: float = 100.0
@@ -770,8 +776,22 @@ class PWMTrainer:
 
         metrics: dict[str, float] = {}
 
-        # Phase A — World Model
-        metrics.update(self._phase_a(batch))
+        # Phase A — World Model (frozen after _WM_FREEZE_STEP to prevent encoder collapse)
+        # The corpus env has no continuous reward signal; once IDL converges (~step 300)
+        # and W_a is trained (~step 10K), all WM gradient sources dry up while weight
+        # decay continues → encoder collapses between step 50K-100K (Layer 7 failure).
+        # Fix: freeze WM after step 10K; actor/critic learn on frozen WM's imagined states.
+        if self.step < self._WM_FREEZE_STEP:
+            metrics.update(self._phase_a(batch))
+        else:
+            # WM frozen — clear accumulated WM gradients (from actor BPTT) each step
+            # so WM .grad tensors don't grow unbounded. opt_wm.step() is never called,
+            # so WM parameters stay constant at their step-10K values.
+            self.opt_wm.zero_grad(set_to_none=True)
+            metrics["loss/wm_total"] = self._last_real_vfe + self._DIV_LOSS_WEIGHT * (-1.0)
+            metrics["loss/vfe"] = self._last_real_vfe
+            metrics["loss/div"] = -1.0
+            metrics["train/wm_frozen"] = 1.0
 
         # Initialise imagination start from a fresh WM state (not the replay batch)
         # to keep actor/critic imagination independent of the WM gradient graph.
