@@ -1,0 +1,33 @@
+{
+  "phase": 2,
+  "phase_name": "efe_actor",
+  "checkpoint": "checkpoints/final_v3_seed44.pt",
+  "protocol": {
+    "n_episodes": 200,
+    "h_steps": 15,
+    "camatk_metric": "negative_prior_entropy H(p_prior(z|h_t)) \u2014 action-dependent WM surprise",
+    "sphuratta_percentile": 95,
+    "seed": 2025,
+    "note": "Episodes run in WM imagination only. Camatk\u0101ra = negative prior entropy H(p(z|h_t)) per imagination step. \u0394F = max(H_entropy_increase, 0): reward fires when WM prior gains entropy. EFE actor (epistemic value) seeks high-entropy WM states \u2192 fires sphuratt\u0101 faster than REINFORCE (random actions). Sphuratt\u0101 fires when R_camatk > running 95th-percentile of history."
+  },
+  "efe_actor": {
+    "mean_steps_to_sphuratta": 15.0,
+    "sphuratta_count": 0,
+    "sphuratta_rate": 0.0,
+    "T_p50": 15.0,
+    "T_p25": 15.0,
+    "T_p75": 15.0
+  },
+  "reinforce_baseline": {
+    "mean_steps_to_sphuratta": 15.0,
+    "sphuratta_count": 0,
+    "sphuratta_rate": 0.0,
+    "T_p50": 15.0,
+    "T_p25": 15.0,
+    "T_p75": 15.0
+  },
+  "h1_ratio": 1.0,
+  "h1_threshold": 0.5,
+  "h1_pass": false,
+  "status": "FAIL"
+}

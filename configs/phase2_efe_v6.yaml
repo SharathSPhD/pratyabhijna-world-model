@@ -1,0 +1,43 @@
+# Phase 2 v6: Full Phase-1 Warm-Start + Layer 5 Encoder-Collapse Fix
+#
+# Root cause analysis (five-layer H1 failure chain):
+#   Layer 1 (curr_vfe=0) — fixed in commit b78a2bf
+#   Layer 2 (zero-action replay) — fixed in commit b78a2bf
+#   Layer 3 (passive env, W_a blind) — DomainSelectiveCachedCorpusEnv (commit 2d6add4)
+#   Layer 4 (free_bits=1.0 KL floor) — free_bits=0.1 (commit 2d6add4)
+#   Layer 5 (encoder+prior+W_z collapse) — **THIS VERSION FIXES**
+#     v4 IDL (400K steps, free_bits=1.0) catastrophically forgot all obs-processing:
+#       encoder.0.weight norm: 5.47 → 0.00  (Phase 1 → v4 final)
+#       prior.0.weight  norm: 4.91 → 0.00
+#       input_proj W_z  norm: 4.23 → 0.00  (latent columns of GRU input_proj)
+#     Root mechanism: IDL gradient >> VFE gradient (KL clamped by 32-nat floor) →
+#       weight decay eroded encoder/prior/W_z over 400K steps while only W_a grew.
+#     v5 warm-started from v4 → inherited collapsed encoder → VFE stuck at 0.0617
+#       floor for 43K steps with critic=0.000, actor≈0 (zero reward signal).
+#
+# Fix: Warm-start from Phase 1 checkpoint (healthy encoder, prior, W_z; all ~norm>4)
+#   Phase 1 WM state:
+#     encoder.0.weight: norm=5.47 ✓
+#     prior.0.weight:   norm=4.91 ✓
+#     input_proj W_z:   norm=4.23 ✓ (W_a=0.00 → IDL will train to ~0.22 in ~3700 steps)
+#   With free_bits=0.1, KL > 3.2 nats provides gradient through encoder+prior from step 0.
+#   IDL and VFE are now balanced: IDL trains W_a, VFE trains W_z+encoder+prior.
+#   The encoder-collapse feedback loop cannot re-form.
+#
+# Expected signals:
+#   Step    100: VFE > 0.2 (reconstruction from working encoder, free_bits=0.1)
+#   Step   3700: cos_sim → -1.000 (IDL re-converges, W_a trained)
+#   Step  10000: KL rising, domain clusters forming in prior
+#   Step  50000: VFE floor breakout above 0.062 (prior adapting)
+#   Step 200000: EFE > REINFORCE sphurattā rate (H1 gate)
+#
+# Launch: source ~/vllm-env/bin/activate && bash scripts/launch_phase2_v6.sh
+
+defaults:
+  - phase2_efe
+  - _self_
+
+world_model:
+  free_bits: 0.1               # Layer 4 fix: KL floor 32 nats → 3.2 nats
+
+domain_selective: true         # Layer 3 fix: per-item action→corpus-domain coupling

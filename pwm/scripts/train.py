@@ -67,7 +67,9 @@ from pwm.memory.citta_store import CittaStore  # type: ignore[import]
 from pwm.memory.replay import ReplayBuffer, Transition  # type: ignore[import]
 from pwm.rewards.camatk import CamatkaraReward  # type: ignore[import]
 from pwm.pipeline.pancakrtya_loop import PancakrtyaLoop, LoopConfig  # type: ignore[import]
-from pwm.data.corpus_dataset import PhaseOneEnv  # type: ignore[import]
+from pwm.active_inference.efe_actor import EFEActor  # type: ignore[import]   # Phase 2+
+from pwm.active_inference.crspp import CRSPPModel    # type: ignore[import]   # Phase 2+
+from pwm.data.corpus_dataset import PhaseOneEnv      # type: ignore[import]   # Phase 1+
 
 log = logging.getLogger(__name__)
 
@@ -289,8 +291,22 @@ class PWMTrainer:
         ).to(self.device)
 
         feature_dim = wm_cfg.hidden_dim_apara + wm_cfg.stoch_dim * wm_cfg.stoch_classes
+        self._action_dim: int = int(wm_cfg.action_dim)  # cache as plain int to avoid Tensor|Module widening
 
-        self.efe_actor = EFEActorStub(feature_dim, wm_cfg.action_dim).to(self.device)
+        # Phase 2+: real EFE actor replaces zero-weight stub
+        self.efe_actor = EFEActor(
+            hidden_dim=wm_cfg.hidden_dim_apara,
+            stoch_dim=wm_cfg.stoch_dim,
+            n_cats=wm_cfg.stoch_classes,
+            action_dim=wm_cfg.action_dim,
+            n_layers=3,
+        ).to(self.device)
+
+        # Phase 2+: CRSPP preference model (SR-AIF creative value)
+        self.crspp = CRSPPModel(
+            hidden_dim=wm_cfg.hidden_dim_apara,
+            gamma=self._GAMMA,
+        ).to(self.device)
 
         self.critic = CriticHead(feature_dim).to(self.device)
         self.slow_critic = CriticHead(feature_dim).to(self.device)
@@ -323,7 +339,7 @@ class PWMTrainer:
             gamma=self._GAMMA,
             lambda_=self._LAM,
             llm_enabled=cfg.llm.enabled,
-            efe_enabled=False,  # Phase 2+ only
+            efe_enabled=True,   # Phase 2: EFEActor active
         )
         self.loop = PancakrtyaLoop(
             world_model=self.world_model,
@@ -332,7 +348,7 @@ class PWMTrainer:
             cfg=loop_cfg,
         )
 
-        # Phase 1: Corpus environment selection (priority order):
+        # Corpus environment selection (priority order):
         #   1. CachedCorpusEnv — if CORPUS_CACHE_DIR env var set and meta.json exists.
         #      ~100K step/sec; pre-embed once with: python -m pwm.data.embed_cache
         #   2. PhaseOneEnv    — live sentence-transformer embedding from .txt files.
@@ -343,17 +359,32 @@ class PWMTrainer:
         _cache_dir = Path(cache_dir_env) if cache_dir_env else Path("data/embed_cache")
         _cache_ready = (_cache_dir / "meta.json").exists() and (_cache_dir / "embeddings.npy").exists()
 
+        self._domain_selective: bool = bool(getattr(cfg, "domain_selective", False))
         if _cache_ready:
-            from pwm.data.embed_cache import CachedCorpusEnv  # type: ignore[import]
-            log.info("CachedCorpusEnv: loading pre-embedded corpus from %s", _cache_dir)
-            self.env: Any = CachedCorpusEnv(
-                cache_dir=_cache_dir,
-                batch_size=cfg.training.batch_size,
-                seq_len=cfg.training.seq_len,
-                obs_dim=wm_cfg.obs_dim,
-                action_dim=wm_cfg.action_dim,
-                device=self.device,
-            )
+            if self._domain_selective:
+                from pwm.data.embed_cache import DomainSelectiveCachedCorpusEnv  # type: ignore[import]
+                log.info(
+                    "DomainSelectiveCachedCorpusEnv (v5): action→domain coupling from %s", _cache_dir
+                )
+                self.env: Any = DomainSelectiveCachedCorpusEnv(
+                    cache_dir=_cache_dir,
+                    batch_size=cfg.training.batch_size,
+                    seq_len=cfg.training.seq_len,
+                    obs_dim=wm_cfg.obs_dim,
+                    action_dim=wm_cfg.action_dim,
+                    device=self.device,
+                )
+            else:
+                from pwm.data.embed_cache import CachedCorpusEnv  # type: ignore[import]
+                log.info("CachedCorpusEnv: loading pre-embedded corpus from %s", _cache_dir)
+                self.env: Any = CachedCorpusEnv(
+                    cache_dir=_cache_dir,
+                    batch_size=cfg.training.batch_size,
+                    seq_len=cfg.training.seq_len,
+                    obs_dim=wm_cfg.obs_dim,
+                    action_dim=wm_cfg.action_dim,
+                    device=self.device,
+                )
         elif corpus_dir.exists() and sum(1 for _ in corpus_dir.rglob('*.txt')) > 0:
             _txt_count = sum(1 for _ in corpus_dir.rglob('*.txt'))
             log.info('PhaseOneEnv: using real corpus at %s (%d files)', corpus_dir, _txt_count)
@@ -369,8 +400,8 @@ class PWMTrainer:
             )
         else:
             log.warning(
-                'PhaseOneEnv: corpus not found at %s — falling back to TextEnv stub. '
-                'Run corpus/build.py or set CORPUS_ROOT to real data.',
+                'Corpus not found at %s — falling back to TextEnv stub. '
+                'Set CORPUS_ROOT to real data or CORPUS_CACHE_DIR to embed cache.',
                 corpus_dir,
             )
             self.env = TextEnv(
@@ -387,8 +418,9 @@ class PWMTrainer:
             weight_decay=self._WM_WD,
             eps=1e-8,
         )
+        # Phase 2+: joint actor + CRSPP optimisation
         self.opt_actor = torch.optim.Adam(
-            self.efe_actor.parameters(),
+            list(self.efe_actor.parameters()) + list(self.crspp.parameters()),
             lr=self._ACTOR_LR,
             eps=1e-8,
         )
@@ -451,31 +483,75 @@ class PWMTrainer:
 
     # ── Phase A: World Model ──────────────────────────────────────────────────
 
+    # Imagination diversity loss weight — trains WM to produce different h_t
+    # for different actions even in a passive (non-interactive) environment.
+    # Without this, the corpus env's action-independence drives W_a → 0, making
+    # prior entropy constant and the EFE advantage unmeasurable.
+    _DIV_LOSS_WEIGHT: float = 0.05
+
     def _phase_a(self, batch: tuple[Tensor, Tensor, Tensor, Tensor]) -> dict[str, float]:
         """
-        Phase A: Variational Free Energy minimisation.
+        Phase A: Variational Free Energy minimisation + imagination diversity.
 
         The world model observes a (B, T, D) sequence from replay and minimises
         VFE = KL(q||p) + reconstruction_loss across all active Trika levels.
         grad_clip=1000 (DreamerV3 §A.1) is large because the KL divergence can spike
         when the prior collapses; clipping prevents catastrophic gradient steps.
+
+        Imagination Diversity Loss (IDL):
+        Adds a contrastive term that penalises cosine similarity between h_t
+        computed from two DIFFERENT random one-hot actions applied to the same
+        initial state. This trains W_a (the action columns of input_proj) to be
+        non-trivially non-zero, giving the EFE actor a signal it can exploit.
+
+        Without IDL: VFE loss drives W_a → 0 (action is uninformative in corpus env).
+        With IDL:    W_a learns to route action identity into distinct h_t directions.
+        Weight 0.05 keeps IDL below VFE (~0.6) but large enough to maintain W_a signal.
         """
         obs_seq, action_seq, reward_seq, done_seq = batch
-        init_states = self.world_model.init_state(obs_seq.shape[0], self.device)
+        B = obs_seq.shape[0]
+        init_states = self.world_model.init_state(B, self.device)
 
         with torch.autocast(device_type=self.device.type, dtype=self._mp_dtype, enabled=self._use_amp):
             loss_dict = self.world_model.world_model_loss(
                 obs_seq, action_seq, reward_seq, done_seq.float(), init_states
             )
-            wm_loss: Tensor = loss_dict["total"]  # type: ignore[assignment]
+            vfe_loss: Tensor = loss_dict["total"]  # type: ignore[assignment]
+
+            # ── Imagination Diversity Loss ────────────────────────────────────
+            # Sample two distinct random one-hot actions for each batch element.
+            _adim = self._action_dim
+            idx1 = torch.randint(0, _adim, (B,), device=self.device)
+            idx2 = (idx1 + torch.randint(1, _adim, (B,), device=self.device)) % _adim  # guaranteed ≠ idx1
+            a1 = nn.functional.one_hot(idx1, num_classes=_adim).float()  # (B, adim)
+            a2 = nn.functional.one_hot(idx2, num_classes=_adim).float()  # (B, adim)
+
+            # Single imagination step: different actions → should yield different h_t
+            fresh_states = self.world_model.init_state(B, self.device)
+            states1, _ = self.world_model.imagine_step(a1, fresh_states, step=0)
+            states2, _ = self.world_model.imagine_step(a2, fresh_states, step=0)
+            h1 = states1[0][0]  # (B, hidden_dim) — Aparā level h_t
+            h2 = states2[0][0]  # (B, hidden_dim)
+
+            # Diversity objective: minimise cosine similarity (maximise dissimilarity)
+            cos_sim = nn.functional.cosine_similarity(h1, h2, dim=-1).mean()
+            div_loss = cos_sim  # minimise → h1, h2 become more orthogonal
+
+            wm_loss: Tensor = vfe_loss + self._DIV_LOSS_WEIGHT * div_loss
 
         self.opt_wm.zero_grad(set_to_none=True)
         wm_loss.backward()
         nn.utils.clip_grad_norm_(self.world_model.parameters(), self._WM_GRAD_CLIP)
         self.opt_wm.step()
 
+        # Cache real VFE so Phase B/C imagination can use ΔF as camatkāra signal.
+        self._last_real_vfe: float = float(vfe_loss.item())
+
         return {
             "loss/wm_total": float(wm_loss.item()),
+            "loss/vfe": float(vfe_loss.item()),
+            "loss/div": float(div_loss.item()),
+            "train/action_cos_sim": float(cos_sim.item()),
             **{
                 f"loss/{k}": float(v.item() if isinstance(v, Tensor) else v)
                 for k, v in loss_dict.items()
@@ -506,19 +582,42 @@ class PWMTrainer:
         imag_rewards: list[Tensor] = []
         imag_dones: list[Tensor] = []
 
+        _action_dim = self._action_dim
         with torch.autocast(device_type=self.device.type, dtype=self._mp_dtype, enabled=self._use_amp):
             for t in range(H):
-                feat = self.world_model.get_features(imag_states, level=0)
-                action = self.efe_actor(feat)
-                imag_states, _ = self.world_model.imagine_step(action, imag_states, step=t)
+                h_t, z_t = imag_states[0]
+                # Phase 2+: EFEActor selects action from (h, z); embed as one-hot
+                act_idx = self.efe_actor.select_action(h_t, z_t)          # (B,)
+                action = torch.nn.functional.one_hot(act_idx, num_classes=_action_dim).float()
+                imag_states, logits_prior_list = self.world_model.imagine_step(
+                    action, imag_states, step=t
+                )
 
                 h_t, z_t = imag_states[0]
                 imag_h_list.append(h_t)
                 imag_z_list.append(z_t)
 
-                # Camatkāra reward along imagined trajectory
+                # Camatkāra reward: prior-entropy VFE proxy (action-dependent surprise).
+                #
+                # Using negative prior entropy as `curr_vfe` so that:
+                #   ΔF = max(H_prev_neg - H_curr_neg, 0) = max(ΔH_entropy_increase, 0)
+                # i.e., reward fires when the WM prior GAINS entropy → actor navigated
+                # the WM into a more uncertain/novel latent region (epistemic value).
+                # This is fully action-dependent: different actions → different h_t
+                # → different prior distributions → different entropy.
+                # The EFE actor's epistemic objective exactly aligns with maximising this.
+                #
+                # IMPORTANT: z_t ~ Cat(32×32) means 32 INDEPENDENT Cat(32) distributions.
+                # Use per-dimension log_softmax (dim=-1 over the 32 classes), NOT reshape
+                # to 1024 which would model a single Cat(1024) — statistically wrong.
+                lp_prior = logits_prior_list[0]  # (B, stoch_dim, stoch_classes)
+                log_p_b = nn.functional.log_softmax(lp_prior, dim=-1)  # (B, D, K) per-dim
+                entropy_per_dim_b = -(log_p_b.exp() * log_p_b).sum(-1)  # (B, D)
+                total_entropy_b = entropy_per_dim_b.sum(-1).mean()       # scalar
+                prior_neg_entropy = float(-total_entropy_b.item())
+                # range: [−32·log32, 0] nats; more negative = higher entropy = more novel
                 camatk_tensor, _ = self.camatk.compute(
-                    curr_vfe=0.0,          # VFE not available in imagination; uses ΔI + empowerment
+                    curr_vfe=prior_neg_entropy,
                     hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
                     empowerment=0.0,
                 )
@@ -537,20 +636,28 @@ class PWMTrainer:
             values_t = self.slow_critic.value(feats_t.detach())  # (B, H)
             returns_t = _compute_lambda_returns(rewards_t, values_t, dones_t, self._GAMMA, self._LAM)
 
-            # Actor loss: negative λ-return + entropy regulariser (svātantrya)
-            actor_outs = self.efe_actor(feats_t.reshape(B * H, -1))
-            entropy = -(torch.softmax(actor_outs, dim=-1) * torch.log_softmax(actor_outs, dim=-1)).sum(-1).mean()
-            entropy_coef = getattr(self.cfg.actor, "entropy_coef", 3e-4)
-            actor_loss = -returns_t.mean() - entropy_coef * entropy
+            # Phase 2+: EFE actor loss — pg_loss + EFE minimisation + entropy bonus
+            # imag_h_list / imag_z_list hold (B, hidden) and (B, D, K) tensors per step
+            h_flat = torch.stack(imag_h_list, dim=1).reshape(B * H, -1)        # (B*H, hidden)
+            z_for_actor = torch.stack(imag_z_list, dim=1)                       # (B, H, D, K)
+            z_for_actor = z_for_actor.reshape(B * H, *z_for_actor.shape[2:])   # (B*H, D, K)
+            advantage = returns_t.reshape(B * H)
+            efe_losses = self.efe_actor.actor_loss(h_flat, z_for_actor, advantage)
+            actor_loss = efe_losses["actor_total"]
+            actor_entropy = efe_losses["entropy"]
 
         self.opt_actor.zero_grad(set_to_none=True)
         actor_loss.backward()
-        nn.utils.clip_grad_norm_(self.efe_actor.parameters(), self._ACTOR_GRAD_CLIP)
+        nn.utils.clip_grad_norm_(
+            list(self.efe_actor.parameters()) + list(self.crspp.parameters()),
+            self._ACTOR_GRAD_CLIP,
+        )
         self.opt_actor.step()
 
         return {
             "loss/actor": float(actor_loss.item()),
-            "train/actor_entropy": float(entropy.item()),
+            "loss/actor_efe": float(efe_losses["efe_loss"].item()),
+            "train/actor_entropy": float(actor_entropy.item()),
             "train/returns_mean": float(returns_t.mean().item()),
         }
 
@@ -579,13 +686,25 @@ class PWMTrainer:
 
         with torch.no_grad():
             for t in range(H):
-                feat = self.world_model.get_features(imag_states, level=0)
-                action = self.efe_actor(feat)
-                imag_states, _ = self.world_model.imagine_step(action, imag_states, step=t)
+                h_t_c, z_t_c = imag_states[0]
+                # Phase 2+: EFEActor.select_action(h, z) → discrete action index
+                action = self.efe_actor.select_action(h_t_c, z_t_c)   # (B,)
+                # Embed discrete action into continuous action_dim for WM step
+                _adim = self._action_dim
+                action_emb = torch.nn.functional.one_hot(action, num_classes=_adim).float()
+                imag_states, logits_prior_list_c = self.world_model.imagine_step(
+                    action_emb, imag_states, step=t
+                )
                 h_t, z_t = imag_states[0]
                 imag_feats.append(torch.cat([h_t, z_t.flatten(-2)], dim=-1))
+
+                # Same prior-entropy proxy as Phase B — per-dimension Cat(32) entropy.
+                lp_prior_c = logits_prior_list_c[0]  # (B, D, K)
+                log_p_c = nn.functional.log_softmax(lp_prior_c, dim=-1)
+                entropy_per_dim_c = -(log_p_c.exp() * log_p_c).sum(-1)  # (B, D)
+                prior_neg_entropy_c = float(-entropy_per_dim_c.sum(-1).mean().item())
                 camatk_tensor, _ = self.camatk.compute(
-                    curr_vfe=0.0,
+                    curr_vfe=prior_neg_entropy_c,
                     hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
                     empowerment=0.0,
                 )
@@ -671,19 +790,29 @@ class PWMTrainer:
         obs = self.env.reset()
         loop_state = self.loop.init(self.env.batch_size, self.device)
 
-        # action_dim for replay storage (loop_state.action uses wm.strides[0]=1,
-        # not action_dim — store zero actions of correct shape for RSSM)
+        # action_dim for replay storage. Store random one-hot actions so that the
+        # WM's GRU action-conditioning weights receive gradient signal for all action
+        # values, not just zero. This is critical: if the replay buffer contains only
+        # zero actions, the GRU learns to ignore action inputs entirely, making the
+        # prior entropy constant regardless of actor decisions (zero reward signal).
         _action_dim = self.cfg.world_model.action_dim
         while len(self.replay) < min_buf:
-            _, reward, done = self.env.step(loop_state.action)
+            B_env = obs.shape[0]
+            rand_actions_np = np.eye(_action_dim, dtype=np.float32)[
+                np.random.randint(_action_dim, size=B_env)
+            ]  # (B, action_dim) random one-hot — consistent with train-loop convention
+            if self._domain_selective:
+                step_action = torch.tensor(rand_actions_np, device=self.device)
+            else:
+                step_action = loop_state.action
+            _, reward, done = self.env.step(step_action)
             next_obs = obs  # stub: next obs same as obs for warm-up
             # Store each batch item as a separate transition so that
             # _collate_sequences assembles (B, T, obs_dim) correctly.
-            B_env = obs.shape[0]
             for b in range(B_env):
                 self.replay.add(Transition(
                     obs=obs[b].cpu().numpy(),
-                    action=np.zeros(_action_dim, dtype=np.float32),
+                    action=rand_actions_np[b],
                     reward=float(reward[b].item()),
                     done=bool(done[b].item()),
                     next_obs=next_obs[b].cpu().numpy(),
@@ -712,18 +841,29 @@ class PWMTrainer:
 
             # Collect one real transition per train step to keep buffer fresh.
             # Store each batch item separately so _collate_sequences sees (obs_dim,) obs.
-            # Phase 1: bypass loop.step() (its action has wrong shape for RSSM) —
-            # use env.step() with a zero action (actor is a stub in Phase 1).
-            _zero_action = torch.zeros(
-                self.env.batch_size, 1, device=self.device
-            )  # PancakrtyaLoop-compatible shape (B, strides[0])
-            obs_new, reward, done = self.env.step(_zero_action)
+            #
+            # Phase 2 v5 (domain_selective): generate the random action BEFORE stepping
+            # so the env uses it to pick the corpus domain.  This creates a genuine
+            # causal chain: rand_action_t → obs_{t+1} ∈ domain(rand_action_t).
+            # The WM then trains on (obs_t, rand_action_t, obs_{t+1}) sequences where
+            # obs_{t+1} is NOT independent of action_t — breaking Layer-3 passivity.
+            #
+            # Passive mode: use _zero_action (PancakrtyaLoop-compatible shape).
             B_env = obs.shape[0]
             _vfe = metrics.get("loss/wm_total", 0.0)
+            rand_actions_np = np.eye(_action_dim, dtype=np.float32)[
+                np.random.randint(_action_dim, size=B_env)
+            ]  # (B, action_dim) random one-hot for each batch item
+            if self._domain_selective:
+                # Pass one-hot actions so DomainSelectiveCachedCorpusEnv can decode them
+                step_action = torch.tensor(rand_actions_np, device=self.device)
+            else:
+                step_action = torch.zeros(B_env, 1, device=self.device)
+            obs_new, reward, done = self.env.step(step_action)
             for b in range(B_env):
                 self.replay.add(Transition(
                     obs=obs[b].cpu().numpy(),
-                    action=np.zeros(_action_dim, dtype=np.float32),
+                    action=rand_actions_np[b],
                     reward=float(reward[b].item()),
                     done=bool(done[b].item()),
                     next_obs=obs_new[b].cpu().numpy(),
@@ -737,9 +877,12 @@ class PWMTrainer:
                 elapsed = time.perf_counter() - t0
                 sps = self.step / elapsed
                 log.info(
-                    "step=%d  wm=%.4f  actor=%.4f  critic=%.4f  sps=%.1f",
+                    "step=%d  wm=%.4f  vfe=%.4f  div=%.4f  cos_sim=%.3f  actor=%.4f  critic=%.4f  sps=%.1f",
                     self.step,
                     metrics.get("loss/wm_total", 0.0),
+                    metrics.get("loss/vfe", metrics.get("loss/wm_total", 0.0)),
+                    metrics.get("loss/div", 0.0),
+                    metrics.get("train/action_cos_sim", 0.0),
                     metrics.get("loss/actor", 0.0),
                     metrics.get("loss/critic", 0.0),
                     sps,
@@ -857,6 +1000,15 @@ if _HYDRA:
         resume_ckpt = os.environ.get("PWM_RESUME_CHECKPOINT")
         if resume_ckpt and Path(resume_ckpt).exists():
             trainer.load_checkpoint(resume_ckpt)
+
+        # Cross-phase warm-start: load WM weights only from a Phase 1 checkpoint.
+        # Leaves efe_actor/critic at random init (Phase 2 trains these from scratch
+        # on top of the pre-trained world model substrate).
+        wm_ckpt = os.environ.get("PWM_RESUME_WM_ONLY")
+        if wm_ckpt and Path(wm_ckpt).exists() and not resume_ckpt:
+            ckpt = torch.load(wm_ckpt, map_location=trainer.device, weights_only=False)
+            trainer.world_model.load_state_dict(ckpt["world_model"])
+            log.info("Loaded WM-only from Phase 1 checkpoint: %s (step=%d)", wm_ckpt, ckpt.get("step", -1))
 
         trainer.train()
 else:
