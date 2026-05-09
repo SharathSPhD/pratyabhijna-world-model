@@ -787,16 +787,20 @@ via positive feedback (weaker encoder $\to$ weaker gradient $\to$ faster collaps
 \paragraph{Phase 2 v8: WM-freeze fix (training, 2026-05-09).}
 v8 introduces a two-phase protocol within Phase~2.
 \emph{Phase 2a} (steps 0--10K) trains the full WM including IDL:
-by step~10K, $\mathbf{W}_a$ has norm 0.52, $\cos\!\sin = -1.0$,
-and encoder norm is $\approx 2.49$ (healthy).
+by step~10K, $\mathbf{W}_a$ has norm 0.52, $\cos\!\text{sim} = -1.0$,
+and encoder norm converges to $2.873$ (healthy; confirmed by in-log probe).
 \emph{Phase 2b} (steps 10K--400K) freezes the WM entirely; only the EFE actor
 and critic are updated.
+The WM-freeze transition fired precisely at step~10{,}000 (confirmed):
+encoder norm locked at $\mathbf{2.873}$ with zero variance across all subsequent
+steps ($\Delta\text{enc} = 0.000$ from steps 10{,}100--13{,}200+), and throughput
+recovered to 10.1~steps/s.
 The actor and critic exploit imagined trajectories from the frozen WM,
 whose action-dependent $h_t$ (via trained $\mathbf{W}_a$) provides the epistemic
 signal for EFE minimisation.
 This two-phase design matches the DreamerV3 actor--critic paradigm adapted for the
 corpus environment where no continuous reward signal keeps the WM learning alive.
-Gate results pending full 400K-step run (seed=49, expected 2026-05-10 01:00~UTC).
+Gate results pending full 400K-step run (seed=49, expected 2026-05-10 02:10~UTC).
 
 \paragraph{Diagnostic summary: seven-layer H1 failure chain.}
 Table~\ref{tab:h1_diagnosis} summarises all compounding failure layers.
