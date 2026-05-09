@@ -763,9 +763,16 @@ architecturally impossible.
 Warm-start from Phase~1 checkpoint with shape-filtered weight loading:
 the decoder is freshly initialised while encoder, prior, GRU, and $\mathbf{W}_a$
 are loaded (committed fix: strict$=$False with per-key shape check).
+Two additional training-stability fixes were required before the run could reach 400K steps:
+(i)~\textbf{NaN entropy fix}: manual $\sum p\log p$ in bfloat16 produces NaN when the policy
+peaks ($0\times{-}\infty=\text{NaN}$); replaced throughout with \texttt{Categorical.entropy()}
+which uses \texttt{torch.where} internally; (ii)~\textbf{advantage normalisation}:
+unnormalised $\lambda$-returns (range $\approx\pm30$) caused actor loss spikes to $\sim33$~nats
+at step~1800, pushing the policy to a deterministic corner and re-entering the NaN trap;
+normalising advantages to zero-mean unit-variance before the REINFORCE update eliminated the spikes.
 At step~100: VFE $= 0.0617$ (at the free\_bits floor $= 0.06$), $\cos\!\sin = +0.327$;
-at step 1{,}600: $\cos\!\sin = -1.000$ (IDL re-converges, consistent with v6 at step~300).
-The l$_{\text{pred}} = \text{VFE} - \text{KL\_floor} \approx 0.0017$ at step 2{,}500
+at step 300: $\cos\!\sin = -1.000$ (IDL re-converges); actor bounded in $\pm0.005$ through step~6{,}000.
+The l$_{\text{pred}} = \text{VFE} - \text{KL\_floor} \approx 0.0017$ at step~2{,}500
 indicates the z-only decoder has learned to reconstruct from Phase~1's informative $z_t$
 within $\sim$2{,}500 steps.
 Gate results pending full 400K-step run (expected 2026-05-09 23:00).
