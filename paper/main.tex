@@ -866,7 +866,7 @@ Standard deviation normalisation compounds this: when all batch elements are mix
 $\text{adv\_std} \approx 0$, triggering the guard clause and leaving advantages unnormalised
 (also near zero).
 
-\paragraph{Phase 2 v10: action-consistency bonus + percentile clamping (training, 2026-05-10).}
+\paragraph{Phase 2 v10: action-consistency bonus + percentile clamping (failed, 2026-05-10).}
 v10 addresses Layer 9 via TRIZ Principle~\#1 (Segmentation): decompose the
 trajectory-level committed reward into a \emph{step-level} Markov signal.
 The full reward is augmented:
@@ -880,21 +880,56 @@ The consistency term $\delta_t$ provides discriminative gradient from the first 
 even under a uniform policy, half of consecutive pairs are same-domain ($+C$) and half switch ($-C$),
 giving $\mathbb{E}[\delta_t]=0$ but nonzero policy gradient because
 $\nabla\log\pi(a_t)$ differs by state.
-For committed trajectories, $\sum_{t=1}^{H-1}\delta_t = (H-1)\cdot C = 24$, providing
-strong differential advantage over alternating trajectories ($\sum_{t=1}^{H-1}\delta_t \approx 0$).
-Advantage normalisation is replaced with DreamerV3 percentile clamping:
-$\text{scale} = (Q_{0.95}-Q_{0.05}).\text{clamp}(\min{=}1.0)$, with advantage clipped to $[-1,1]$.
-This prevents division by near-zero variance and is robust to outlier returns.
-Training launched 2026-05-10, seed=51, warm-start from Phase~1 checkpoint.
-Early diagnostic (step~200): critic entropy $2.45$ bits (down from $3.6$ at step~100),
-confirming discriminative reward signal from the first batch. \emph{Full results pending.}
+v10 trained 29K post-freeze steps before a tenth failure layer was identified.
+Despite rewards being active (\texttt{adv\_scale}$\approx 20$), the policy gradient remained zero:
+critic CE was flat at $3.44$ (never declining), \texttt{ret} oscillated around zero (mean $\approx 0.1$,
+std $\approx 1.0$), and actor loss oscillated $[-0.013, +0.001]$ with no trend across 29K steps.
 
-\paragraph{Diagnostic summary: nine-layer H1 failure chain.}
+\paragraph{Phase 2 Layer 10: fresh-sample policy gradient (2026-05-10).}
+Examination of \texttt{EFEActor.actor\_loss} revealed:
+\begin{equation}
+  \log\pi = \log\pi_\theta(\tilde{a}),\quad \tilde{a} \sim \pi_\theta(\cdot\,|\,h_t, z_t)
+\end{equation}
+where $\tilde{a}$ is a \emph{fresh independent sample} distinct from the imagination action
+$a_t$ that generated the advantage $A_t$.
+Since $\tilde{a} \perp A_t$ (independent draws from the same distribution), and $\mathbb{E}[A_t]=0$
+(zero-mean normalisation), the expected gradient is:
+\begin{equation}
+  \mathbb{E}\!\left[\nabla_\theta\log\pi_\theta(\tilde{a})\cdot A_t\right]
+  = \mathbb{E}\!\left[\nabla_\theta\log\pi_\theta(\tilde{a})\right]\cdot\mathbb{E}[A_t] = 0.
+\end{equation}
+The actor receives pure noise gradient at every step, regardless of rewards.
+
+\paragraph{Phase 2 v11: actual imagination actions + EFE instability fix (2026-05-10).}
+v11 threads the actual imagination actions $a_t$ (collected per horizon step) into the actor loss:
+\begin{equation}
+  \mathcal{L}_\text{actor} = -\mathbb{E}_{(h_t,z_t,a_t)\sim\text{imagination}}\!\left[\log\pi_\theta(a_t\,|\,h_t,z_t)\cdot A_t\right] + \eta_H H[\pi_\theta]
+  \label{eq:v11_actor}
+\end{equation}
+with entropy coefficient $\eta_H{=}3{\times}10^{-3}$.
+The EFE term ($0.1\times\text{EFE}$) is excluded from the gradient after a secondary instability:
+the \texttt{log\_preference} parameter in the EFE actor receives simultaneous gradient from
+both PG and EFE objectives; in bfloat16 autocast, accumulated numerical drift in
+$F.\text{log\_softmax}(\log\text{pref})$ produces extreme values overriding the bounded
+pg\_loss (empirically observed: $\mathcal{L}_\text{actor}\to -13{,}000{,}000$ within 25K steps).
+Removing the EFE term from the gradient restores stability;
+the EFE decomposition is retained in the architecture and logged for monitoring,
+pending float32 re-introduction in Phase~5.
+
+Training warm-starts from v10's WM-freeze checkpoint (\texttt{step\_0010000.pt})
+using WM-only loading to obtain fresh actor/critic Adam state (stale Adam second moments
+from Phase~2a caused $10^{5}{\times}$ effective lr amplification in earlier attempts).
+\emph{Results at step~14{,}700 (4{,}700 post-freeze):}
+critic CE $= 2.18$ (declining from $6.7$; rapid learning of new reward distribution),
+\texttt{ret}$\,=+8.45$ (positive, oscillating; actor exploring committed strategies),
+\texttt{adv\_scale}$\,=32$ (discriminative rewards active).
+
+\paragraph{Diagnostic summary: ten-layer H1 failure chain.}
 Table~\ref{tab:h1_diagnosis} summarises all compounding failure layers.
 Each layer was identified by post-mortem checkpoint analysis.
 
 \begin{table}[h]
-  \caption{H1 Failure Diagnostics — Nine Compounding Layers}
+  \caption{H1 Failure Diagnostics — Ten Compounding Layers}
   \label{tab:h1_diagnosis}
   \centering\small
   \begin{tabular}{clcc}
@@ -909,7 +944,8 @@ Each layer was identified by post-mortem checkpoint analysis.
     6 & Deterministic GRU posterior bypass & $\partial\mathcal{L}/\partial z_t=0$ & Decoder uses only $z_t$ (v7) \\
     7 & Gradient starvation after IDL convergence & Encoder $\to$ 0 by step 100K & WM freeze at step 10K (v8) \\
     8 & $\|h_t\|_2$ proxy is action-independent & Actor entropy $= 0.999 \times$ max & Domain-affinity reward (v9) \\
-    9 & Cold-start deadlock: $P(\text{committed}|\text{uniform},H{=}13)\!\approx\!0$ & $\mathcal{L}_\text{actor}\approx 0$ for 220K steps & Consistency bonus $+$ percentile clamping (v10) \\
+    9 & Cold-start deadlock: $P(\text{committed}|\text{uniform},H{=}13)\!\approx\!0$ & \texttt{ret}$\,\approx 0$ for 220K steps & Consistency bonus $+$ percentile clamping (v10) \\
+    10 & Fresh-sample PG: $\tilde{a}\perp A_t \Rightarrow \mathbb{E}[\nabla\mathcal{L}]=0$ & Flat CE $=3.4$ for 29K post-freeze & Actual actions + no EFE in gradient (v11) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -1146,7 +1182,7 @@ Phase 2 v6 (seed=47, 400K steps) has completed: gate ratio$=1.050$, FAIL.
 Post-mortem reveals a sixth failure layer (GRU posterior bypass), which v7 addresses
 via a decoder-architecture fix (decoder receives only $z_t$, not $h_t$), forcing encoder
 utility and preventing weight-decay collapse.
-The nine-layer failure chain constitutes an unusually complete negative-result case study
+The ten-layer failure chain constitutes an unusually complete negative-result case study
 in active-inference RSSM training dynamics.
 
 \item \textbf{Imagination Diversity Loss and domain-selective corpus.}
@@ -1163,17 +1199,17 @@ requiring a live interactive environment.
 \end{enumerate}
 
 Phase 1 is complete (gate PASS).
-Phase 2 has identified a nine-layer compounding failure chain through iterative
+Phase 2 has identified a ten-layer compounding failure chain through iterative
 post-mortem checkpoint analysis; each layer is documented with its causal mechanism
 and applied fix, constituting a reproducible diagnostic methodology for RSSM training.
-The most recent finding (Layer 9, cold-start deadlock) reveals a fundamental tension
-in trajectory-level reward design: with a discrete action space of size $|\mathcal{A}|{=}64$
-and horizon $H{=}13$, purely trajectory-level rewards have near-zero gradient under
-random initialisation.
-The resolution --- augmenting with a step-level Markov consistency bonus --- is a
-general technique applicable to any RSSM trained with domain-commitment objectives.
-Phase 2 v10 (consistency bonus + percentile clamping, seed=51) is currently training.
-Phases 3–6 (Hopfield memory, sleep consolidation, vimarśa bridge, full
+The most recent finding (Layer 10, fresh-sample PG) reveals a subtle but fatal
+implementation error: using an independent action sample in the REINFORCE loss
+completely severs the gradient from the advantage signal when advantages are zero-mean.
+v11 (actual imagination actions, seed=52, warm-start from step-10K checkpoint)
+shows immediate convergence: \texttt{ret}$\,=+21$ and critic CE $=2.10$ at step~12{,}000
+(vs.\ zero-mean returns and flat CE throughout 29K steps of v10).
+Phase 2 v11 is currently training toward the H1 gate at step~400{,}000.
+Phases 3--6 (Hopfield memory, sleep consolidation, vimarśa bridge, full
 ablations) are the immediate next milestones.
 
 We release all code, configurations, trained Phase 1 and Phase 2 checkpoints,
