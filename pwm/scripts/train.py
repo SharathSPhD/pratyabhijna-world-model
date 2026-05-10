@@ -273,6 +273,12 @@ class PWMTrainer:
     _IMAGINE_HORIZON: int = 13
     _GAMMA: float = 0.99
     _LAM: float = 0.95
+    # Layer 9 fix (v10): step-level action-consistency bonus breaks cold-start deadlock.
+    # With 64 actions and H=13, P(committed trajectory|uniform) ≈ (1/2)^13 ≈ 0.01%,
+    # so domain-affinity alone yields near-zero advantage for all batch elements → no gradient.
+    # Consistency bonus gives +_CC for same-domain consecutive actions, -_CC for switches,
+    # providing discriminative gradient even from step 1 of training.
+    _CONSISTENCY_COEF: float = 2.0
 
     _CHECKPOINT_EVERY: int = 10_000
 
@@ -633,6 +639,7 @@ class PWMTrainer:
         imag_dones: list[Tensor] = []
 
         _action_dim = self._action_dim
+        prev_act_idx: "Tensor | None" = None  # tracks previous step's action for consistency bonus
         with torch.autocast(device_type=self.device.type, dtype=self._mp_dtype, enabled=self._use_amp):
             for t in range(H):
                 h_t, z_t = imag_states[0]
@@ -647,12 +654,13 @@ class PWMTrainer:
                 imag_h_list.append(h_t)
                 imag_z_list.append(z_t)
 
-                # Domain-affinity reward v9 (TRIZ #10 + #35).
-                # r_t = domain_sign × (h_t · v̂):
-                #   - Committed trajectories (EFE picks one domain) → all positive, grows with t
-                #   - Mixed trajectories (REINFORCE 50/50) → mean ≈ 0, cancels out
-                # _domain_axis is None before the WM freeze (step < 10K); use zero reward
-                # during Phase 2a so actor/critic don't train on a stale axis.
+                # Domain-affinity reward v10 (TRIZ #10 + #35 + #1).
+                # r_t = domain_sign × (h_t · v̂) + consistency_bonus:
+                #   - domain_affinity: committed trajectories get growing positive reward
+                #   - consistency_bonus: +_CC for same-domain consecutive steps, -_CC for switch
+                #     (Layer 9 fix: with H=13, 64 actions, P(committed|uniform)≈0.01% → zero gradient
+                #     from affinity alone; consistency bonus provides step-level gradient from step 1)
+                # _domain_axis is None before WM freeze (step < 10K) → zero reward during Phase 2a.
                 if self._domain_axis is not None:
                     domain_sign = torch.where(
                         act_idx < 32,
@@ -660,10 +668,21 @@ class PWMTrainer:
                         -torch.ones(B, device=self.device),
                     )                                                           # (B,)
                     proj = (h_t * self._domain_axis.unsqueeze(0)).sum(-1)      # (B,)
-                    imag_rewards.append((domain_sign * proj).detach())
+                    r_affinity = (domain_sign * proj).detach()
+                    if prev_act_idx is not None:
+                        same_domain = (act_idx < 32) == (prev_act_idx < 32)   # (B,) bool
+                        r_consistency = torch.where(
+                            same_domain,
+                            torch.full((B,), self._CONSISTENCY_COEF, device=self.device),
+                            torch.full((B,), -self._CONSISTENCY_COEF, device=self.device),
+                        )
+                        imag_rewards.append((r_affinity + r_consistency).detach())
+                    else:
+                        imag_rewards.append(r_affinity)
                 else:
                     imag_rewards.append(torch.zeros(B, device=self.device))
                 imag_dones.append(torch.zeros(B, dtype=torch.bool, device=self.device))
+                prev_act_idx = act_idx
 
             # Stack trajectory: (B, H)
             rewards_t = torch.stack(imag_rewards, dim=1)
@@ -683,12 +702,21 @@ class PWMTrainer:
             z_for_actor = torch.stack(imag_z_list, dim=1)                       # (B, H, D, K)
             z_for_actor = z_for_actor.reshape(B * H, *z_for_actor.shape[2:])   # (B*H, D, K)
             advantage = returns_t.reshape(B * H)
-            adv_std = advantage.std()
-            if adv_std > 1e-6:
-                advantage = (advantage - advantage.mean()) / (adv_std + 1e-8)
+            # v10: DreamerV3 percentile clamping — replaces std normalization (Layer 9 fix).
+            # Std normalization: when all batch elements are mixed (returns ≈ same value),
+            # std ≈ 0 → advantage is zeroed or left unnormalized. With percentile clamping:
+            # scale = IQR(5th–95th percentile), clamped to min=1.0 so near-zero returns
+            # still produce a well-defined (zero) advantage rather than numerical noise.
+            lo, hi = torch.quantile(advantage, 0.05), torch.quantile(advantage, 0.95)
+            adv_scale = (hi - lo).clamp(min=1.0)
+            advantage = (advantage - advantage.mean()) / adv_scale
+            advantage = advantage.clamp(-1.0, 1.0)
             efe_losses = self.efe_actor.actor_loss(h_flat, z_for_actor, advantage)
             actor_loss = efe_losses["actor_total"]
             actor_entropy = efe_losses["entropy"]
+
+        returns_mean = float(returns_t.mean().item())
+        returns_std = float(returns_t.std().item())
 
         if not torch.isfinite(actor_loss):
             log.warning("Actor loss is NaN/Inf at step %d — skipping update", self.step)
@@ -696,7 +724,9 @@ class PWMTrainer:
                 "loss/actor": float("nan"),
                 "loss/actor_efe": float("nan"),
                 "train/actor_entropy": float("nan"),
-                "train/returns_mean": float(returns_t.mean().item()),
+                "train/returns_mean": returns_mean,
+                "train/returns_std": returns_std,
+                "train/adv_scale": float(adv_scale.item()),
             }
 
         self.opt_actor.zero_grad(set_to_none=True)
@@ -711,7 +741,9 @@ class PWMTrainer:
             "loss/actor": float(actor_loss.item()),
             "loss/actor_efe": float(efe_losses["efe_loss"].item()),
             "train/actor_entropy": float(actor_entropy.item()),
-            "train/returns_mean": float(returns_t.mean().item()),
+            "train/returns_mean": returns_mean,
+            "train/returns_std": returns_std,
+            "train/adv_scale": float(adv_scale.item()),
         }
 
     # ── Phase C: Critic ───────────────────────────────────────────────────────
@@ -737,6 +769,7 @@ class PWMTrainer:
         for level in self.world_model._level_list:
             level.sequence_model.reset_state()  # type: ignore[union-attr]
 
+        prev_action: "Tensor | None" = None  # tracks previous step's action for consistency bonus
         with torch.no_grad():
             for t in range(H):
                 h_t_c, z_t_c = imag_states[0]
@@ -751,7 +784,7 @@ class PWMTrainer:
                 h_t, z_t = imag_states[0]
                 imag_feats.append(torch.cat([h_t, z_t.flatten(-2)], dim=-1))
 
-                # Domain-affinity reward v9 — same signal as Phase B (no-grad context).
+                # Domain-affinity reward v10 — same signal as Phase B (no-grad context).
                 if self._domain_axis is not None:
                     domain_sign_c = torch.where(
                         action < 32,
@@ -759,10 +792,21 @@ class PWMTrainer:
                         -torch.ones(B, device=self.device),
                     )                                                              # (B,)
                     proj_c = (h_t * self._domain_axis.unsqueeze(0)).sum(-1)      # (B,)
-                    imag_rewards.append(domain_sign_c * proj_c)
+                    r_affinity_c = domain_sign_c * proj_c
+                    if prev_action is not None:
+                        same_domain_c = (action < 32) == (prev_action < 32)
+                        r_consistency_c = torch.where(
+                            same_domain_c,
+                            torch.full((B,), self._CONSISTENCY_COEF, device=self.device),
+                            torch.full((B,), -self._CONSISTENCY_COEF, device=self.device),
+                        )
+                        imag_rewards.append(r_affinity_c + r_consistency_c)
+                    else:
+                        imag_rewards.append(r_affinity_c)
                 else:
                     imag_rewards.append(torch.zeros(B, device=self.device))
                 imag_dones.append(torch.zeros(B, dtype=torch.bool, device=self.device))
+                prev_action = action
 
         feats_t = torch.stack(imag_feats, dim=1)          # (B, H, D)
         rewards_t = torch.stack(imag_rewards, dim=1)       # (B, H)
@@ -949,7 +993,7 @@ class PWMTrainer:
                 # Layer 7 canary: encoder.0.weight norm (direct access, no state_dict copy)
                 enc_norm = self.world_model.levels[0].encoder[0].weight.data.norm().item()  # type: ignore[index,union-attr]
                 log.info(
-                    "step=%d  wm=%.4f  vfe=%.4f  div=%.4f  cos_sim=%.3f  actor=%.4f  critic=%.4f  enc=%.3f  sps=%.1f",
+                    "step=%d  wm=%.4f  vfe=%.4f  div=%.4f  cos_sim=%.3f  actor=%.4f  critic=%.4f  ret=%.2f  adv=%.2f  enc=%.3f  sps=%.1f",
                     self.step,
                     metrics.get("loss/wm_total", 0.0),
                     metrics.get("loss/vfe", metrics.get("loss/wm_total", 0.0)),
@@ -957,6 +1001,8 @@ class PWMTrainer:
                     metrics.get("train/action_cos_sim", 0.0),
                     metrics.get("loss/actor", 0.0),
                     metrics.get("loss/critic", 0.0),
+                    metrics.get("train/returns_mean", 0.0),
+                    metrics.get("train/adv_scale", 0.0),
                     enc_norm,
                     sps,
                 )
