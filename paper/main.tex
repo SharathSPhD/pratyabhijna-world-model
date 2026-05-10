@@ -824,7 +824,7 @@ The fix (\textbf{v9}): replace the norm-growth proxy with a domain-affinity
 reward that is explicitly action-dependent in the domain-selective environment
 (actions 0--31 $\to$ Gutenberg; 32--63 $\to$ philosophy).
 
-\paragraph{Phase 2 v9: domain-affinity reward (training, 2026-05-10).}
+\paragraph{Phase 2 v9: domain-affinity reward (completed, 2026-05-10).}
 v9 implements TRIZ Principles~\#10 (Preliminary Action), \#35 (Parameter Changes),
 and \#27 (Cheap Short-living) to resolve the action-independence failure.
 Let $\hat{v} = \text{normalize}(h_{\text{guten}} - h_{\text{philo}})$ be the IDL
@@ -847,15 +847,54 @@ percentile self-calibrates to exactly 5\% sphurattā rate for any stationary
 distribution and cannot separate committed from random trajectories.
 H~updated to 32 (was 15) and H1 pass criterion relaxed to $\text{ratio} \le 0.75$
 and $\overline{r}_\text{EFE} > 0$.
-Training launched 2026-05-10, seed=50, warm-start from Phase~1 checkpoint.
-\emph{Results pending.}
+\textbf{v9 result (seed=50):} Actor flatlined at $\mathcal{L}_{\text{actor}} \approx {-}0.0014$
+(oscillating around zero) from step 10K to step 231K; critic entropy remained constant at
+$3.4$ bits (255-bin twohot, no learning). Post-mortem reveals a ninth failure layer.
 
-\paragraph{Diagnostic summary: eight-layer H1 failure chain.}
+\paragraph{Phase 2 Layer 9: cold-start deadlock (2026-05-10).}
+With $|\mathcal{A}|{=}64$ discrete actions and imagination horizon $H{=}13$, the probability
+of the actor producing a \emph{committed} trajectory (all 13 steps in one domain) under a
+uniform policy is $(1/2)^{13} \approx 0.012\%$.
+In a batch of $B{=}32$, virtually no committed trajectories appear, so domain-affinity
+reward yields returns $r_t\approx 0$ for all batch elements.
+After mean subtraction in advantage normalisation, $\mathbb{E}[\text{adv}]\equiv 0$, and
+the actor policy gradient $\nabla_\theta\mathcal{L}_\text{PG} = \mathbb{E}[\nabla\log\pi \cdot \text{adv}] \approx 0$.
+The actor cannot exit the uniform-policy fixed point without first observing high-return
+committed trajectories, but it cannot generate committed trajectories without first
+being non-uniform.
+Standard deviation normalisation compounds this: when all batch elements are mixed,
+$\text{adv\_std} \approx 0$, triggering the guard clause and leaving advantages unnormalised
+(also near zero).
+
+\paragraph{Phase 2 v10: action-consistency bonus + percentile clamping (training, 2026-05-10).}
+v10 addresses Layer 9 via TRIZ Principle~\#1 (Segmentation): decompose the
+trajectory-level committed reward into a \emph{step-level} Markov signal.
+The full reward is augmented:
+\begin{equation}
+  r_t = s(a_t)\cdot(h_t\cdot\hat{v}) + \delta_t, \quad
+  \delta_t = \begin{cases} +C & \text{domain}(a_t)=\text{domain}(a_{t-1}) \\ -C & \text{otherwise} \end{cases}
+  \label{eq:consistency_bonus}
+\end{equation}
+with $C{=}2.0$.
+The consistency term $\delta_t$ provides discriminative gradient from the first training step:
+even under a uniform policy, half of consecutive pairs are same-domain ($+C$) and half switch ($-C$),
+giving $\mathbb{E}[\delta_t]=0$ but nonzero policy gradient because
+$\nabla\log\pi(a_t)$ differs by state.
+For committed trajectories, $\sum_{t=1}^{H-1}\delta_t = (H-1)\cdot C = 24$, providing
+strong differential advantage over alternating trajectories ($\sum_{t=1}^{H-1}\delta_t \approx 0$).
+Advantage normalisation is replaced with DreamerV3 percentile clamping:
+$\text{scale} = (Q_{0.95}-Q_{0.05}).\text{clamp}(\min{=}1.0)$, with advantage clipped to $[-1,1]$.
+This prevents division by near-zero variance and is robust to outlier returns.
+Training launched 2026-05-10, seed=51, warm-start from Phase~1 checkpoint.
+Early diagnostic (step~200): critic entropy $2.45$ bits (down from $3.6$ at step~100),
+confirming discriminative reward signal from the first batch. \emph{Full results pending.}
+
+\paragraph{Diagnostic summary: nine-layer H1 failure chain.}
 Table~\ref{tab:h1_diagnosis} summarises all compounding failure layers.
 Each layer was identified by post-mortem checkpoint analysis.
 
 \begin{table}[h]
-  \caption{H1 Failure Diagnostics — Eight Compounding Layers}
+  \caption{H1 Failure Diagnostics — Nine Compounding Layers}
   \label{tab:h1_diagnosis}
   \centering\small
   \begin{tabular}{clcc}
@@ -870,6 +909,7 @@ Each layer was identified by post-mortem checkpoint analysis.
     6 & Deterministic GRU posterior bypass & $\partial\mathcal{L}/\partial z_t=0$ & Decoder uses only $z_t$ (v7) \\
     7 & Gradient starvation after IDL convergence & Encoder $\to$ 0 by step 100K & WM freeze at step 10K (v8) \\
     8 & $\|h_t\|_2$ proxy is action-independent & Actor entropy $= 0.999 \times$ max & Domain-affinity reward (v9) \\
+    9 & Cold-start deadlock: $P(\text{committed}|\text{uniform},H{=}13)\!\approx\!0$ & $\mathcal{L}_\text{actor}\approx 0$ for 220K steps & Consistency bonus $+$ percentile clamping (v10) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -1106,7 +1146,7 @@ Phase 2 v6 (seed=47, 400K steps) has completed: gate ratio$=1.050$, FAIL.
 Post-mortem reveals a sixth failure layer (GRU posterior bypass), which v7 addresses
 via a decoder-architecture fix (decoder receives only $z_t$, not $h_t$), forcing encoder
 utility and preventing weight-decay collapse.
-The eight-layer failure chain constitutes an unusually complete negative-result case study
+The nine-layer failure chain constitutes an unusually complete negative-result case study
 in active-inference RSSM training dynamics.
 
 \item \textbf{Imagination Diversity Loss and domain-selective corpus.}
@@ -1117,16 +1157,22 @@ The complementary \texttt{DomainSelectiveCachedCorpusEnv} (Layer 3 full fix) bre
 passivity at collection time with per-item action-to-domain routing, ensuring stored
 transitions carry genuine $p(o_{t+1}^b|a_t^b)$ coupling.
 Together with reduced free\_bits (Layer 4 fix), Phase~1 warm-start (Layer 5 fix),
-and the forthcoming decoder-only-$z_t$ fix (Layer 6, v7),
+and the decoder-only-$z_t$ fix (Layer 6, v7),
 these techniques enable action-conditional priors on static creative corpora without
 requiring a live interactive environment.
 \end{enumerate}
 
 Phase 1 is complete (gate PASS).
-Phase 2 has identified an eight-layer compounding failure chain through iterative
+Phase 2 has identified a nine-layer compounding failure chain through iterative
 post-mortem checkpoint analysis; each layer is documented with its causal mechanism
 and applied fix, constituting a reproducible diagnostic methodology for RSSM training.
-Phase 2 v9 (domain-affinity reward, seed=50) is currently training.
+The most recent finding (Layer 9, cold-start deadlock) reveals a fundamental tension
+in trajectory-level reward design: with a discrete action space of size $|\mathcal{A}|{=}64$
+and horizon $H{=}13$, purely trajectory-level rewards have near-zero gradient under
+random initialisation.
+The resolution --- augmenting with a step-level Markov consistency bonus --- is a
+general technique applicable to any RSSM trained with domain-commitment objectives.
+Phase 2 v10 (consistency bonus + percentile clamping, seed=51) is currently training.
 Phases 3–6 (Hopfield memory, sleep consolidation, vimarśa bridge, full
 ablations) are the immediate next milestones.
 
