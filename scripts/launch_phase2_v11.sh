@@ -32,24 +32,27 @@
 set -e
 cd /home/sharaths/projects/pwm-phase2
 
-V10_FREEZE_CKPT="checkpoints/step_0010000.pt"
-if [ ! -f "$V10_FREEZE_CKPT" ]; then
-    echo "ERROR: v10 WM-freeze checkpoint not found: $V10_FREEZE_CKPT"
-    echo "Fallback: using Phase 1 checkpoint instead (will re-run 10K WM training)"
-    PHASE1_CKPT="/home/sharaths/projects/pwm-phase1/checkpoints/final.pt"
-    if [ ! -f "$PHASE1_CKPT" ]; then
-        echo "ERROR: Phase 1 checkpoint not found: $PHASE1_CKPT"
-        exit 1
+# Load WM-only from v10's WM-freeze checkpoint.
+# Using PWM_RESUME_WM_ONLY (not RESUME_CHECKPOINT) to get fresh actor+critic Adam state.
+# The v10 actor checkpoint had ~zero Adam second moments from 10K steps of near-zero EFE
+# gradient — restoring that stale state causes effective lr ≈ lr/eps ≈ 100K× nominal,
+# which is why v11 run 1 exploded (actor_loss → -78K) despite the log_prob clamp.
+# Fresh Adam state means real PG gradient uses nominal lr=3e-5 from the start.
+V10_WM_CKPT="checkpoints/step_0010000.pt"
+if [ ! -f "$V10_WM_CKPT" ]; then
+    echo "WARN: v10 WM-freeze checkpoint not found: $V10_WM_CKPT"
+    echo "Fallback: Phase 1 checkpoint (equivalent WM quality)"
+    V10_WM_CKPT="/home/sharaths/projects/pwm-phase1/checkpoints/final.pt"
+    if [ ! -f "$V10_WM_CKPT" ]; then
+        echo "ERROR: Phase 1 checkpoint not found either"; exit 1
     fi
-    RESUME_ENV="PWM_RESUME_WM_ONLY=$PHASE1_CKPT"
-else
-    RESUME_ENV="PWM_RESUME_CHECKPOINT=$V10_FREEZE_CKPT"
 fi
+RESUME_ENV="PWM_RESUME_WM_ONLY=$V10_WM_CKPT"
 
 source /home/sharaths/vllm-env/bin/activate
 
 echo "=== Phase 2 v11 (Layer 10 fix: actual imagination actions for log_prob) ==="
-echo "Warm-starting from: $V10_FREEZE_CKPT (step 10K, WM already frozen)"
+echo "WM warm-start from: $V10_WM_CKPT (WM-only; actor+critic fresh for clean Adam)"
 echo ""
 echo "Key fix:"
 echo "  OLD: log_prob = dist.log_prob(dist.sample())  ← fresh sample ⊥ advantage → zero PG"

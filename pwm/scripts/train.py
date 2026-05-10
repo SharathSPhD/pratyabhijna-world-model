@@ -726,6 +726,17 @@ class PWMTrainer:
         returns_mean = float(returns_t.mean().item())
         returns_std = float(returns_t.std().item())
 
+        if abs(float(actor_loss.item())) > 100 or not torch.isfinite(actor_loss):
+            log.warning(
+                "Actor loss explosion at step %d: total=%.2f pg=%.2f efe=%.2f ent=%.2f adv_scale=%.3f returns_mean=%.3f",
+                self.step,
+                float(actor_loss.item()),
+                float(efe_losses["pg_loss"].item()),
+                float(efe_losses["efe_loss"].item()),
+                float(actor_entropy.item()),
+                float(adv_scale.item()),
+                returns_mean,
+            )
         if not torch.isfinite(actor_loss):
             log.warning("Actor loss is NaN/Inf at step %d — skipping update", self.step)
             return {
