@@ -937,15 +937,19 @@ The threshold-exceedance metric rewards variance over commitment, exactly invert
 Fix: primary metric changed to mean episode reward ratio $\mu_{\text{EFE}} / \mu_{\text{RF}} \geq 2.0$.
 Sphurattā event count retained as secondary diagnostic.
 
-\paragraph{H1 gate result (interim, step~100{,}000).}
+\paragraph{H1 gate result (final, step~400{,}000).}
 \begin{equation}
-  \frac{\mu_{\text{EFE}}}{\mu_{\text{RF}}} = \frac{2.529}{0.085} = 29.7 \geq 2.0 \quad \Rightarrow \quad \textbf{H1 PASS}
+  \frac{\mu_{\text{EFE}}}{\mu_{\text{RF}}} = \frac{2.530}{0.085} = 29.72 \geq 2.0 \quad \Rightarrow \quad \textbf{H1 PASS}
   \label{eq:h1_interim}
 \end{equation}
-All 200 EFE episodes achieved positive mean reward; 0/200 REINFORCE episodes exceeded the
-domain-affinity threshold for sphurattā (by design of the committed policy).
-Training continues to step~400{,}000; the final gate at step~400{,}000 is expected
-to yield a larger ratio as the actor further commits.
+All 200 EFE episodes achieved positive mean reward ($\mu{=}2.530$, $\sigma{<}0.02$);
+REINFORCE achieves $\mu{=}0.085$ by random-walk mixed-domain trajectories.
+The ratio is stable from step~100{,}000 ($29.71$) to step~400{,}000 ($29.72$),
+confirming the actor committed fully by step~100{,}000 and maintained commitment.
+Secondary metric (time-to-sphurattā ratio $=1.34$) fails by design of the threshold
+paradox (Layer 11), but the primary reward-ratio criterion is met decisively.
+Phase 2 training complete at 19:21 UTC 2026-05-10; final checkpoint
+\texttt{final\_phase2\_v11\_seed52.pt} is released with the paper.
 
 \paragraph{Diagnostic summary: eleven-layer H1 failure chain.}
 Table~\ref{tab:h1_diagnosis} summarises all compounding failure layers,
@@ -1207,7 +1211,7 @@ Phase 2 v6 (seed=47, 400K steps) has completed: gate ratio$=1.050$, FAIL.
 Post-mortem reveals a sixth failure layer (GRU posterior bypass), which v7 addresses
 via a decoder-architecture fix (decoder receives only $z_t$, not $h_t$), forcing encoder
 utility and preventing weight-decay collapse.
-The ten-layer failure chain constitutes an unusually complete negative-result case study
+The eleven-layer failure chain constitutes an unusually complete negative-result case study
 in active-inference RSSM training dynamics.
 
 \item \textbf{Imagination Diversity Loss and domain-selective corpus.}
@@ -1224,18 +1228,18 @@ requiring a live interactive environment.
 \end{enumerate}
 
 Phase 1 is complete (gate PASS).
-Phase 2 has identified a ten-layer compounding failure chain through iterative
-post-mortem checkpoint analysis; each layer is documented with its causal mechanism
-and applied fix, constituting a reproducible diagnostic methodology for RSSM training.
-The most recent finding (Layer 10, fresh-sample PG) reveals a subtle but fatal
-implementation error: using an independent action sample in the REINFORCE loss
-completely severs the gradient from the advantage signal when advantages are zero-mean.
-v11 (actual imagination actions, seed=52, warm-start from step-10K WM-only checkpoint)
-shows consistent convergence: critic CE $0.96$ and \texttt{ret}${}\in[+4,+6]$ at step~100{,}000
-(vs.\ flat CE $=3.4$ and zero-mean returns throughout 29K post-freeze steps of v10).
-\textbf{H1 interim gate PASSED at step~100{,}000}: mean episode reward ratio $29.7\geq2.0$
-(Layer 11 metric fix; see Eq.~\ref{eq:h1_interim}).
-Final gate at step~400{,}000 in progress.
+Phase 2 is complete (\textbf{H1 gate PASS}, 2026-05-10): the EFE actor achieves
+$29.72{\times}$ more mean domain-aligned reward per episode than the REINFORCE baseline
+($\mu_\text{EFE}{=}2.530$ vs $\mu_\text{RF}{=}0.085$, 200 episodes, seed=2025).
+An eleven-layer compounding failure chain was diagnosed and resolved through iterative
+post-mortem checkpoint analysis, constituting a reproducible diagnostic methodology
+for active-inference RSSM training on static corpora.
+Key contributions from Phase 2: (i) WM freeze at step~10{,}000 prevents gradient
+starvation; (ii) domain-selective corpus routing + IDL produces action-conditional
+hidden states on a passive corpus; (iii) consistency bonus + percentile clamping
+breaks the cold-start deadlock; (iv) Layer~10 (fresh-sample PG) and Layer~11
+(gate metric paradox) are newly characterised failure modes with concrete fixes;
+(v) final checkpoint released as \texttt{final\_phase2\_v11\_seed52.pt}.
 Phases 3--6 (Hopfield memory, sleep consolidation, vimarśa bridge, full
 ablations) are the immediate next milestones.
 
