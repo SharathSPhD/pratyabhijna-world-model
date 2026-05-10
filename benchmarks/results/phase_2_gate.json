@@ -1,14 +1,14 @@
 {
   "phase": 2,
   "phase_name": "efe_actor_v11",
-  "checkpoint": "checkpoints/step_0100000.pt",
+  "checkpoint": "checkpoints/final.pt",
   "protocol": {
     "n_episodes": 200,
     "h_steps": 32,
     "camatk_metric": "domain_affinity = domain_sign \u00d7 (h_t \u00b7 v\u0302)",
-    "domain_axis_cos_sep": 1.0,
+    "domain_axis_cos_sep": 1.0000001192092896,
     "sphuratta_threshold_source": "REINFORCE p95 (fixed, not per-policy running)",
-    "sphuratta_threshold": 6.82496075630188,
+    "sphuratta_threshold": 6.824897360801697,
     "sphuratta_percentile": 95,
     "seed": 2025,
     "primary_h1_metric": "mean_episode_reward_ratio (EFE/RF \u2265 2.0)",
@@ -17,7 +17,7 @@
   },
   "efe_actor": {
     "mean_steps_to_sphuratta": 32.0,
-    "mean_episode_reward": 2.5292750877980144,
+    "mean_episode_reward": 2.5301936708483845,
     "sphuratta_count": 0,
     "sphuratta_rate": 0.0,
     "T_p50": 32.0,
@@ -26,14 +26,14 @@
   },
   "reinforce_baseline": {
     "mean_steps_to_sphuratta": 23.875,
-    "mean_episode_reward": 0.08512224954552948,
+    "mean_episode_reward": 0.08512184880673886,
     "sphuratta_count": 167,
     "sphuratta_rate": 0.835,
     "T_p50": 23.0,
     "T_p25": 19.0,
     "T_p75": 29.0
   },
-  "h1_reward_ratio": 29.713442740316406,
+  "h1_reward_ratio": 29.72437401580587,
   "h1_reward_threshold": 2.0,
   "h1_reward_pass": true,
   "h1_time_ratio": 1.3403141361256545,
