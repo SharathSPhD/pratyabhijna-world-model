@@ -11,22 +11,22 @@
     "note": "Episodes run in WM imagination only. Camatk\u0101ra v2 = ||h_t||_2 (recurrent hidden-state activation norm). \u0394Activation = max(||h_t|| - ||h_{t-1}||, 0): reward fires when WM state activation grows (agent driving WM to higher-activation region). IDL training created action-dependent h_t geometry (antipodal) so different actions produce systematically different h_t norms. EFE actor (trained on epistemic+preference objectives) should navigate to higher-activation states faster than REINFORCE (uniform random). Prior entropy proxy was found non-functional with free_bits=1.0: KL floor keeps p_prior near-uniform (entropy\u2248110.9 nats) for all h_t. Sphuratt\u0101 fires when R_camatk > running 95th-percentile of history."
   },
   "efe_actor": {
-    "mean_steps_to_sphuratta": 9.54,
-    "sphuratta_count": 84,
-    "sphuratta_rate": 0.42,
+    "mean_steps_to_sphuratta": 15.0,
+    "sphuratta_count": 0,
+    "sphuratta_rate": 0.0,
     "T_p50": 15.0,
-    "T_p25": 2.0,
+    "T_p25": 15.0,
     "T_p75": 15.0
   },
   "reinforce_baseline": {
-    "mean_steps_to_sphuratta": 9.085,
-    "sphuratta_count": 91,
-    "sphuratta_rate": 0.455,
+    "mean_steps_to_sphuratta": 14.935,
+    "sphuratta_count": 1,
+    "sphuratta_rate": 0.005,
     "T_p50": 15.0,
-    "T_p25": 2.0,
+    "T_p25": 15.0,
     "T_p75": 15.0
   },
-  "h1_ratio": 1.0500825536598788,
+  "h1_ratio": 1.004352192835621,
   "h1_threshold": 0.5,
   "h1_pass": false,
   "status": "FAIL"

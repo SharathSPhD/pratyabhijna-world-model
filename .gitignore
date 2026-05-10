@@ -28,6 +28,7 @@ data/benchmark/**/*.txt
 mlruns/
 wandb/
 *.log
+outputs/
 
 # Paper build artifacts
 paper/*.aux
