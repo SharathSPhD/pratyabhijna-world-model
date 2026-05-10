@@ -102,7 +102,7 @@ class ReplayBuffer:
         self._frame = 0
 
     def add(self, transition: Transition) -> None:
-        priority = (transition.vfe + 1e-6) ** self.ALPHA
+        priority = (abs(transition.vfe) + 1e-6) ** self.ALPHA
         self._max_priority = max(self._max_priority, priority)
         self.tree.add(priority, transition)
 

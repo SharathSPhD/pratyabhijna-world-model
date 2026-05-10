@@ -104,14 +104,20 @@ class EFEActor(nn.Module):
             return dist.logits.argmax(-1)
         return dist.sample()
 
-    def actor_loss(self, h: Tensor, z: Tensor, advantage: Tensor) -> dict[str, Tensor]:
+    def actor_loss(
+        self, h: Tensor, z: Tensor, advantage: Tensor, actions: "Tensor | None" = None
+    ) -> dict[str, Tensor]:
         """
         Phase B actor loss: REINFORCE-style with EFE regularisation.
 
         advantage: (B,) — from critic bootstrap (λ-return)
+        actions:   (B,) — actual action indices from imagination; if None falls back to fresh sample
         """
         dist, efe = self.forward(h, z)
-        log_prob = dist.log_prob(dist.sample())  # (B,)
+        # Layer 10 fix (v11): use actual imagination actions for log_prob.
+        # dist.sample() gives an independent draw uncorrelated with advantage → zero gradient.
+        act = actions if actions is not None else dist.sample()
+        log_prob = dist.log_prob(act)  # (B,)
         entropy = dist.entropy()                  # (B,)
 
         # Policy gradient + entropy bonus + EFE minimisation

@@ -454,6 +454,9 @@ class PWMTrainer:
         self._checkpoint_dir = Path("checkpoints")
         self._checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
+        # Default VFE cache for when WM is frozen from step 0 (e.g. warm-start at step 10K)
+        self._last_real_vfe: float = 0.0
+
         self._setup_loggers()
         log.info("PWMTrainer initialised — %d parameters total", self._param_count())
 
@@ -635,6 +638,7 @@ class PWMTrainer:
         imag_states = start_states
         imag_h_list: list[Tensor] = []
         imag_z_list: list[Tensor] = []
+        imag_act_list: list[Tensor] = []   # Layer 10 fix (v11): collect actual action indices
         imag_rewards: list[Tensor] = []
         imag_dones: list[Tensor] = []
 
@@ -645,6 +649,7 @@ class PWMTrainer:
                 h_t, z_t = imag_states[0]
                 # Phase 2+: EFEActor selects action from (h, z); embed as one-hot
                 act_idx = self.efe_actor.select_action(h_t, z_t)          # (B,)
+                imag_act_list.append(act_idx)                               # Layer 10 fix (v11)
                 action = torch.nn.functional.one_hot(act_idx, num_classes=_action_dim).float()
                 imag_states, _ = self.world_model.imagine_step(
                     action, imag_states, step=t
@@ -711,7 +716,10 @@ class PWMTrainer:
             adv_scale = (hi - lo).clamp(min=1.0)
             advantage = (advantage - advantage.mean()) / adv_scale
             advantage = advantage.clamp(-1.0, 1.0)
-            efe_losses = self.efe_actor.actor_loss(h_flat, z_for_actor, advantage)
+            # Layer 10 fix (v11): pass actual imagination actions so PG gradient is correlated
+            # with advantage. Fresh dist.sample() gives independent action → zero-mean gradient.
+            act_indices = torch.stack(imag_act_list, dim=1).reshape(B * H)  # (B*H,)
+            efe_losses = self.efe_actor.actor_loss(h_flat, z_for_actor, advantage, actions=act_indices)
             actor_loss = efe_losses["actor_total"]
             actor_entropy = efe_losses["entropy"]
 
