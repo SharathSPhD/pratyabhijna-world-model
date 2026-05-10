@@ -919,10 +919,12 @@ pending float32 re-introduction in Phase~5.
 Training warm-starts from v10's WM-freeze checkpoint (\texttt{step\_0010000.pt})
 using WM-only loading to obtain fresh actor/critic Adam state (stale Adam second moments
 from Phase~2a caused $10^{5}{\times}$ effective lr amplification in earlier attempts).
-\emph{Results at step~14{,}700 (4{,}700 post-freeze):}
-critic CE $= 2.18$ (declining from $6.7$; rapid learning of new reward distribution),
-\texttt{ret}$\,=+8.45$ (positive, oscillating; actor exploring committed strategies),
-\texttt{adv\_scale}$\,=32$ (discriminative rewards active).
+\emph{Interim results at step~20{,}900 (10{,}900 post-freeze):}
+critic CE $= 1.66$ (declined from $6.7$ at WM freeze; consistent decline of ${\approx}0.05$/1K steps,
+versus flat CE $=3.4$ throughout 29K post-freeze steps of v10),
+\texttt{ret}$\,\in[+3,+8]$ (positive, mean ${\approx}4.5$; actor learning committed domain strategies),
+\texttt{adv\_scale}$\,=38$ (discriminative rewards active), \texttt{sps}$\,=14.5$.
+Gate ETA: step~400{,}000 at ${\approx}21$:43 UTC 2026-05-10.
 
 \paragraph{Diagnostic summary: ten-layer H1 failure chain.}
 Table~\ref{tab:h1_diagnosis} summarises all compounding failure layers.
@@ -1205,10 +1207,10 @@ and applied fix, constituting a reproducible diagnostic methodology for RSSM tra
 The most recent finding (Layer 10, fresh-sample PG) reveals a subtle but fatal
 implementation error: using an independent action sample in the REINFORCE loss
 completely severs the gradient from the advantage signal when advantages are zero-mean.
-v11 (actual imagination actions, seed=52, warm-start from step-10K checkpoint)
-shows immediate convergence: \texttt{ret}$\,=+21$ and critic CE $=2.10$ at step~12{,}000
-(vs.\ zero-mean returns and flat CE throughout 29K steps of v10).
-Phase 2 v11 is currently training toward the H1 gate at step~400{,}000.
+v11 (actual imagination actions, seed=52, warm-start from step-10K WM-only checkpoint)
+shows consistent convergence: critic CE $1.66$ and \texttt{ret}${}\in[+3,+8]$ at step~20{,}900
+(vs.\ flat CE $=3.4$ and zero-mean returns throughout 29K post-freeze steps of v10).
+Phase 2 v11 is currently training; the H1 gate runs at step~400{,}000 (ETA ${\approx}$21:43 UTC 2026-05-10).
 Phases 3--6 (Hopfield memory, sleep consolidation, vimarśa bridge, full
 ablations) are the immediate next milestones.
 
