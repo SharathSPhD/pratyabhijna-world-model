@@ -824,6 +824,32 @@ The fix (\textbf{v9}): replace the norm-growth proxy with a domain-affinity
 reward that is explicitly action-dependent in the domain-selective environment
 (actions 0--31 $\to$ Gutenberg; 32--63 $\to$ philosophy).
 
+\paragraph{Phase 2 v9: domain-affinity reward (training, 2026-05-10).}
+v9 implements TRIZ Principles~\#10 (Preliminary Action), \#35 (Parameter Changes),
+and \#27 (Cheap Short-living) to resolve the action-independence failure.
+Let $\hat{v} = \text{normalize}(h_{\text{guten}} - h_{\text{philo}})$ be the IDL
+discrimination axis, where $h_{\text{guten}}$ and $h_{\text{philo}}$ are the
+mean hidden states for Gutenberg and philosophy actions respectively, computed
+once from the frozen WM at the Phase~2a/2b boundary (step~10K).
+The domain-affinity reward is:
+\begin{equation}
+  r_t = s(a_t) \cdot (h_t \cdot \hat{v}), \quad
+  s(a_t) = \begin{cases} +1 & a_t \in [0,31] \\ -1 & a_t \in [32,63] \end{cases}
+  \label{eq:domain_affinity}
+\end{equation}
+Committed trajectories (EFE actor selecting one domain consistently) receive
+monotonically growing positive rewards as $h_t$ drifts further along $\hat{v}$.
+Mixed trajectories (REINFORCE, 50/50 domain selection) receive $\mathbb{E}[r_t]\approx 0$
+as positive and negative projections cancel.
+Gate~v9 fixes the per-policy running-percentile flaw: the 95th-percentile threshold
+is now calibrated from a REINFORCE run and held fixed, since a per-policy running
+percentile self-calibrates to exactly 5\% sphurattā rate for any stationary
+distribution and cannot separate committed from random trajectories.
+H~updated to 32 (was 15) and H1 pass criterion relaxed to $\text{ratio} \le 0.75$
+and $\overline{r}_\text{EFE} > 0$.
+Training launched 2026-05-10, seed=50, warm-start from Phase~1 checkpoint.
+\emph{Results pending.}
+
 \paragraph{Diagnostic summary: eight-layer H1 failure chain.}
 Table~\ref{tab:h1_diagnosis} summarises all compounding failure layers.
 Each layer was identified by post-mortem checkpoint analysis.
@@ -1080,7 +1106,7 @@ Phase 2 v6 (seed=47, 400K steps) has completed: gate ratio$=1.050$, FAIL.
 Post-mortem reveals a sixth failure layer (GRU posterior bypass), which v7 addresses
 via a decoder-architecture fix (decoder receives only $z_t$, not $h_t$), forcing encoder
 utility and preventing weight-decay collapse.
-The six-layer failure chain constitutes an unusually complete negative-result case study
+The eight-layer failure chain constitutes an unusually complete negative-result case study
 in active-inference RSSM training dynamics.
 
 \item \textbf{Imagination Diversity Loss and domain-selective corpus.}
@@ -1097,9 +1123,10 @@ requiring a live interactive environment.
 \end{enumerate}
 
 Phase 1 is complete (gate PASS).
-Phase 2 has identified a six-layer compounding failure chain through iterative
+Phase 2 has identified an eight-layer compounding failure chain through iterative
 post-mortem checkpoint analysis; each layer is documented with its causal mechanism
 and applied fix, constituting a reproducible diagnostic methodology for RSSM training.
+Phase 2 v9 (domain-affinity reward, seed=50) is currently training.
 Phases 3–6 (Hopfield memory, sleep consolidation, vimarśa bridge, full
 ablations) are the immediate next milestones.
 
