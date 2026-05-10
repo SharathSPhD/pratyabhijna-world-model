@@ -1,0 +1,54 @@
+# Phase 2 v9: Domain-Affinity Reward — Fix Layer 8 (action-independent proxy)
+#
+# Root cause (Layer 8, diagnosed 2026-05-10):
+#   The v8 proxy ||h_t||₂ is action-INDEPENDENT: the GRU charges from init state
+#   (norm 4.5→18.6) identically for ANY action. ΔActivation positive 94.7% of steps
+#   regardless of actor decision → advantage normalization zeros out signal → EFE
+#   actor entropy = 5.99/6.00 bits (uniform). Gate result: EFE=0/200, RF=1/200, FAIL.
+#
+#   Additionally, H=15 gate bug: sphurattā requires len(history)≥20, but H=15
+#   means episode 1 can never accumulate enough history → mechanically impossible.
+#
+# Fix (TRIZ Principles #10 + #35 + #27):
+#   Domain-affinity reward: r_t = domain_sign × (h_t · v̂)
+#   v̂ = normalize(h_proto_guten − h_proto_philo) — IDL discrimination axis.
+#   Pre-computed once at WM freeze (Principle #10: Preliminary Action).
+#   domain_sign: +1 for actions 0–31 (Gutenberg), −1 for actions 32–63 (philosophy).
+#   Committed trajectories get monotonically growing positive reward.
+#   Mixed trajectories (REINFORCE 50/50) get mean reward ≈ 0.
+#
+#   Gate v9: REINFORCE-calibrated fixed sphurattā threshold (not per-policy running
+#   percentile, which self-calibrates to 5% for any distribution). H=32 (was 15).
+#   H1 pass: ratio ≤ 0.75 AND EFE mean_episode_reward > 0.
+#
+# All previous fixes preserved:
+#   Layer 1: curr_vfe uses real VFE (seed=44 fix)
+#   Layer 2: replay stores real one-hot actions (seed=44 fix)
+#   Layer 3: DomainSelectiveCachedCorpusEnv (per-item action->domain)
+#   Layer 4: free_bits=0.1 (KL floor 3.2 nats)
+#   Layer 5: Phase 1 warm-start (encoder/prior/W_z healthy)
+#   Layer 6: decoder_z_only=True (prevents GRU posterior bypass)
+#   Layer 7: WM freeze at step 10K
+#   Layer 8: Domain-affinity reward (v9) — THIS VERSION
+#
+# Expected signals:
+#   Step    300: cos_sim → -1.000 (IDL converges)
+#   Step  10000: WM frozen; domain_axis computed (cos_sep should be ≈ -1.0)
+#   Step  10000: Actor begins training with domain-affinity reward
+#   Step  50000: Actor develops domain commitment (most actions from same domain)
+#   Step 200000: Interim domain commitment check
+#   Step 400000: H1 gate final (200 eps × H=32)
+#
+# Launch:
+#   source ~/vllm-env/bin/activate
+#   bash scripts/launch_phase2_v9.sh
+
+defaults:
+  - phase2_efe
+  - _self_
+
+world_model:
+  free_bits: 0.1               # Layer 4 fix: KL floor 3.2 nats
+  decoder_z_only: true         # Layer 6 fix: prevents GRU posterior bypass
+
+domain_selective: true         # Layer 3 fix: per-item action→corpus-domain coupling

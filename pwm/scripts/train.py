@@ -34,7 +34,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.distributions import Categorical
 from dotenv import load_dotenv  # type: ignore[import]
 
 load_dotenv()
@@ -260,6 +259,9 @@ class PWMTrainer:
     # for imagination rollouts. This is the principled two-phase design for corpus
     # env (no continuous env reward to keep WM learning signal alive).
     _WM_FREEZE_STEP: int = 10_000
+    # IDL discrimination axis: normalize(h_proto_guten − h_proto_philo).
+    # Set once at the WM freeze transition; None before that (zero reward used instead).
+    _domain_axis: "Tensor | None" = None
 
     _ACTOR_LR: float = 3e-5
     _ACTOR_GRAD_CLIP: float = 100.0
@@ -567,6 +569,46 @@ class PWMTrainer:
             },
         }
 
+    # ── Domain axis (v9) ─────────────────────────────────────────────────────
+
+    def _compute_domain_axis(self) -> "Tensor":
+        """Pre-compute IDL discrimination axis v̂ = normalize(h_guten − h_philo).
+
+        Vimarśa (ĪPK 1.5.11): reflexive recognition of domain geometry.
+        TRIZ Principle #10 (Preliminary Action): one forward pass, reused throughout Phase 2b.
+        TRIZ Principle #35 (Parameter Changes): anisotropic projection replaces isotropic norm.
+
+        Returns: (hidden_dim,) unit vector pointing from philosophy → Gutenberg latent centre.
+        """
+        B, n_rep = 32, 20
+        h_g_acc: list[Tensor] = []
+        h_p_acc: list[Tensor] = []
+        self.world_model.train(False)
+        with torch.no_grad():
+            for _ in range(n_rep):
+                states = self.world_model.init_state(B, self.device)
+                # Gutenberg domain: actions 0–31
+                a_g = torch.randint(0, 32, (B,), device=self.device)
+                act_g = torch.nn.functional.one_hot(a_g, self._action_dim).float()
+                s_g, _ = self.world_model.imagine_step(act_g, states, step=0)
+                h_g_acc.append(s_g[0][0].mean(0).float())   # (hidden_dim,)
+                # Philosophy domain: actions 32–63
+                a_p = torch.randint(32, 64, (B,), device=self.device)
+                act_p = torch.nn.functional.one_hot(a_p, self._action_dim).float()
+                s_p, _ = self.world_model.imagine_step(act_p, states, step=0)
+                h_p_acc.append(s_p[0][0].mean(0).float())   # (hidden_dim,)
+        self.world_model.train()
+        h_g = torch.stack(h_g_acc).mean(0)  # (hidden_dim,)
+        h_p = torch.stack(h_p_acc).mean(0)  # (hidden_dim,)
+        cos_sep = torch.nn.functional.cosine_similarity(
+            h_g.unsqueeze(0), h_p.unsqueeze(0)
+        ).item()
+        log.info(
+            "Domain axis: cos_sep(h_guten, h_philo)=%.4f  ||h_g||=%.3f  ||h_p||=%.3f",
+            cos_sep, h_g.norm().item(), h_p.norm().item(),
+        )
+        return torch.nn.functional.normalize(h_g - h_p, dim=0).detach()
+
     # ── Phase B: Actor ────────────────────────────────────────────────────────
 
     def _phase_b(self, start_states: list[tuple[Tensor, Tensor]]) -> dict[str, float]:
@@ -597,7 +639,7 @@ class PWMTrainer:
                 # Phase 2+: EFEActor selects action from (h, z); embed as one-hot
                 act_idx = self.efe_actor.select_action(h_t, z_t)          # (B,)
                 action = torch.nn.functional.one_hot(act_idx, num_classes=_action_dim).float()
-                imag_states, logits_prior_list = self.world_model.imagine_step(
+                imag_states, _ = self.world_model.imagine_step(
                     action, imag_states, step=t
                 )
 
@@ -605,32 +647,22 @@ class PWMTrainer:
                 imag_h_list.append(h_t)
                 imag_z_list.append(z_t)
 
-                # Camatkāra reward: prior-entropy VFE proxy (action-dependent surprise).
-                #
-                # Using negative prior entropy as `curr_vfe` so that:
-                #   ΔF = max(H_prev_neg - H_curr_neg, 0) = max(ΔH_entropy_increase, 0)
-                # i.e., reward fires when the WM prior GAINS entropy → actor navigated
-                # the WM into a more uncertain/novel latent region (epistemic value).
-                # This is fully action-dependent: different actions → different h_t
-                # → different prior distributions → different entropy.
-                # The EFE actor's epistemic objective exactly aligns with maximising this.
-                #
-                # IMPORTANT: z_t ~ Cat(32×32) means 32 INDEPENDENT Cat(32) distributions.
-                # Use per-dimension log_softmax (dim=-1 over the 32 classes), NOT reshape
-                # to 1024 which would model a single Cat(1024) — statistically wrong.
-                lp_prior = logits_prior_list[0]  # (B, stoch_dim, stoch_classes)
-                # Use Categorical.entropy() per-dimension — NaN-safe (handles p=0 via torch.where)
-                # p*log_p manual form produces NaN in bfloat16 when policy peaks.
-                prior_entropy_per_dim = Categorical(logits=lp_prior).entropy()   # (B, D)
-                total_entropy_b = prior_entropy_per_dim.sum(-1).mean()     # scalar
-                prior_neg_entropy = float(-total_entropy_b.item())
-                # range: [−32·log32, 0] nats; more negative = higher entropy = more novel
-                camatk_tensor, _ = self.camatk.compute(
-                    curr_vfe=prior_neg_entropy,
-                    hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
-                    empowerment=0.0,
-                )
-                imag_rewards.append(camatk_tensor.to(self.device).expand(B))
+                # Domain-affinity reward v9 (TRIZ #10 + #35).
+                # r_t = domain_sign × (h_t · v̂):
+                #   - Committed trajectories (EFE picks one domain) → all positive, grows with t
+                #   - Mixed trajectories (REINFORCE 50/50) → mean ≈ 0, cancels out
+                # _domain_axis is None before the WM freeze (step < 10K); use zero reward
+                # during Phase 2a so actor/critic don't train on a stale axis.
+                if self._domain_axis is not None:
+                    domain_sign = torch.where(
+                        act_idx < 32,
+                        torch.ones(B, device=self.device),
+                        -torch.ones(B, device=self.device),
+                    )                                                           # (B,)
+                    proj = (h_t * self._domain_axis.unsqueeze(0)).sum(-1)      # (B,)
+                    imag_rewards.append((domain_sign * proj).detach())
+                else:
+                    imag_rewards.append(torch.zeros(B, device=self.device))
                 imag_dones.append(torch.zeros(B, dtype=torch.bool, device=self.device))
 
             # Stack trajectory: (B, H)
@@ -713,23 +745,23 @@ class PWMTrainer:
                 # Embed discrete action into continuous action_dim for WM step
                 _adim = self._action_dim
                 action_emb = torch.nn.functional.one_hot(action, num_classes=_adim).float()
-                imag_states, logits_prior_list_c = self.world_model.imagine_step(
+                imag_states, _ = self.world_model.imagine_step(
                     action_emb, imag_states, step=t
                 )
                 h_t, z_t = imag_states[0]
                 imag_feats.append(torch.cat([h_t, z_t.flatten(-2)], dim=-1))
 
-                # Same prior-entropy proxy as Phase B — NaN-safe Categorical.entropy().
-                lp_prior_c = logits_prior_list_c[0]  # (B, D, K)
-                prior_neg_entropy_c = float(
-                    -Categorical(logits=lp_prior_c).entropy().sum(-1).mean().item()
-                )
-                camatk_tensor, _ = self.camatk.compute(
-                    curr_vfe=prior_neg_entropy_c,
-                    hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
-                    empowerment=0.0,
-                )
-                imag_rewards.append(camatk_tensor.to(self.device).expand(B))
+                # Domain-affinity reward v9 — same signal as Phase B (no-grad context).
+                if self._domain_axis is not None:
+                    domain_sign_c = torch.where(
+                        action < 32,
+                        torch.ones(B, device=self.device),
+                        -torch.ones(B, device=self.device),
+                    )                                                              # (B,)
+                    proj_c = (h_t * self._domain_axis.unsqueeze(0)).sum(-1)      # (B,)
+                    imag_rewards.append(domain_sign_c * proj_c)
+                else:
+                    imag_rewards.append(torch.zeros(B, device=self.device))
                 imag_dones.append(torch.zeros(B, dtype=torch.bool, device=self.device))
 
         feats_t = torch.stack(imag_feats, dim=1)          # (B, H, D)
@@ -792,6 +824,9 @@ class PWMTrainer:
             metrics["loss/vfe"] = self._last_real_vfe
             metrics["loss/div"] = -1.0
             metrics["train/wm_frozen"] = 1.0
+            # Compute IDL discrimination axis once at freeze transition (TRIZ #10).
+            if self._domain_axis is None:
+                self._domain_axis = self._compute_domain_axis()
 
         # Initialise imagination start from a fresh WM state (not the replay batch)
         # to keep actor/critic imagination independent of the WM gradient graph.
