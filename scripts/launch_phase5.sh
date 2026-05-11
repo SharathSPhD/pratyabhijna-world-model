@@ -1,50 +1,53 @@
 #!/bin/bash
-# Phase 5: LLM Āgama + Vimarśa Bridge
+# Phase 5: LLM vimarsa-bridge + agama-pramana
 #
 # Prerequisites:
-#   - Phase 4 gate PASS (sleep consolidation ≥20% forgetting reduction)
-#   - checkpoints/final.pt = Phase 4 final (seed=50)
+#   - Phase 4 gate PASS
+#   - checkpoints/final_phase4_seed50.pt (preserved before Phase 5 start)
 #
 # What changes from Phase 4:
-#   - llm.enabled=true: LLM narrates sphurattā events
-#   - world_model.levels=3: full Trika hierarchy (Aparā+Parāparā+Parā)
-#   - VimarsaBridge: WM ↔ LLM cross-attention active
-#   - AWM proposals every 500 steps
+#   - vimarsa.enabled=true: WM<->LLM cross-attention bridge active
+#   - camatkara_narrator wired to sphuratta events
+#   - LLM provides narration (jnana-sakti) at high-entropy latent states
 #
-# Exit criteria (H4+H5):
-#   H4: ≥70% of sphurattā events have high-entropy latents (narration proxy)
-#   H5: Phase 5 mean reward ≥ 2× Phase 2 baseline (2.530)
+# Exit criteria (H4 OR H5):
+#   H4: >=70% sphuratta events with entropy(z_t) > 0.5 nats
+#   H5: mean episode reward >= 2.0 x Phase 2 baseline (2.5302)
 #
 # Usage:
 #   bash scripts/launch_phase5.sh
+#   nohup bash scripts/launch_phase5.sh > outputs/phase5_nohup.log 2>&1 &
 
 set -e
 cd /home/sharaths/projects/pwm-phase2
 
-PHASE4_CKPT="checkpoints/final.pt"
-if [ ! -f "$PHASE4_CKPT" ]; then
-    echo "ERROR: Phase 4 checkpoint not found. Run Phase 4 first."
-    exit 1
+# Phase 4 final checkpoint (preserved at gate time)
+P4_CKPT="checkpoints/final_phase4_seed50.pt"
+if [ ! -f "$P4_CKPT" ]; then
+    FALLBACK="checkpoints/final.pt"
+    if [ -f "$FALLBACK" ]; then
+        cp "$FALLBACK" "$P4_CKPT"
+        echo "Preserved Phase 4 checkpoint -> $P4_CKPT"
+    else
+        echo "ERROR: Phase 4 checkpoint not found: $P4_CKPT"
+        echo "Run Phase 4 first (bash scripts/launch_phase4.sh)"
+        exit 1
+    fi
 fi
 
 source /home/sharaths/vllm-env/bin/activate
 
-PHASE4_DEST="checkpoints/final_phase4_seed50.pt"
-if [ ! -f "$PHASE4_DEST" ]; then
-    cp "$PHASE4_CKPT" "$PHASE4_DEST"
-    echo "Preserved Phase 4 checkpoint -> $PHASE4_DEST"
-fi
-
-echo "=== Phase 5: LLM Āgama + Vimarśa Bridge ==="
-echo "Warm-starting from Phase 4 final: $PHASE4_CKPT"
-echo "llm.enabled=true, 3-level Trika, seed=54"
+echo "=== Phase 5: LLM Vimarsa Bridge ==="
+echo "Warm-starting from Phase 4 final: $P4_CKPT"
+echo "vimarsa.enabled=true: WM<->LLM cross-attention bridge active"
+echo "camatkara_narrator wired to sphuratta events"
 echo ""
 
 mkdir -p outputs
 
 CORPUS_CACHE_DIR=/home/sharaths/projects/pwm-phase1/data/embed_cache \
 WANDB_PROJECT=pratyabhijna-world-model \
-PWM_RESUME_WM_ONLY="$PHASE4_CKPT" \
+PWM_RESUME_WM_ONLY="$P4_CKPT" \
 /home/sharaths/vllm-env/bin/python pwm/scripts/train.py \
   --config-name phase5_llm \
   training.max_steps=500000 \

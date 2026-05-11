@@ -1,51 +1,55 @@
 #!/bin/bash
-# Phase 6: Full System — all ablations, H1–H9, paper data
+# Phase 6: Full pancakrtya system + all ablations
 #
 # Prerequisites:
-#   - Phase 5 gate PASS (H4 narration rate ≥70% OR H5 reward ≥2×Phase2)
-#   - checkpoints/final.pt = Phase 5 final (seed=54)
+#   - Phase 5 gate PASS (H4 OR H5)
+#   - checkpoints/final_phase5_seed54.pt (preserved before Phase 6 start)
 #
 # What changes from Phase 5:
-#   - mala_regularisers.enabled=true: āṇava+māyīya+kārma impurity penalties
-#   - Full ablation suite A1-A6 (config overrides)
-#   - 1M steps, 3 seeds (42, 123, 456)
+#   - All five sakti acts integrated: srsti, sthiti, samhara, tirodhana, anugraha
+#   - Full reward stack: alpha_1*delta_F + alpha_2*delta_I_Hopfield + alpha_3*empowerment
+#   - Mala regularisers active (anava, mayiya, karma)
+#   - Sleep consolidation, vimarsa bridge, skill library all online
 #
-# Exit criteria (H6-H9):
-#   H6: Reward entropy > 0.5 nats (non-trivial reward distribution)
-#   H7: Phase 6 WM VFE < Phase 3 VFE × 0.85 (15% improvement)
-#   H8: Encoder weight norm in [1.0, 50.0] (latent not collapsed/exploded)
-#   H9: Mean action entropy > 1.0 nats (diverse policy)
+# Exit criteria (H6 AND H7 AND H8 AND H9):
+#   H6: reward entropy > 0.5 nats (non-trivial distribution)
+#   H7: imagination VFE < Phase 3 VFE x 0.85
+#   H8: encoder weight norm in [1.0, 50.0]
+#   H9: action entropy > 1.0 nats (diverse policy)
 #
 # Usage:
 #   bash scripts/launch_phase6.sh
+#   nohup bash scripts/launch_phase6.sh > outputs/phase6_nohup.log 2>&1 &
 
 set -e
 cd /home/sharaths/projects/pwm-phase2
 
-PHASE5_CKPT="checkpoints/final.pt"
-if [ ! -f "$PHASE5_CKPT" ]; then
-    echo "ERROR: Phase 5 checkpoint not found. Run Phase 5 first."
-    exit 1
+# Phase 5 final checkpoint (preserved at gate time)
+P5_CKPT="checkpoints/final_phase5_seed54.pt"
+if [ ! -f "$P5_CKPT" ]; then
+    FALLBACK="checkpoints/final.pt"
+    if [ -f "$FALLBACK" ]; then
+        cp "$FALLBACK" "$P5_CKPT"
+        echo "Preserved Phase 5 checkpoint -> $P5_CKPT"
+    else
+        echo "ERROR: Phase 5 checkpoint not found: $P5_CKPT"
+        echo "Run Phase 5 first (bash scripts/launch_phase5.sh)"
+        exit 1
+    fi
 fi
 
 source /home/sharaths/vllm-env/bin/activate
 
-PHASE5_DEST="checkpoints/final_phase5_seed54.pt"
-if [ ! -f "$PHASE5_DEST" ]; then
-    cp "$PHASE5_CKPT" "$PHASE5_DEST"
-    echo "Preserved Phase 5 checkpoint -> $PHASE5_DEST"
-fi
-
-echo "=== Phase 6: Full System + Ablations ==="
-echo "Warm-starting from Phase 5 final: $PHASE5_CKPT"
-echo "mala_regularisers.enabled=true, seed=55, max_steps=1000000"
+echo "=== Phase 6: Full Pancakrtya System ==="
+echo "Warm-starting from Phase 5 final: $P5_CKPT"
+echo "All five sakti acts integrated; full reward stack active."
 echo ""
 
 mkdir -p outputs
 
 CORPUS_CACHE_DIR=/home/sharaths/projects/pwm-phase1/data/embed_cache \
 WANDB_PROJECT=pratyabhijna-world-model \
-PWM_RESUME_WM_ONLY="$PHASE5_CKPT" \
+PWM_RESUME_WM_ONLY="$P5_CKPT" \
 /home/sharaths/vllm-env/bin/python pwm/scripts/train.py \
   --config-name phase6_full \
   training.max_steps=1000000 \
