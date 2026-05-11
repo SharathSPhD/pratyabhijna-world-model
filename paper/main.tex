@@ -49,10 +49,12 @@ PWM resolves this by grounding creative generation in a genuine world model
 substrate: a three-level recurrent state-space model (Trika RSSM) that learns
 a latent representation of creative potential, combined with an Expected Free
 Energy (EFE) actor and a camatkāra ($R_{\text{camatk}}$) intrinsic reward.
-Evaluations across nine pre-registered hypotheses show that (H1) the EFE
-actor surpasses REINFORCE on sparse creative reward, (H3) sleep consolidation
-reduces catastrophic forgetting by 40\%, and (H5) PWM exceeds PCE v0.4 on
-creative quality ($p{<}0.001$, Hedges' $g{=}0.88$, BCa 95\% CI [0.61, 1.15]).
+We pre-register nine hypotheses (H1--H9) and report completed results for
+Phase~1--2: (H1) the EFE actor achieves $29.72{\times}$ more mean domain-aligned
+reward per episode than REINFORCE ($\mu_{\text{EFE}}{=}2.530$ vs.\
+$\mu_{\text{RF}}{=}0.085$, 200 episodes, $p{<}0.001$).
+Phase~3 (Hopfield memory, H2) is in training; Phases~4--6 (sleep consolidation,
+vimarśa bridge, full ablations H3--H9) follow upon gate passage.
 We release all code, trained checkpoints, and the 4.6M-token multilingual
 creative corpus.
 \end{abstract}
@@ -1013,6 +1015,10 @@ Phase~3 per-episode returns stabilised at ${\sim}40$ (vs.\ ${\sim}6$--$8$ in Pha
 reflecting the additional Hopfield $\Delta I_{\text{Hopfield}}$ reward term
 ($\alpha_2{=}0.3$ in Phase~3 vs.\ $\alpha_2{=}0$ in Phase~2).
 Encoder weight norm locked at $2.988$ from step~0, confirming no collapse risk.
+The IDL action-diversity metric (\texttt{cos\_sim}) reads $0.000$ throughout Phase~3:
+this is expected, as the WM is frozen after step~10{,}000 and no IDL updates are
+applied.\ Action-differentiating representations were already established in Phase~2
+($\cos\text{sim} \to -1.0$ by step~1{,}300); the frozen WM carries this structure forward.
 
 \subsection{Phase 4: Sleep Consolidation (H3)}
 
