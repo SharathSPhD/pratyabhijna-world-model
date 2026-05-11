@@ -70,6 +70,9 @@ from pwm.pipeline.pancakrtya_loop import PancakrtyaLoop, LoopConfig  # type: ign
 from pwm.active_inference.efe_actor import EFEActor  # type: ignore[import]   # Phase 2+
 from pwm.active_inference.crspp import CRSPPModel    # type: ignore[import]   # Phase 2+
 from pwm.data.corpus_dataset import PhaseOneEnv      # type: ignore[import]   # Phase 1+
+from pwm.sleep.consolidation import (                 # type: ignore[import]   # Phase 4+
+    SleepConsolidator, NREMPhase, REMPhase, SleepConfig
+)
 
 log = logging.getLogger(__name__)
 
@@ -453,6 +456,27 @@ class PWMTrainer:
 
         self._checkpoint_dir = Path("checkpoints")
         self._checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+        # Phase 4+: sleep consolidation (NREM+REM) activated when cfg.sleep.enabled=true
+        sleep_cfg_raw = getattr(cfg, "sleep", None)
+        self._sleep_enabled: bool = bool(getattr(sleep_cfg_raw, "enabled", False))
+        self._sleep_interval: int = int(getattr(sleep_cfg_raw, "interval", 5000))
+        if self._sleep_enabled:
+            s_cfg = SleepConfig(
+                nrem_replay_steps=int(getattr(sleep_cfg_raw, "nrem_batches", 100)),
+                rem_dream_horizon=int(getattr(sleep_cfg_raw, "dream_horizon", 30)),
+                rem_retrain_steps=int(getattr(sleep_cfg_raw, "rem_episodes", 20)),
+                shy_scale=1.0 - float(getattr(sleep_cfg_raw, "shsy_rate", 0.01)),
+                efficiency_threshold=float(getattr(sleep_cfg_raw, "consolidation_threshold", 0.1)),
+            )
+            self.sleep_consolidator: SleepConsolidator | None = SleepConsolidator(
+                nrem=NREMPhase(self.world_model, self.citta_store, self.replay, self.opt_wm, s_cfg),
+                rem=REMPhase(self.world_model, self.opt_wm, s_cfg),
+                cfg=s_cfg,
+            )
+            log.info("Sleep consolidation ENABLED (interval=%d steps)", self._sleep_interval)
+        else:
+            self.sleep_consolidator = None
 
         # Default VFE cache for when WM is frozen from step 0 (e.g. warm-start at step 10K)
         self._last_real_vfe: float = 0.0
@@ -1005,6 +1029,15 @@ class PWMTrainer:
             obs = obs_new
 
             self.step += 1
+
+            # Phase 4+: sleep consolidation every sleep_interval steps
+            if self._sleep_enabled and self.sleep_consolidator is not None and self.step % self._sleep_interval == 0:
+                log.info("Sleep cycle triggered at step %d...", self.step)
+                sleep_metrics = self.sleep_consolidator.sleep(self.device)
+                log.info("Sleep complete: cycles=%d vfe_reduction=%.4f",
+                         sleep_metrics.get("cycles", 0), sleep_metrics.get("total_vfe_reduction", 0.0))
+                self._log_metrics({"sleep/cycles": float(sleep_metrics.get("cycles", 0)),
+                                   "sleep/vfe_reduction": float(sleep_metrics.get("total_vfe_reduction", 0.0))})
 
             if self.step % log_interval == 0:
                 elapsed = time.perf_counter() - t0

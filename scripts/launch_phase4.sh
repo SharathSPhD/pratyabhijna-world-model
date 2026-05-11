@@ -29,7 +29,7 @@ fi
 
 source /home/sharaths/vllm-env/bin/activate
 
-PHASE3_DEST="checkpoints/final_phase3_seed49.pt"
+PHASE3_DEST="checkpoints/final_phase3_seed53.pt"
 if [ ! -f "$PHASE3_DEST" ]; then
     cp "$PHASE3_CKPT" "$PHASE3_DEST"
     echo "Preserved Phase 3 checkpoint -> $PHASE3_DEST"
