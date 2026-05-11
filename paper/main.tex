@@ -1002,7 +1002,17 @@ policies (Layer-12 paradox, analogous to Layer-11), so the H2 gate is determined
 the primary completion ratio.
 
 \textit{Phase 3 training launched 2026-05-11 21:19 UTC (seed=53, 300{,}000 steps,
-warm-start from Phase 2 v11 step 400{,}000). Results pending.}
+warm-start from Phase 2 v11 step 400{,}000). H2 gate results pending.}
+
+\paragraph{Phase 3 early dynamics.}
+A committed-policy phase transition occurred at step~11{,}000 (vs.\ step~339{,}000 in Phase~2),
+demonstrating \emph{transfer learning efficiency}: the Phase~2 WM already encodes
+domain-selective representations, so the fresh Phase~3 actor+critic converge to
+commitment in ${\sim}30{\times}$ fewer steps.
+Phase~3 per-episode returns stabilised at ${\sim}40$ (vs.\ ${\sim}6$--$8$ in Phase~2),
+reflecting the additional Hopfield $\Delta I_{\text{Hopfield}}$ reward term
+($\alpha_2{=}0.3$ in Phase~3 vs.\ $\alpha_2{=}0$ in Phase~2).
+Encoder weight norm locked at $2.988$ from step~0, confirming no collapse risk.
 
 \subsection{Phase 4: Sleep Consolidation (H3)}
 
@@ -1211,11 +1221,11 @@ that prior LLM-native creative systems (including PCE v0.4) lacked.
 The EFE actor replaces REINFORCE with an epistemic-value objective that
 directly optimises prior entropy increase — the computational analogue
 of seeking genuinely novel creative states (\emph{sphurattā}).
-Phase 2 v6 (seed=47, 400K steps) has completed: gate ratio$=1.050$, FAIL.
-Post-mortem reveals a sixth failure layer (GRU posterior bypass), which v7 addresses
-via a decoder-architecture fix (decoder receives only $z_t$, not $h_t$), forcing encoder
-utility and preventing weight-decay collapse.
-The eleven-layer failure chain constitutes an unusually complete negative-result case study
+\textbf{Phase 2 H1 gate PASSED} (v11, seed=52, 400K steps, 2026-05-10):
+EFE achieves $29.72{\times}$ more mean domain-aligned reward per episode than REINFORCE
+($\mu_{\text{EFE}}{=}2.530$ vs $\mu_{\text{RF}}{=}0.085$, 200 episodes).
+An eleven-layer compounding failure chain was diagnosed and resolved through iterative
+checkpoint post-mortem, constituting an unusually complete negative-result case study
 in active-inference RSSM training dynamics.
 
 \item \textbf{Imagination Diversity Loss and domain-selective corpus.}
