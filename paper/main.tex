@@ -95,7 +95,7 @@ We hypothesise that resolving the separation problem requires a
     $z_t \in \mathbb{R}^{32 \times 32}$ (not just a token sequence);
 (2) can \emph{predict} the consequence of a creative act in latent space,
     enabling imagination rollouts without querying the LLM;
-(3) computes the \emph{Expected Free Energy} (EFE)~\cite{friston2017} of
+(3) computes the \emph{Expected Free Energy} (EFE)~\cite{friston2017active} of
     each candidate action — a principled measure of the value of unexplored
     states that is zero for already-known patterns and positive for genuinely
     novel ones.
@@ -819,7 +819,7 @@ Post-mortem reveals two compounding causes.
 requires $|\text{history}| \ge 20$ — mechanically impossible in episode~1.
 \emph{Distal (deeper)}: the $\|h_t\|_2$ proxy gives \emph{action-independent} rewards.
 The GRU charges from zero initialisation ($\|h_0\|\!\approx\!4.5 \to \|h_{15}\|\!\approx\!18.6$)
-regardless of which action is taken (ΔActivation positive on 94.7\% of steps for any actor);
+regardless of which action is taken ($\Delta$Activation positive on 94.7\% of steps for any actor);
 advantage normalisation nullifies this constant signal.
 Consequently the EFE actor remains essentially uniform: action entropy
 $5.99$ bits vs maximum $6.00$ bits (ratio 0.999).
