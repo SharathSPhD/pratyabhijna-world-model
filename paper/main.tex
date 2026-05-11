@@ -313,8 +313,12 @@ hierarchical RSSM:
 %
 The stochastic latent $z_t \in \mathbb{R}^{32 \times 32}$ is the
 \emph{spanda} (Vasugupta, SpandaK 1.1) — the creative vibration of
-consciousness from which all manifestation unfolds. The Mamba-2 backbone
-provides $O(T \log T)$ parallel training and $O(1)$ recurrent inference.
+consciousness from which all manifestation unfolds.
+Aparā uses a GRU recurrent core; Parā uses an S4 structured state-space
+model~\cite{gu2022efficiently}, providing $O(T \log T)$ parallel training
+and $O(T)$ recurrent inference for long-horizon prediction.
+In Phases 1--4, only the Aparā level (L0) is active; the full three-level
+hierarchy is evaluated in Phase~6 (H7).
 
 \subsection{EFE Actor}
 
@@ -482,15 +486,16 @@ $\sim$103\,GB for WM ($\sim$55\,GB) plus frozen 120B FP4 LLM ($\sim$44\,GB)
 simultaneously.
 
 \textbf{Model.}
-Phase 2 WM: $h \in \mathbb{R}^{512}$ (GRU hidden),
+Phase 2 WM (v11 final): $h \in \mathbb{R}^{512}$ (GRU hidden),
 $z \sim \text{Cat}(32{\times}32)$, $d_{\text{obs}}=512$, $d_{\text{act}}=64$,
-free bits $= 1.0$, KL balance $(\alpha_{\text{dyn}}, \alpha_{\text{rep}}) = (0.5, 0.1)$.
+free bits $= 0.1$ (reduced from 1.0 in Layer~4 fix),
+KL balance $(\alpha_{\text{dyn}}, \alpha_{\text{rep}}) = (0.5, 0.1)$.
 EFE actor: 3-layer MLP, 512 hidden units.
 Critic: 2-layer MLP, 512 units.
 Total: 6.35M parameters.
 
 \textbf{Optimiser.}
-Adam~\cite{sutton2018reinforcement} with learning rate $10^{-4}$ (WM),
+Adam~\cite{kingma2014adam} with learning rate $10^{-4}$ (WM),
 $3{\times}10^{-5}$ (actor), $10^{-4}$ (critic);
 gradient clip $= 100$; batch size $B{=}8$, sequence length $T{=}32$;
 replay buffer $= 10^5$ transitions (sum-tree PER, priority exponent $= 0.6$).
