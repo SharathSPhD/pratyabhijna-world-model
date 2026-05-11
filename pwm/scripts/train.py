@@ -73,6 +73,7 @@ from pwm.data.corpus_dataset import PhaseOneEnv      # type: ignore[import]   # 
 from pwm.sleep.consolidation import (                 # type: ignore[import]   # Phase 4+
     SleepConsolidator, NREMPhase, REMPhase, SleepConfig
 )
+from pwm.vimarsa.bridge import VimarsaBridge          # type: ignore[import]   # Phase 5+
 
 log = logging.getLogger(__name__)
 
@@ -348,6 +349,36 @@ class PWMTrainer:
 
         self.replay = ReplayBuffer(capacity=cfg.training.replay_capacity)
 
+        # Phase 5+: VimarsaBridge maps WM h_t → LLM soft-prompt prefix tokens.
+        # Instantiate whenever llm.enabled=true; bridge_dim comes from vimarsa config.
+        # LLMBackend is optional — Phase 5 gate passes via proxy metric even without a live model.
+        llm_cfg_raw = getattr(cfg, "llm", None)
+        vimarsa_cfg_raw = getattr(cfg, "vimarsa", None)
+        self._llm_enabled: bool = bool(getattr(llm_cfg_raw, "enabled", False))
+        self.vimarsa_bridge: VimarsaBridge | None = None
+        self.llm_backend: Any = None
+
+        if self._llm_enabled:
+            bridge_dim = int(getattr(vimarsa_cfg_raw, "bridge_dim", 256))
+            self.vimarsa_bridge = VimarsaBridge(
+                hidden_dim=wm_cfg.hidden_dim_apara,
+                llm_embed_dim=bridge_dim,
+            ).to(self.device)
+            log.info(
+                "VimarsaBridge ENABLED (hidden_dim=%d → bridge_dim=%d)",
+                wm_cfg.hidden_dim_apara, bridge_dim,
+            )
+            try:
+                from pwm.llm.backend import LLMBackend  # type: ignore[import]
+                self.llm_backend = LLMBackend.from_env()
+                log.info("LLMBackend ENABLED")
+            except Exception as _llm_err:
+                log.warning(
+                    "LLMBackend unavailable (%s) — narration disabled "
+                    "(Phase 5 gate still passes via proxy metric)",
+                    _llm_err,
+                )
+
         loop_cfg = LoopConfig(
             sphuratta_vfe_percentile=cfg.sphuratta.percentile,
             sphuratta_min_gap=cfg.sphuratta.min_gap,
@@ -365,6 +396,8 @@ class PWMTrainer:
             citta_store=self.citta_store,
             camatk=self.camatk,
             cfg=loop_cfg,
+            llm_backend=self.llm_backend,
+            vimarsa_bridge=self.vimarsa_bridge,
         )
 
         # Corpus environment selection (priority order):
@@ -449,6 +482,16 @@ class PWMTrainer:
             eps=1e-8,
         )
 
+        # Phase 5+: separate optimizer for VimarsaBridge (gradient path not yet wired
+        # for text-mode LLM; optimizer ready for future differentiable embedding path)
+        self.opt_vimarsa: torch.optim.Adam | None = None
+        if self.vimarsa_bridge is not None:
+            self.opt_vimarsa = torch.optim.Adam(
+                self.vimarsa_bridge.parameters(),
+                lr=self._WM_LR,
+                eps=1e-8,
+            )
+
         # bfloat16 mixed precision — native on GB10 Blackwell, no loss scaling needed
         mp_str: str = getattr(cfg.training, "mixed_precision", "bfloat16")
         self._mp_dtype = torch.bfloat16 if mp_str == "bfloat16" else torch.float32
@@ -491,6 +534,8 @@ class PWMTrainer:
 
     def _param_count(self) -> int:
         models = [self.world_model, self.efe_actor, self.critic]
+        if self.vimarsa_bridge is not None:
+            models.append(self.vimarsa_bridge)
         return sum(p.numel() for m in models for p in m.parameters())
 
     def _setup_loggers(self) -> None:
@@ -1112,20 +1157,22 @@ class PWMTrainer:
     def save_checkpoint(self, path: Path | str) -> None:
         """Save full trainer state for exact resumption."""
         path = Path(path)
-        torch.save(
-            {
-                "step": self.step,
-                "world_model": self.world_model.state_dict(),
-                "efe_actor": self.efe_actor.state_dict(),
-                "critic": self.critic.state_dict(),
-                "slow_critic": self.slow_critic.state_dict(),
-                "citta_store": self.citta_store.state_dict(),
-                "opt_wm": self.opt_wm.state_dict(),
-                "opt_actor": self.opt_actor.state_dict(),
-                "opt_critic": self.opt_critic.state_dict(),
-            },
-            path,
-        )
+        ckpt: dict[str, Any] = {
+            "step": self.step,
+            "world_model": self.world_model.state_dict(),
+            "efe_actor": self.efe_actor.state_dict(),
+            "critic": self.critic.state_dict(),
+            "slow_critic": self.slow_critic.state_dict(),
+            "citta_store": self.citta_store.state_dict(),
+            "opt_wm": self.opt_wm.state_dict(),
+            "opt_actor": self.opt_actor.state_dict(),
+            "opt_critic": self.opt_critic.state_dict(),
+        }
+        if self.vimarsa_bridge is not None:
+            ckpt["vimarsa_bridge"] = self.vimarsa_bridge.state_dict()
+        if self.opt_vimarsa is not None:
+            ckpt["opt_vimarsa"] = self.opt_vimarsa.state_dict()
+        torch.save(ckpt, path)
         log.info("Checkpoint saved: %s", path)
 
     def load_checkpoint(self, path: Path | str) -> None:
@@ -1141,6 +1188,10 @@ class PWMTrainer:
         self.opt_wm.load_state_dict(ckpt["opt_wm"])
         self.opt_actor.load_state_dict(ckpt["opt_actor"])
         self.opt_critic.load_state_dict(ckpt["opt_critic"])
+        if "vimarsa_bridge" in ckpt and self.vimarsa_bridge is not None:
+            self.vimarsa_bridge.load_state_dict(ckpt["vimarsa_bridge"])
+        if "opt_vimarsa" in ckpt and self.opt_vimarsa is not None:
+            self.opt_vimarsa.load_state_dict(ckpt["opt_vimarsa"])
         log.info("Checkpoint loaded from %s (step=%d)", path, self.step)
 
 

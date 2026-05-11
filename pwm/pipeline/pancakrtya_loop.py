@@ -96,6 +96,7 @@ class PancakrtyaLoop:
         efe_actor: Any = None,           # EFEActor | nn.Module | None
         vimarsha_agent: Any = None,      # VimarshaAgent | None (smolagents)
         context_store: Any = None,       # AvacchedakaStore | None
+        vimarsa_bridge: Any = None,      # VimarsaBridge | None (Phase 5+)
     ) -> None:
         self.wm = world_model
         self.citta = citta_store
@@ -105,6 +106,7 @@ class PancakrtyaLoop:
         self.efe_actor = efe_actor
         self.vimarsha = vimarsha_agent
         self.ctx = context_store
+        self.vimarsa_bridge = vimarsa_bridge
 
         self._last_sphuratta_step: int = -9999
         self._step_count: int = 0
@@ -191,10 +193,15 @@ class PancakrtyaLoop:
             # Only call LLM on sphurattā event (≪ 1% of steps)
             try:
                 sakshi = self.ctx.get_sakshi() if self.ctx else "PWM: creative world model"
+                # Phase 5+: VimarsaBridge enriches the prompt with WM hidden state summary
+                wm_prefix = ""
+                if self.vimarsa_bridge is not None:
+                    with torch.no_grad():
+                        wm_prefix = self.vimarsa_bridge.format_prefix_text(h_t)
                 narration = self.llm.call(
                     role="jnana",
                     system=sakshi,
-                    prompt=f"VFE={vfe_val:.4f}, camatkāra={camatk_val:.4f}. Describe the creative moment.",
+                    prompt=wm_prefix + f"VFE={vfe_val:.4f}, camatkāra={camatk_val:.4f}. Describe the creative moment.",
                     max_tokens=cfg.llm_max_tokens,
                 )
             except Exception:
