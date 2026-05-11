@@ -67,6 +67,9 @@ if [ "$H2_PASS" = "True" ]; then
     nohup bash scripts/launch_phase4.sh > "$PHASE4_LOG" 2>&1 &
     PHASE4_PID=$!
     log "Phase 4 launched (PID=$PHASE4_PID). Monitor: tail -f $PHASE4_LOG"
+    # Chain Phase 4 auto-advance watcher immediately
+    nohup bash scripts/auto_advance_phase4.sh > outputs/auto_advance_phase4.log 2>&1 &
+    log "Phase 4 auto-advance watcher started (PID=$!)."
 else
     log "H2 gate FAILED. Phase 4 NOT launched."
     log "Review gate3 output: $GATE3_JSON"
