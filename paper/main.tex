@@ -995,10 +995,14 @@ and \emph{baseline accuracy} $= \overline{\cos\!\sin(h_{\text{occ}},\,h_{\text{o
 are computed over all 500 test patterns;
 (iv) H2 passes if $\text{acc}_{\text{hop}} / \text{acc}_{\text{base}} \geq 1.10$.
 
-Secondary criterion: sphurattā rate 0.5--2.0 events per 100 imagination steps
+Secondary criterion (diagnostic only): sphurattā rate 0.5--2.0 events per 100 imagination steps
 (measured over 300 episodes, $h_t$ activation-norm proxy, 95th-percentile threshold).
+Note: the dynamic-percentile proxy produces ${\sim}5$ events/100 steps by construction for committed
+policies (Layer-12 paradox, analogous to Layer-11), so the H2 gate is determined solely by
+the primary completion ratio.
 
-\emph{Results pending Phase 3 training.}
+\textit{Phase 3 training launched 2026-05-11 21:19 UTC (seed=53, 300{,}000 steps,
+warm-start from Phase 2 v11 step 400{,}000). Results pending.}
 
 \subsection{Phase 4: Sleep Consolidation (H3)}
 
