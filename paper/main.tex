@@ -1186,6 +1186,33 @@ We believe this pattern — philosophy generates functional specification,
 specification generates testable engineering choice — is a viable
 research methodology for creative AI.
 
+\subsection{Transfer Learning Efficiency Under WM Freeze}
+
+Phase 3 exhibits a striking \emph{phase transition} at step~11{,}000 — compared to
+step~339{,}000 in Phase~2. The committed-policy regime is reached ${\sim}30{\times}$ faster,
+yet the WM is strictly identical (frozen weights), and actor/critic are re-initialised.
+
+The explanation lies in the \emph{information geometry} of the frozen WM.
+In Phase~2, the WM must simultaneously learn domain-selective $h_t$ representations
+(via IDL) and support actor/critic training.
+During WM training (steps 0--10K), the actor sees a non-stationary $h_t$ distribution
+and cannot find a stable reward gradient.
+After WM freeze (step 10K), Phase~2 needs ${\sim}329{,}000$ additional steps for the
+actor to commit to a domain direction in the frozen $h$-space.
+
+In Phase~3, the frozen WM already encodes domain-selective representations (IDL
+converged to $\cos\text{sim} \to -1.0$ in Phase~2, then locked).
+The actor and critic are initialised fresh but immediately operate on a stable,
+informationally-rich $h$-space.
+The domain-selective structure acts as a \emph{built-in curriculum}: the EFE gradient
+immediately finds a reward-predictive direction in $h$-space, collapsing the commitment
+time from ${\sim}329{,}000$ to ${\sim}1{,}000$ post-freeze steps.
+
+This finding has practical implications for curriculum design in world-model RL:
+pre-training the WM with IDL until $\cos\text{sim} \to -1.0$ and then freezing it
+before actor training is not merely a stability fix (Layer 7) — it is a structural
+prerequisite for sample-efficient actor learning on static corpora.
+
 \subsection{Limitations}
 
 \textbf{Passive corpus training.}
