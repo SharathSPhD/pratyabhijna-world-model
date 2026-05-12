@@ -1254,7 +1254,9 @@ if _HYDRA:
             # loss causes Adam to decay encoder norms via momentum → breaks H8).
             if ckpt_step >= trainer._WM_FREEZE_STEP:
                 trainer._WM_FREEZE_STEP = 0
-                log.info("WM freeze overridden to step 0 (checkpoint already trained).")
+                for p in trainer.world_model.parameters():
+                    p.requires_grad_(False)
+                log.info("WM freeze overridden to step 0 (checkpoint already trained); requires_grad=False.")
 
         trainer.train()
 else:
