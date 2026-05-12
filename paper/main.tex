@@ -55,8 +55,10 @@ reward per episode than REINFORCE ($\mu_{\text{EFE}}{=}2.530$ vs.\
 $\mu_{\text{RF}}{=}0.085$, 200 episodes, $p{<}0.001$).
 (H2) Hopfield Citta-store improves occlusion completion ratio to $1.307$
 (threshold: 1.10, PASS);
-(H3) sleep consolidation shows negligible catastrophic forgetting in both
-conditions (PASS); Phase~5 (vimarśa bridge, H4--H6) is in training.
+(H3) sleep consolidation: negligible forgetting in both conditions (PASS);
+(H4) 100\% sphurattā events satisfy $H(z_t){>}0.5$ nats (PASS);
+(H5) mean reward ratio $2.142{\times}$ Phase~2 baseline (PASS).
+Phase~6 (full ablations, H6--H9) is in training.
 We release all code, trained checkpoints, and the 4.6M-token multilingual
 creative corpus.
 \end{abstract}
@@ -438,9 +440,9 @@ All nine hypotheses were pre-registered before any training run:
     H1 & EFE $>$ REINFORCE on sparse reward & Episodes to sphurattā & \textbf{PASS} ($29.72{\times}$) \\
     H2 & Hopfield improves completion      & Occlusion accuracy    & \textbf{PASS} (ratio $= 1.307$) \\
     H3 & Sleep reduces forgetting          & Forgetting rate       & In training \\
-    H4 & Vimarśa improves narration        & $\geq$70\% sphurattā  & Pending \\
-    H5 & PWM $>$ PCE v0.4                  & $R_{\text{camatk}}$ density & Pending \\
-    H6 & Camatkāra: reward entropy         & Entropy $>$ 0.5 nats  & Pending \\
+    H4 & Vimarśa improves narration        & $\geq$70\% sphurattā  & \textbf{PASS} (100\%) \\
+    H5 & PWM $>$ PCE v0.4                  & $R_{\text{camatk}}$ density & \textbf{PASS} ($2.142{\times}$) \\
+    H6 & Camatkāra: reward entropy         & Entropy $>$ 0.5 nats  & In training \\
     H7 & 3-level $>$ 1-level               & VFE proxy $< 0.85{\times}$ P3 & Pending \\
     H8 & Encoder stability                 & Norm $\in [1, 50]$    & Pending \\
     H9 & Policy diversity                  & Action entropy $>$ 1.0 nats & Pending \\
@@ -1086,7 +1088,13 @@ H5 is gate-sufficient on its own; H4 is an additional quality check.
 $> 0.5$ nats over 500 episodes, confirming non-trivial camatkāra dynamics
 (degenerate policies collapse to entropy $\approx 0$).
 
-\emph{Results pending Phase 5 training.}
+\paragraph{H4, H5 results.}
+Phase 5 training completed 2026-05-12 (500{,}000 steps, seed=54).
+\textbf{H4}: 100\% of sphurattā events ($n{=}1600$ over 200 episodes~$\times$~32 steps)
+satisfied $H(z_t) > 0.5$ nats (threshold: $\geq 70\%$). \textbf{H4 PASS.}
+\textbf{H5}: mean episode reward $\mu_{\text{P5}} = 5.419$ vs.\ Phase~2 baseline
+$\mu_{\text{P2}} = 2.530$, ratio $= 2.142 \geq 2.0$. \textbf{H5 PASS.}
+Phase~6 launched automatically.
 
 \subsection{Ablations (H7, H8, H9)}
 
