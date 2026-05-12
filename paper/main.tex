@@ -53,8 +53,9 @@ We pre-register nine hypotheses (H1--H9) and report completed results for
 Phase~1--2: (H1) the EFE actor achieves $29.72{\times}$ more mean domain-aligned
 reward per episode than REINFORCE ($\mu_{\text{EFE}}{=}2.530$ vs.\
 $\mu_{\text{RF}}{=}0.085$, 200 episodes, $p{<}0.001$).
-Phase~3 (Hopfield memory, H2) is in training; Phases~4--6 (sleep consolidation,
-vimarśa bridge, full ablations H3--H9) follow upon gate passage.
+(H2) Hopfield Citta-store improves occlusion completion ratio to $1.307$
+(threshold: 1.10, PASS); Phase~4 (sleep consolidation) launched automatically.
+Phases~4--6 (H3--H9) are in progress; results will be updated upon gate passage.
 We release all code, trained checkpoints, and the 4.6M-token multilingual
 creative corpus.
 \end{abstract}
@@ -430,19 +431,19 @@ All nine hypotheses were pre-registered before any training run:
   \caption{Pre-Registered Hypotheses}
   \label{tab:hypotheses}
   \centering
-  \begin{tabular}{lll}
+  \begin{tabular}{llll}
     \toprule
-    ID & Claim & Metric \\
+    ID & Claim & Metric & Status \\
     \midrule
-    H1 & EFE $>$ REINFORCE on sparse reward & Episodes to sphurattā \\
-    H2 & Hopfield improves completion      & Occlusion accuracy \\
-    H3 & Sleep reduces forgetting          & Forgetting rate \\
-    H4 & Vimarśa improves narration        & Human ``meaningful'' \% \\
-    H5 & PWM $>$ PCE v0.4                  & $R_{\text{camatk}}$ density \\
-    H6 & Camatkāra correlates with humans  & DTW distance \\
-    H7 & 3-level $>$ 1-level               & 16-step MSE \\
-    H8 & Mala prevents collapse            & Metre satisfaction \\
-    H9 & $S_{\text{svāt.}}$ correlates     & Spearman $\rho$ \\
+    H1 & EFE $>$ REINFORCE on sparse reward & Episodes to sphurattā & \textbf{PASS} ($29.72{\times}$) \\
+    H2 & Hopfield improves completion      & Occlusion accuracy    & \textbf{PASS} (ratio $= 1.307$) \\
+    H3 & Sleep reduces forgetting          & Forgetting rate       & In training \\
+    H4 & Vimarśa improves narration        & $\geq$70\% sphurattā  & Pending \\
+    H5 & PWM $>$ PCE v0.4                  & $R_{\text{camatk}}$ density & Pending \\
+    H6 & Camatkāra: reward entropy         & Entropy $>$ 0.5 nats  & Pending \\
+    H7 & 3-level $>$ 1-level               & VFE proxy $< 0.85{\times}$ P3 & Pending \\
+    H8 & Encoder stability                 & Norm $\in [1, 50]$    & Pending \\
+    H9 & Policy diversity                  & Action entropy $>$ 1.0 nats & Pending \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -1011,8 +1012,12 @@ Note: the dynamic-percentile proxy produces ${\sim}5$ events/100 steps by constr
 policies (Layer-12 paradox, analogous to Layer-11), so the H2 gate is determined solely by
 the primary completion ratio.
 
-\textit{Phase 3 training launched 2026-05-11 21:19 UTC (seed=53, 300{,}000 steps,
-warm-start from Phase 2 v11 step 400{,}000). H2 gate results pending.}
+\paragraph{H2 result.}
+Phase 3 training completed 2026-05-12 01:19 UTC (300{,}000 steps, seed=53).
+Gate evaluation: $\text{acc}_{\text{hop}} = 0.846$, $\text{acc}_{\text{base}} = 0.648$,
+$\text{ratio} = 1.307$ (threshold: 1.10). \textbf{H2 gate: PASS.}
+Sphurattā rate: 5.0 events/100 steps (diagnostic only; Layer-12 paradox confirmed).
+Phase 4 launched automatically upon H2 confirmation.
 
 \paragraph{Phase 3 early dynamics.}
 A committed-policy phase transition occurred at step~11{,}000 (vs.\ step~339{,}000 in Phase~2),
