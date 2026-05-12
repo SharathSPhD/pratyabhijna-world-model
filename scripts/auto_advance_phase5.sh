@@ -39,7 +39,7 @@ log "gate5 exit code: $?"
 GATE5_JSON=$(ls -t $GATE5_RESULT_PATTERN 2>/dev/null | head -1)
 [ -n "$GATE5_JSON" ] || { log "ERROR: No gate5 result JSON. Check outputs/gate5_auto.log"; exit 1; }
 
-GATE5_PASS=$(python3 -c "import json; d=json.load(open('$GATE5_JSON')); print(d.get('gate_pass', False))")
+GATE5_PASS=$(python3 -c "import json; d=json.load(open('$GATE5_JSON')); print(d.get('h_pass', d.get('gate_pass', False)))")
 log "Gate5 result: gate_pass=$GATE5_PASS ($GATE5_JSON)"
 
 if [ "$GATE5_PASS" = "True" ]; then
