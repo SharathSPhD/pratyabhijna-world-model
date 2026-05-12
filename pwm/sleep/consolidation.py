@@ -73,6 +73,8 @@ class NREMPhase:
 
         vfe_before = self._estimate_vfe(device)
 
+        was_training = self.wm.training
+        self.wm.train()
         for _ in range(self.cfg.nrem_replay_steps):
             transitions, indices, _ = self.buf.sample(batch_size=16)
             if not transitions:
@@ -92,6 +94,7 @@ class NREMPhase:
                 losses["total"].backward()  # type: ignore[union-attr]
                 nn.utils.clip_grad_norm_(self.wm.parameters(), 1000.0)
                 self.opt.step()
+        self.wm.train(was_training)
 
             # Update replay priorities
             vfe_values = [t.vfe for t in transitions]
