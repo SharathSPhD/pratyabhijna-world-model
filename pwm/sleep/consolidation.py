@@ -73,9 +73,11 @@ class NREMPhase:
 
         vfe_before = self._estimate_vfe(device)
 
+        # Skip WM optimization when WM is fully frozen (requires_grad=False on all params)
+        wm_trainable = any(p.requires_grad for p in self.wm.parameters())
         was_training = self.wm.training
         self.wm.train()
-        for _ in range(self.cfg.nrem_replay_steps):
+        for _ in range(self.cfg.nrem_replay_steps if wm_trainable else 0):
             transitions, indices, _ = self.buf.sample(batch_size=16)
             if not transitions:
                 break
