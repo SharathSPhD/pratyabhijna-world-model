@@ -345,6 +345,8 @@ def main() -> None:
     parser.add_argument("--out-dir", type=Path,
                         default=Path("benchmarks/results"),
                         help="Directory for result JSON")
+    parser.add_argument("--device", type=str, default="cuda",
+                        help="Device (cuda/cpu); auto-detected if not set")
     args = parser.parse_args()
 
     if not args.checkpoint.exists():

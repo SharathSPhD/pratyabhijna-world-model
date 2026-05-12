@@ -1,0 +1,31 @@
+{
+  "phase": 3,
+  "phase_name": "hopfield_citta_store",
+  "checkpoint": "checkpoints/final.pt",
+  "protocol": {
+    "store_episodes": 200,
+    "test_patterns": 500,
+    "h_steps": 16,
+    "occlusion_frac": 0.5,
+    "completion_threshold": 1.1,
+    "sphuratta_episodes": 300,
+    "sphuratta_steps": 100,
+    "sphuratta_rate_min": 0.5,
+    "sphuratta_rate_max": 2.0
+  },
+  "completion": {
+    "acc_hopfield": 0.846126576423645,
+    "acc_baseline": 0.6475665920972824,
+    "ratio": 1.3066248116402728,
+    "threshold": 1.1,
+    "pass": true
+  },
+  "sphuratta": {
+    "rate_per_100_steps": 5.0,
+    "target_min": 0.5,
+    "target_max": 2.0,
+    "pass": false
+  },
+  "h2_pass": true,
+  "status": "PASS"
+}
