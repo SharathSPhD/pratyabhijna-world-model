@@ -210,11 +210,13 @@ class TrikaCoreLevel(nn.Module):
         # Posterior (recognition density)
         logits_post = self.encoder(torch.cat([obs, h_t], dim=-1))
         logits_post = logits_post.reshape(-1, self.stoch_dim, self.stoch_classes)
+        logits_post = torch.nan_to_num(logits_post, nan=0.0, posinf=20.0, neginf=-20.0)
         z_t = straight_through_sample(logits_post)
 
         # Prior (for KL computation, not used in z_t selection here)
         logits_prior = self.prior(h_t)
         logits_prior = logits_prior.reshape(-1, self.stoch_dim, self.stoch_classes)
+        logits_prior = torch.nan_to_num(logits_prior, nan=0.0, posinf=20.0, neginf=-20.0)
 
         return h_t, z_t, logits_post, logits_prior
 
@@ -231,6 +233,7 @@ class TrikaCoreLevel(nn.Module):
         prev_z_flat = prev_z.flatten(-2)
         h_t = self._recurrent_step(prev_z_flat, prev_a, prev_h)
         logits_prior = self.prior(h_t).reshape(-1, self.stoch_dim, self.stoch_classes)
+        logits_prior = torch.nan_to_num(logits_prior, nan=0.0, posinf=20.0, neginf=-20.0)
         z_t = straight_through_sample(logits_prior)
         return h_t, z_t, logits_prior
 
