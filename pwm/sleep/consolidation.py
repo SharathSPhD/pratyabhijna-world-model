@@ -94,13 +94,13 @@ class NREMPhase:
                 losses["total"].backward()  # type: ignore[union-attr]
                 nn.utils.clip_grad_norm_(self.wm.parameters(), 1000.0)
                 self.opt.step()
-        self.wm.train(was_training)
 
             # Update replay priorities
             vfe_values = [t.vfe for t in transitions]
             import numpy as np
             self.buf.update_priorities(indices, np.array(vfe_values))
 
+        self.wm.train(was_training)
         vfe_after = self._estimate_vfe(device)
 
         # SHY down-scaling: attenuate episodic Hopfield patterns

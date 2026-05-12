@@ -1,0 +1,37 @@
+{
+  "phase": 4,
+  "phase_name": "sleep_consolidation",
+  "checkpoint": "checkpoints/final.pt",
+  "protocol": {
+    "domain_actions": [
+      0,
+      32,
+      63
+    ],
+    "episodes_per_domain": 100,
+    "h_steps": 16,
+    "test_patterns": 200,
+    "occlusion_frac": 0.5,
+    "replay_capacity": 2048
+  },
+  "without_sleep": {
+    "acc_baseline_domain0": 0.8532997778058052,
+    "acc_after_interference": 0.8533003416657448,
+    "forgetting": -6.607993512375288e-07
+  },
+  "with_sleep": {
+    "acc_baseline_domain0": 0.8532997778058052,
+    "acc_after_interference": 0.8533003416657448,
+    "forgetting": -6.607993512375288e-07,
+    "sleep_metrics": {
+      "cycles": 1,
+      "total_vfe_reduction": 0.0
+    }
+  },
+  "h3_forgetting_with_sleep": -6.607993512375288e-07,
+  "h3_forgetting_without_sleep": -6.607993512375288e-07,
+  "h3_forgetting_ratio": Infinity,
+  "h3_threshold": 0.8,
+  "h3_pass": true,
+  "status": "PASS"
+}

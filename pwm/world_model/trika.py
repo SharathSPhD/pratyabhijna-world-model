@@ -7,7 +7,7 @@ Philosophical grounding:
                      Immediate sensory-motor dynamics. Spanda at finest granularity.
     Parāparā (Level 1): The 'middle' energy — stride=4, GRU.
                         Integrates Aparā patterns into mid-level temporal abstractions.
-    Parā (Level 2): The 'supreme' energy — stride=16, S4 backbone (Phase 5+).
+    Parā (Level 2): The 'supreme' energy — stride=16, Mamba backbone (Phase 5+).
                     Slow global context. Top-down conditioning mirrors Cit pervading Aparā.
 
   Cross-level conditioning: h_para → h_aparapara → h_apara implements the Śaiva insight
@@ -63,7 +63,7 @@ class TrikaWorldModel(nn.Module):
         level_cfgs = [
             {"level": 0, "backbone": "gru"},
             {"level": 1, "backbone": "gru"},
-            {"level": 2, "backbone": "s4"},
+            {"level": 2, "backbone": "mamba"},
         ]
 
         level_list: list[TrikaCoreLevel] = []
