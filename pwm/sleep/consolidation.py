@@ -173,12 +173,12 @@ class REMPhase:
             dream_h_seqs.append(states[0][0])
             dream_z_seqs.append(states[0][1])
 
-        # Retrain recognition net on dream sequence
-        # (simplified: actual implementation uses dream h as pseudo-obs)
+        # Detach dream tensors — gradients flow only through prior(), not imagination rollout
+        h_dream = torch.stack(dream_h_seqs, dim=1).detach()  # (B=4, T, hidden)
+
         total_loss = 0.0
         for _ in range(self.cfg.rem_retrain_steps):
             self.rec_opt.zero_grad()
-            h_dream = torch.stack(dream_h_seqs, dim=1)  # (B=4, T, hidden)
             # Prior → pseudo-posterior update (recognition retraining)
             prior_logits = self.wm._level_list[0].prior(h_dream.reshape(-1, h_dream.shape[-1]))
             prior_logits = prior_logits.reshape(4, H, self.wm._level_list[0].stoch_dim, -1)
