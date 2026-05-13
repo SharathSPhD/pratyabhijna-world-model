@@ -1,0 +1,51 @@
+# Phase 2 v10: Action-Consistency Bonus + Percentile Clamping — Fix Layer 9 (cold-start deadlock)
+#
+# Root cause (Layer 9, diagnosed 2026-05-10):
+#   With 64 discrete actions and H=13 imagination horizon, P(committed trajectory|uniform policy)
+#   = (1/2)^13 ≈ 0.012%. In a batch of B=32, virtually NO trajectories are committed, so
+#   domain-affinity reward yields returns ≈ 0 for all batch elements → advantage ≈ 0
+#   after any normalization → actor PG gradient ≈ 0 → stays uniform → circular deadlock.
+#
+#   Compound failure: std normalization further zeroed the advantage when adv_std < 1e-6.
+#
+# Fix 1 — Action-consistency bonus (TRIZ Principle #1: Segmentation):
+#   r_consistency_t = +_CC if domain(a_t) == domain(a_{t-1}) else -_CC
+#   This is a STEP-LEVEL Markov reward requiring only consecutive action comparison.
+#   Even from step 1 with a uniform actor: half the pairs are same-domain (+CC), half differ (-CC).
+#   The actor immediately gets discriminative gradient: increase P(same domain) → higher return.
+#   _CC = 2.0; domain boundary: actions 0–31 = Gutenberg, 32–63 = philosophy.
+#
+# Fix 2 — DreamerV3 percentile clamping (TRIZ Principle #35: Parameter changes):
+#   advantage = (returns - mean) / IQR(5–95th percentile).clamp(min=1.0)
+#   advantage = advantage.clamp(-1.0, 1.0)
+#   Percentile-based scale is robust to outliers and prevents division-by-near-zero.
+#
+# Expected trajectory for v10:
+#   Step  10K: WM freeze; domain_axis computed (cos_sep ≈ -1.0)
+#   Step  10K+: Critic converges fast — consistency bonus gives ±2 per step → clear targets
+#   Step  20K: Actor starts preferring same-domain consecutive actions (ret > 0)
+#   Step  50K: Actor shows domain commitment runs of length ≥5
+#   Step 200K: Commitment runs ≥8 (half of H=13)
+#   Step 400K: H1 gate — ratio ≤ 0.75 and EFE mean_reward > 0
+#
+# All previous fixes preserved:
+#   Layer 1: curr_vfe uses real VFE
+#   Layer 2: replay stores real one-hot actions
+#   Layer 3: DomainSelectiveCachedCorpusEnv
+#   Layer 4: free_bits=0.1
+#   Layer 5: Phase 1 warm-start
+#   Layer 6: decoder_z_only=True
+#   Layer 7: WM freeze at step 10K
+#   Layer 8: Domain-affinity reward v9
+#   Layer 9: Consistency bonus + percentile clamping — THIS VERSION
+#
+# Launch:
+#   source ~/vllm-env/bin/activate
+#   bash scripts/launch_phase2_v10.sh
+
+defaults:
+  - phase2_efe_v9
+  - _self_
+
+# No additional config overrides needed — Layer 9 fixes are pure code changes in train.py
+# (_CONSISTENCY_COEF = 2.0, percentile clamping in _phase_b/_phase_c advantage normalization)

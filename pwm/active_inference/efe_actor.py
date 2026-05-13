@@ -104,22 +104,34 @@ class EFEActor(nn.Module):
             return dist.logits.argmax(-1)
         return dist.sample()
 
-    def actor_loss(self, h: Tensor, z: Tensor, advantage: Tensor) -> dict[str, Tensor]:
+    def actor_loss(
+        self, h: Tensor, z: Tensor, advantage: Tensor, actions: "Tensor | None" = None
+    ) -> dict[str, Tensor]:
         """
         Phase B actor loss: REINFORCE-style with EFE regularisation.
 
         advantage: (B,) — from critic bootstrap (λ-return)
+        actions:   (B,) — actual action indices from imagination; if None falls back to fresh sample
         """
         dist, efe = self.forward(h, z)
-        log_prob = dist.log_prob(dist.sample())  # (B,)
-        entropy = dist.entropy()                  # (B,)
+        # Layer 10 fix (v11): use actual imagination actions for log_prob.
+        # dist.sample() gives an independent draw uncorrelated with advantage → zero gradient.
+        act = actions if actions is not None else dist.sample()
+        # Clamp log_prob floor: when policy nears deterministic, rare exploration actions
+        # have log_prob → -∞. Clamping prevents catastrophic PG loss explosion while
+        # still allowing the gradient to push committed actions upward.
+        log_prob = dist.log_prob(act).clamp(min=-20.0)  # (B,)
+        entropy = dist.entropy()                          # (B,)
 
-        # Policy gradient + entropy bonus + EFE minimisation
+        # Policy gradient + entropy bonus
+        # EFE term temporarily removed (v11 diagnosis): with bfloat16 and committed policy,
+        # the efe/pragmatic computation creates numerical instability. Only PG + entropy for now.
         pg_loss = -(log_prob * advantage.detach()).mean()
         efe_loss = efe.mean()
         entropy_loss = -entropy.mean()  # encourage exploration
 
-        total = pg_loss + 0.1 * efe_loss + 3e-4 * entropy_loss
+        # Entropy coefficient 3e-3: prevents over-fast collapse to deterministic policy.
+        total = pg_loss + 3e-3 * entropy_loss
         return {
             "actor_total": total,
             "pg_loss": pg_loss,

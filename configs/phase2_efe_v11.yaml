@@ -1,0 +1,39 @@
+# Phase 2 v11: Actor PG Fix — Actual Imagination Actions for log_prob (Layer 10)
+#
+# Root cause (Layer 10, diagnosed 2026-05-10, step ~40K post-freeze):
+#   EFEActor.actor_loss computes log_prob = dist.log_prob(dist.sample()) — a FRESH sample
+#   independent of the actual actions taken during imagination.
+#
+#   With zero-mean advantages (E[A] = 0 after normalization), the PG estimator becomes:
+#     E[∇ log π(a_fresh) × A(a_actual)] = E[∇ log π(a_fresh)] × E[A(a_actual)]
+#   because a_fresh ⊥ A(a_actual). Since E[A] = 0 by normalization, this is identically 0.
+#   29K steps post-freeze with flat critic CE=3.4 and ret∼N(0,1.5) confirmed this.
+#
+# Fix (v11): Thread actual imagination actions through actor_loss.
+#   In _phase_b: collect imag_act_list during the H=13 horizon loop.
+#   Pass act_indices = stack(imag_act_list).reshape(B*H) to actor_loss as `actions`.
+#   In actor_loss: log_prob = dist.log_prob(actions)  — correct policy gradient.
+#
+# Expected trajectory for v11 (warm-start from step_0010000.pt, step 10K):
+#   Step  10K (first step): domain_axis recomputed (cos_sep ≈ -1.0)
+#   Step  12K: actor_loss becomes consistently negative (actual gradient signal)
+#   Step  20K: critic CE begins declining from 3.4 (return distribution shifts)
+#   Step  50K: ret mean becomes consistently positive (actor preferring same-domain)
+#   Step 100K: actor shows commitment runs of length ≥5
+#   Step 400K: H1 gate — ratio ≤ 0.75 and EFE mean_reward > 0
+#
+# All previous fixes preserved (Layers 1-9).
+# TRIZ: #5 (Merging) — merging action sampling with log_prob computation into one path.
+#
+# Warm-start: checkpoints/step_0010000.pt (v10 WM-freeze checkpoint, step=10K)
+# Skips Phase 2a entirely: domain_axis recomputed at first train_step.
+#
+# Launch:
+#   source ~/vllm-env/bin/activate
+#   bash scripts/launch_phase2_v11.sh
+
+defaults:
+  - phase2_efe_v10
+  - _self_
+
+# No additional config overrides — Layer 10 fix is pure code change in train.py and efe_actor.py

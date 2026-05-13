@@ -1,8 +1,10 @@
 # Phase 3: + Hopfield Citta-Store
 # Exit criteria: pattern completion +10% with Hopfield; sphurattā 0.5–2 events/100 steps
+# Inherits v11 architecture: decoder_z_only, free_bits=0.1, domain_selective, WM frozen
+# Warm-start: Phase 2 v11 final (seed=52, step=400K)
 
 defaults:
-  - phase2_efe
+  - phase2_efe_v11
   - _self_
 
 memory:

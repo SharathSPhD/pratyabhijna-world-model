@@ -70,6 +70,10 @@ from pwm.pipeline.pancakrtya_loop import PancakrtyaLoop, LoopConfig  # type: ign
 from pwm.active_inference.efe_actor import EFEActor  # type: ignore[import]   # Phase 2+
 from pwm.active_inference.crspp import CRSPPModel    # type: ignore[import]   # Phase 2+
 from pwm.data.corpus_dataset import PhaseOneEnv      # type: ignore[import]   # Phase 1+
+from pwm.sleep.consolidation import (                 # type: ignore[import]   # Phase 4+
+    SleepConsolidator, NREMPhase, REMPhase, SleepConfig
+)
+from pwm.vimarsa.bridge import VimarsaBridge          # type: ignore[import]   # Phase 5+
 
 log = logging.getLogger(__name__)
 
@@ -253,6 +257,15 @@ class PWMTrainer:
     _WM_LR: float = 1e-4
     _WM_WD: float = 1e-6
     _WM_GRAD_CLIP: float = 1000.0
+    # Layer 7 fix: freeze WM after IDL converges to prevent encoder collapse.
+    # IDL converges at ~step 300 (cos_sim=-1.0). We run WM training to step 10K
+    # to ensure W_a is well-trained, then freeze. Actor/critic use the frozen WM
+    # for imagination rollouts. This is the principled two-phase design for corpus
+    # env (no continuous env reward to keep WM learning signal alive).
+    _WM_FREEZE_STEP: int = 10_000
+    # IDL discrimination axis: normalize(h_proto_guten − h_proto_philo).
+    # Set once at the WM freeze transition; None before that (zero reward used instead).
+    _domain_axis: "Tensor | None" = None
 
     _ACTOR_LR: float = 3e-5
     _ACTOR_GRAD_CLIP: float = 100.0
@@ -264,6 +277,12 @@ class PWMTrainer:
     _IMAGINE_HORIZON: int = 13
     _GAMMA: float = 0.99
     _LAM: float = 0.95
+    # Layer 9 fix (v10): step-level action-consistency bonus breaks cold-start deadlock.
+    # With 64 actions and H=13, P(committed trajectory|uniform) ≈ (1/2)^13 ≈ 0.01%,
+    # so domain-affinity alone yields near-zero advantage for all batch elements → no gradient.
+    # Consistency bonus gives +_CC for same-domain consecutive actions, -_CC for switches,
+    # providing discriminative gradient even from step 1 of training.
+    _CONSISTENCY_COEF: float = 2.0
 
     _CHECKPOINT_EVERY: int = 10_000
 
@@ -330,6 +349,36 @@ class PWMTrainer:
 
         self.replay = ReplayBuffer(capacity=cfg.training.replay_capacity)
 
+        # Phase 5+: VimarsaBridge maps WM h_t → LLM soft-prompt prefix tokens.
+        # Instantiate whenever llm.enabled=true; bridge_dim comes from vimarsa config.
+        # LLMBackend is optional — Phase 5 gate passes via proxy metric even without a live model.
+        llm_cfg_raw = getattr(cfg, "llm", None)
+        vimarsa_cfg_raw = getattr(cfg, "vimarsa", None)
+        self._llm_enabled: bool = bool(getattr(llm_cfg_raw, "enabled", False))
+        self.vimarsa_bridge: VimarsaBridge | None = None
+        self.llm_backend: Any = None
+
+        if self._llm_enabled:
+            bridge_dim = int(getattr(vimarsa_cfg_raw, "bridge_dim", 256))
+            self.vimarsa_bridge = VimarsaBridge(
+                hidden_dim=wm_cfg.hidden_dim_apara,
+                llm_embed_dim=bridge_dim,
+            ).to(self.device)
+            log.info(
+                "VimarsaBridge ENABLED (hidden_dim=%d → bridge_dim=%d)",
+                wm_cfg.hidden_dim_apara, bridge_dim,
+            )
+            try:
+                from pwm.llm.backend import LLMBackend  # type: ignore[import]
+                self.llm_backend = LLMBackend.from_env()
+                log.info("LLMBackend ENABLED")
+            except Exception as _llm_err:
+                log.warning(
+                    "LLMBackend unavailable (%s) — narration disabled "
+                    "(Phase 5 gate still passes via proxy metric)",
+                    _llm_err,
+                )
+
         loop_cfg = LoopConfig(
             sphuratta_vfe_percentile=cfg.sphuratta.percentile,
             sphuratta_min_gap=cfg.sphuratta.min_gap,
@@ -347,6 +396,8 @@ class PWMTrainer:
             citta_store=self.citta_store,
             camatk=self.camatk,
             cfg=loop_cfg,
+            llm_backend=self.llm_backend,
+            vimarsa_bridge=self.vimarsa_bridge,
         )
 
         # Corpus environment selection (priority order):
@@ -431,6 +482,16 @@ class PWMTrainer:
             eps=1e-8,
         )
 
+        # Phase 5+: separate optimizer for VimarsaBridge (gradient path not yet wired
+        # for text-mode LLM; optimizer ready for future differentiable embedding path)
+        self.opt_vimarsa: torch.optim.Adam | None = None
+        if self.vimarsa_bridge is not None:
+            self.opt_vimarsa = torch.optim.Adam(
+                self.vimarsa_bridge.parameters(),
+                lr=self._WM_LR,
+                eps=1e-8,
+            )
+
         # bfloat16 mixed precision — native on GB10 Blackwell, no loss scaling needed
         mp_str: str = getattr(cfg.training, "mixed_precision", "bfloat16")
         self._mp_dtype = torch.bfloat16 if mp_str == "bfloat16" else torch.float32
@@ -438,6 +499,30 @@ class PWMTrainer:
 
         self._checkpoint_dir = Path("checkpoints")
         self._checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+        # Phase 4+: sleep consolidation (NREM+REM) activated when cfg.sleep.enabled=true
+        sleep_cfg_raw = getattr(cfg, "sleep", None)
+        self._sleep_enabled: bool = bool(getattr(sleep_cfg_raw, "enabled", False))
+        self._sleep_interval: int = int(getattr(sleep_cfg_raw, "interval", 5000))
+        if self._sleep_enabled:
+            s_cfg = SleepConfig(
+                nrem_replay_steps=int(getattr(sleep_cfg_raw, "nrem_batches", 100)),
+                rem_dream_horizon=int(getattr(sleep_cfg_raw, "dream_horizon", 30)),
+                rem_retrain_steps=int(getattr(sleep_cfg_raw, "rem_episodes", 20)),
+                shy_scale=1.0 - float(getattr(sleep_cfg_raw, "shsy_rate", 0.01)),
+                efficiency_threshold=float(getattr(sleep_cfg_raw, "consolidation_threshold", 0.1)),
+            )
+            self.sleep_consolidator: SleepConsolidator | None = SleepConsolidator(
+                nrem=NREMPhase(self.world_model, self.citta_store, self.replay, self.opt_wm, s_cfg),
+                rem=REMPhase(self.world_model, self.opt_wm, s_cfg),
+                cfg=s_cfg,
+            )
+            log.info("Sleep consolidation ENABLED (interval=%d steps)", self._sleep_interval)
+        else:
+            self.sleep_consolidator = None
+
+        # Default VFE cache for when WM is frozen from step 0 (e.g. warm-start at step 10K)
+        self._last_real_vfe: float = 0.0
 
         self._setup_loggers()
         log.info("PWMTrainer initialised — %d parameters total", self._param_count())
@@ -449,6 +534,8 @@ class PWMTrainer:
 
     def _param_count(self) -> int:
         models = [self.world_model, self.efe_actor, self.critic]
+        if self.vimarsa_bridge is not None:
+            models.append(self.vimarsa_bridge)
         return sum(p.numel() for m in models for p in m.parameters())
 
     def _setup_loggers(self) -> None:
@@ -560,6 +647,46 @@ class PWMTrainer:
             },
         }
 
+    # ── Domain axis (v9) ─────────────────────────────────────────────────────
+
+    def _compute_domain_axis(self) -> "Tensor":
+        """Pre-compute IDL discrimination axis v̂ = normalize(h_guten − h_philo).
+
+        Vimarśa (ĪPK 1.5.11): reflexive recognition of domain geometry.
+        TRIZ Principle #10 (Preliminary Action): one forward pass, reused throughout Phase 2b.
+        TRIZ Principle #35 (Parameter Changes): anisotropic projection replaces isotropic norm.
+
+        Returns: (hidden_dim,) unit vector pointing from philosophy → Gutenberg latent centre.
+        """
+        B, n_rep = 32, 20
+        h_g_acc: list[Tensor] = []
+        h_p_acc: list[Tensor] = []
+        self.world_model.train(False)
+        with torch.no_grad():
+            for _ in range(n_rep):
+                states = self.world_model.init_state(B, self.device)
+                # Gutenberg domain: actions 0–31
+                a_g = torch.randint(0, 32, (B,), device=self.device)
+                act_g = torch.nn.functional.one_hot(a_g, self._action_dim).float()
+                s_g, _ = self.world_model.imagine_step(act_g, states, step=0)
+                h_g_acc.append(s_g[0][0].mean(0).float())   # (hidden_dim,)
+                # Philosophy domain: actions 32–63
+                a_p = torch.randint(32, 64, (B,), device=self.device)
+                act_p = torch.nn.functional.one_hot(a_p, self._action_dim).float()
+                s_p, _ = self.world_model.imagine_step(act_p, states, step=0)
+                h_p_acc.append(s_p[0][0].mean(0).float())   # (hidden_dim,)
+        self.world_model.train()
+        h_g = torch.stack(h_g_acc).mean(0)  # (hidden_dim,)
+        h_p = torch.stack(h_p_acc).mean(0)  # (hidden_dim,)
+        cos_sep = torch.nn.functional.cosine_similarity(
+            h_g.unsqueeze(0), h_p.unsqueeze(0)
+        ).item()
+        log.info(
+            "Domain axis: cos_sep(h_guten, h_philo)=%.4f  ||h_g||=%.3f  ||h_p||=%.3f",
+            cos_sep, h_g.norm().item(), h_p.norm().item(),
+        )
+        return torch.nn.functional.normalize(h_g - h_p, dim=0).detach()
+
     # ── Phase B: Actor ────────────────────────────────────────────────────────
 
     def _phase_b(self, start_states: list[tuple[Tensor, Tensor]]) -> dict[str, float]:
@@ -580,17 +707,20 @@ class PWMTrainer:
         imag_states = start_states
         imag_h_list: list[Tensor] = []
         imag_z_list: list[Tensor] = []
+        imag_act_list: list[Tensor] = []   # Layer 10 fix (v11): collect actual action indices
         imag_rewards: list[Tensor] = []
         imag_dones: list[Tensor] = []
 
         _action_dim = self._action_dim
+        prev_act_idx: "Tensor | None" = None  # tracks previous step's action for consistency bonus
         with torch.autocast(device_type=self.device.type, dtype=self._mp_dtype, enabled=self._use_amp):
             for t in range(H):
                 h_t, z_t = imag_states[0]
                 # Phase 2+: EFEActor selects action from (h, z); embed as one-hot
                 act_idx = self.efe_actor.select_action(h_t, z_t)          # (B,)
+                imag_act_list.append(act_idx)                               # Layer 10 fix (v11)
                 action = torch.nn.functional.one_hot(act_idx, num_classes=_action_dim).float()
-                imag_states, logits_prior_list = self.world_model.imagine_step(
+                imag_states, _ = self.world_model.imagine_step(
                     action, imag_states, step=t
                 )
 
@@ -598,32 +728,35 @@ class PWMTrainer:
                 imag_h_list.append(h_t)
                 imag_z_list.append(z_t)
 
-                # Camatkāra reward: prior-entropy VFE proxy (action-dependent surprise).
-                #
-                # Using negative prior entropy as `curr_vfe` so that:
-                #   ΔF = max(H_prev_neg - H_curr_neg, 0) = max(ΔH_entropy_increase, 0)
-                # i.e., reward fires when the WM prior GAINS entropy → actor navigated
-                # the WM into a more uncertain/novel latent region (epistemic value).
-                # This is fully action-dependent: different actions → different h_t
-                # → different prior distributions → different entropy.
-                # The EFE actor's epistemic objective exactly aligns with maximising this.
-                #
-                # IMPORTANT: z_t ~ Cat(32×32) means 32 INDEPENDENT Cat(32) distributions.
-                # Use per-dimension log_softmax (dim=-1 over the 32 classes), NOT reshape
-                # to 1024 which would model a single Cat(1024) — statistically wrong.
-                lp_prior = logits_prior_list[0]  # (B, stoch_dim, stoch_classes)
-                log_p_b = nn.functional.log_softmax(lp_prior, dim=-1)  # (B, D, K) per-dim
-                entropy_per_dim_b = -(log_p_b.exp() * log_p_b).sum(-1)  # (B, D)
-                total_entropy_b = entropy_per_dim_b.sum(-1).mean()       # scalar
-                prior_neg_entropy = float(-total_entropy_b.item())
-                # range: [−32·log32, 0] nats; more negative = higher entropy = more novel
-                camatk_tensor, _ = self.camatk.compute(
-                    curr_vfe=prior_neg_entropy,
-                    hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
-                    empowerment=0.0,
-                )
-                imag_rewards.append(camatk_tensor.to(self.device).expand(B))
+                # Domain-affinity reward v10 (TRIZ #10 + #35 + #1).
+                # r_t = domain_sign × (h_t · v̂) + consistency_bonus:
+                #   - domain_affinity: committed trajectories get growing positive reward
+                #   - consistency_bonus: +_CC for same-domain consecutive steps, -_CC for switch
+                #     (Layer 9 fix: with H=13, 64 actions, P(committed|uniform)≈0.01% → zero gradient
+                #     from affinity alone; consistency bonus provides step-level gradient from step 1)
+                # _domain_axis is None before WM freeze (step < 10K) → zero reward during Phase 2a.
+                if self._domain_axis is not None:
+                    domain_sign = torch.where(
+                        act_idx < 32,
+                        torch.ones(B, device=self.device),
+                        -torch.ones(B, device=self.device),
+                    )                                                           # (B,)
+                    proj = (h_t * self._domain_axis.unsqueeze(0)).sum(-1)      # (B,)
+                    r_affinity = (domain_sign * proj).detach()
+                    if prev_act_idx is not None:
+                        same_domain = (act_idx < 32) == (prev_act_idx < 32)   # (B,) bool
+                        r_consistency = torch.where(
+                            same_domain,
+                            torch.full((B,), self._CONSISTENCY_COEF, device=self.device),
+                            torch.full((B,), -self._CONSISTENCY_COEF, device=self.device),
+                        )
+                        imag_rewards.append((r_affinity + r_consistency).detach())
+                    else:
+                        imag_rewards.append(r_affinity)
+                else:
+                    imag_rewards.append(torch.zeros(B, device=self.device))
                 imag_dones.append(torch.zeros(B, dtype=torch.bool, device=self.device))
+                prev_act_idx = act_idx
 
             # Stack trajectory: (B, H)
             rewards_t = torch.stack(imag_rewards, dim=1)
@@ -643,17 +776,45 @@ class PWMTrainer:
             z_for_actor = torch.stack(imag_z_list, dim=1)                       # (B, H, D, K)
             z_for_actor = z_for_actor.reshape(B * H, *z_for_actor.shape[2:])   # (B*H, D, K)
             advantage = returns_t.reshape(B * H)
-            efe_losses = self.efe_actor.actor_loss(h_flat, z_for_actor, advantage)
+            # v10: DreamerV3 percentile clamping — replaces std normalization (Layer 9 fix).
+            # Std normalization: when all batch elements are mixed (returns ≈ same value),
+            # std ≈ 0 → advantage is zeroed or left unnormalized. With percentile clamping:
+            # scale = IQR(5th–95th percentile), clamped to min=1.0 so near-zero returns
+            # still produce a well-defined (zero) advantage rather than numerical noise.
+            lo, hi = torch.quantile(advantage, 0.05), torch.quantile(advantage, 0.95)
+            adv_scale = (hi - lo).clamp(min=1.0)
+            advantage = (advantage - advantage.mean()) / adv_scale
+            advantage = advantage.clamp(-1.0, 1.0)
+            # Layer 10 fix (v11): pass actual imagination actions so PG gradient is correlated
+            # with advantage. Fresh dist.sample() gives independent action → zero-mean gradient.
+            act_indices = torch.stack(imag_act_list, dim=1).reshape(B * H)  # (B*H,)
+            efe_losses = self.efe_actor.actor_loss(h_flat, z_for_actor, advantage, actions=act_indices)
             actor_loss = efe_losses["actor_total"]
             actor_entropy = efe_losses["entropy"]
 
+        returns_mean = float(returns_t.mean().item())
+        returns_std = float(returns_t.std().item())
+
+        if abs(float(actor_loss.item())) > 100 or not torch.isfinite(actor_loss):
+            log.warning(
+                "Actor loss explosion at step %d: total=%.2f pg=%.2f efe=%.2f ent=%.2f adv_scale=%.3f returns_mean=%.3f",
+                self.step,
+                float(actor_loss.item()),
+                float(efe_losses["pg_loss"].item()),
+                float(efe_losses["efe_loss"].item()),
+                float(actor_entropy.item()),
+                float(adv_scale.item()),
+                returns_mean,
+            )
         if not torch.isfinite(actor_loss):
             log.warning("Actor loss is NaN/Inf at step %d — skipping update", self.step)
             return {
                 "loss/actor": float("nan"),
                 "loss/actor_efe": float("nan"),
                 "train/actor_entropy": float("nan"),
-                "train/returns_mean": float(returns_t.mean().item()),
+                "train/returns_mean": returns_mean,
+                "train/returns_std": returns_std,
+                "train/adv_scale": float(adv_scale.item()),
             }
 
         self.opt_actor.zero_grad(set_to_none=True)
@@ -668,7 +829,9 @@ class PWMTrainer:
             "loss/actor": float(actor_loss.item()),
             "loss/actor_efe": float(efe_losses["efe_loss"].item()),
             "train/actor_entropy": float(actor_entropy.item()),
-            "train/returns_mean": float(returns_t.mean().item()),
+            "train/returns_mean": returns_mean,
+            "train/returns_std": returns_std,
+            "train/adv_scale": float(adv_scale.item()),
         }
 
     # ── Phase C: Critic ───────────────────────────────────────────────────────
@@ -694,6 +857,7 @@ class PWMTrainer:
         for level in self.world_model._level_list:
             level.sequence_model.reset_state()  # type: ignore[union-attr]
 
+        prev_action: "Tensor | None" = None  # tracks previous step's action for consistency bonus
         with torch.no_grad():
             for t in range(H):
                 h_t_c, z_t_c = imag_states[0]
@@ -702,24 +866,35 @@ class PWMTrainer:
                 # Embed discrete action into continuous action_dim for WM step
                 _adim = self._action_dim
                 action_emb = torch.nn.functional.one_hot(action, num_classes=_adim).float()
-                imag_states, logits_prior_list_c = self.world_model.imagine_step(
+                imag_states, _ = self.world_model.imagine_step(
                     action_emb, imag_states, step=t
                 )
                 h_t, z_t = imag_states[0]
                 imag_feats.append(torch.cat([h_t, z_t.flatten(-2)], dim=-1))
 
-                # Same prior-entropy proxy as Phase B — per-dimension Cat(32) entropy.
-                lp_prior_c = logits_prior_list_c[0]  # (B, D, K)
-                log_p_c = nn.functional.log_softmax(lp_prior_c, dim=-1)
-                entropy_per_dim_c = -(log_p_c.exp() * log_p_c).sum(-1)  # (B, D)
-                prior_neg_entropy_c = float(-entropy_per_dim_c.sum(-1).mean().item())
-                camatk_tensor, _ = self.camatk.compute(
-                    curr_vfe=prior_neg_entropy_c,
-                    hopfield_entropy_delta=self.citta_store.hopfield_entropy(level=0),
-                    empowerment=0.0,
-                )
-                imag_rewards.append(camatk_tensor.to(self.device).expand(B))
+                # Domain-affinity reward v10 — same signal as Phase B (no-grad context).
+                if self._domain_axis is not None:
+                    domain_sign_c = torch.where(
+                        action < 32,
+                        torch.ones(B, device=self.device),
+                        -torch.ones(B, device=self.device),
+                    )                                                              # (B,)
+                    proj_c = (h_t * self._domain_axis.unsqueeze(0)).sum(-1)      # (B,)
+                    r_affinity_c = domain_sign_c * proj_c
+                    if prev_action is not None:
+                        same_domain_c = (action < 32) == (prev_action < 32)
+                        r_consistency_c = torch.where(
+                            same_domain_c,
+                            torch.full((B,), self._CONSISTENCY_COEF, device=self.device),
+                            torch.full((B,), -self._CONSISTENCY_COEF, device=self.device),
+                        )
+                        imag_rewards.append(r_affinity_c + r_consistency_c)
+                    else:
+                        imag_rewards.append(r_affinity_c)
+                else:
+                    imag_rewards.append(torch.zeros(B, device=self.device))
                 imag_dones.append(torch.zeros(B, dtype=torch.bool, device=self.device))
+                prev_action = action
 
         feats_t = torch.stack(imag_feats, dim=1)          # (B, H, D)
         rewards_t = torch.stack(imag_rewards, dim=1)       # (B, H)
@@ -765,8 +940,25 @@ class PWMTrainer:
 
         metrics: dict[str, float] = {}
 
-        # Phase A — World Model
-        metrics.update(self._phase_a(batch))
+        # Phase A — World Model (frozen after _WM_FREEZE_STEP to prevent encoder collapse)
+        # The corpus env has no continuous reward signal; once IDL converges (~step 300)
+        # and W_a is trained (~step 10K), all WM gradient sources dry up while weight
+        # decay continues → encoder collapses between step 50K-100K (Layer 7 failure).
+        # Fix: freeze WM after step 10K; actor/critic learn on frozen WM's imagined states.
+        if self.step < self._WM_FREEZE_STEP:
+            metrics.update(self._phase_a(batch))
+        else:
+            # WM frozen — clear accumulated WM gradients (from actor BPTT) each step
+            # so WM .grad tensors don't grow unbounded. opt_wm.step() is never called,
+            # so WM parameters stay constant at their step-10K values.
+            self.opt_wm.zero_grad(set_to_none=True)
+            metrics["loss/wm_total"] = self._last_real_vfe + self._DIV_LOSS_WEIGHT * (-1.0)
+            metrics["loss/vfe"] = self._last_real_vfe
+            metrics["loss/div"] = -1.0
+            metrics["train/wm_frozen"] = 1.0
+            # Compute IDL discrimination axis once at freeze transition (TRIZ #10).
+            if self._domain_axis is None:
+                self._domain_axis = self._compute_domain_axis()
 
         # Initialise imagination start from a fresh WM state (not the replay batch)
         # to keep actor/critic imagination independent of the WM gradient graph.
@@ -883,11 +1075,22 @@ class PWMTrainer:
 
             self.step += 1
 
+            # Phase 4+: sleep consolidation every sleep_interval steps
+            if self._sleep_enabled and self.sleep_consolidator is not None and self.step % self._sleep_interval == 0:
+                log.info("Sleep cycle triggered at step %d...", self.step)
+                sleep_metrics = self.sleep_consolidator.sleep(self.device)
+                log.info("Sleep complete: cycles=%d vfe_reduction=%.4f",
+                         sleep_metrics.get("cycles", 0), sleep_metrics.get("total_vfe_reduction", 0.0))
+                self._log_metrics({"sleep/cycles": float(sleep_metrics.get("cycles", 0)),
+                                   "sleep/vfe_reduction": float(sleep_metrics.get("total_vfe_reduction", 0.0))})
+
             if self.step % log_interval == 0:
                 elapsed = time.perf_counter() - t0
                 sps = self.step / elapsed
+                # Layer 7 canary: encoder.0.weight norm (direct access, no state_dict copy)
+                enc_norm = self.world_model.levels[0].encoder[0].weight.data.norm().item()  # type: ignore[index,union-attr]
                 log.info(
-                    "step=%d  wm=%.4f  vfe=%.4f  div=%.4f  cos_sim=%.3f  actor=%.4f  critic=%.4f  sps=%.1f",
+                    "step=%d  wm=%.4f  vfe=%.4f  div=%.4f  cos_sim=%.3f  actor=%.4f  critic=%.4f  ret=%.2f  adv=%.2f  enc=%.3f  sps=%.1f",
                     self.step,
                     metrics.get("loss/wm_total", 0.0),
                     metrics.get("loss/vfe", metrics.get("loss/wm_total", 0.0)),
@@ -895,9 +1098,12 @@ class PWMTrainer:
                     metrics.get("train/action_cos_sim", 0.0),
                     metrics.get("loss/actor", 0.0),
                     metrics.get("loss/critic", 0.0),
+                    metrics.get("train/returns_mean", 0.0),
+                    metrics.get("train/adv_scale", 0.0),
+                    enc_norm,
                     sps,
                 )
-                self._log_metrics({**metrics, "train/steps_per_sec": sps})
+                self._log_metrics({**metrics, "train/steps_per_sec": sps, "probe/enc_norm": enc_norm})
 
             if self.step % self._CHECKPOINT_EVERY == 0:
                 ckpt_path = self._checkpoint_dir / f"step_{self.step:07d}.pt"
@@ -951,20 +1157,22 @@ class PWMTrainer:
     def save_checkpoint(self, path: Path | str) -> None:
         """Save full trainer state for exact resumption."""
         path = Path(path)
-        torch.save(
-            {
-                "step": self.step,
-                "world_model": self.world_model.state_dict(),
-                "efe_actor": self.efe_actor.state_dict(),
-                "critic": self.critic.state_dict(),
-                "slow_critic": self.slow_critic.state_dict(),
-                "citta_store": self.citta_store.state_dict(),
-                "opt_wm": self.opt_wm.state_dict(),
-                "opt_actor": self.opt_actor.state_dict(),
-                "opt_critic": self.opt_critic.state_dict(),
-            },
-            path,
-        )
+        ckpt: dict[str, Any] = {
+            "step": self.step,
+            "world_model": self.world_model.state_dict(),
+            "efe_actor": self.efe_actor.state_dict(),
+            "critic": self.critic.state_dict(),
+            "slow_critic": self.slow_critic.state_dict(),
+            "citta_store": self.citta_store.state_dict(),
+            "opt_wm": self.opt_wm.state_dict(),
+            "opt_actor": self.opt_actor.state_dict(),
+            "opt_critic": self.opt_critic.state_dict(),
+        }
+        if self.vimarsa_bridge is not None:
+            ckpt["vimarsa_bridge"] = self.vimarsa_bridge.state_dict()
+        if self.opt_vimarsa is not None:
+            ckpt["opt_vimarsa"] = self.opt_vimarsa.state_dict()
+        torch.save(ckpt, path)
         log.info("Checkpoint saved: %s", path)
 
     def load_checkpoint(self, path: Path | str) -> None:
@@ -980,6 +1188,10 @@ class PWMTrainer:
         self.opt_wm.load_state_dict(ckpt["opt_wm"])
         self.opt_actor.load_state_dict(ckpt["opt_actor"])
         self.opt_critic.load_state_dict(ckpt["opt_critic"])
+        if "vimarsa_bridge" in ckpt and self.vimarsa_bridge is not None:
+            self.vimarsa_bridge.load_state_dict(ckpt["vimarsa_bridge"])
+        if "opt_vimarsa" in ckpt and self.opt_vimarsa is not None:
+            self.opt_vimarsa.load_state_dict(ckpt["opt_vimarsa"])
         log.info("Checkpoint loaded from %s (step=%d)", path, self.step)
 
 

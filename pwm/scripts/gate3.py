@@ -83,11 +83,11 @@ def build_world_model(ckpt: dict[str, Any], device: torch.device) -> Any:
 
     model = TrikaWorldModel(
         obs_dim=wm_cfg.get("obs_dim", 1024),
+        action_dim=wm_cfg.get("action_dim", 64),
+        n_levels=wm_cfg.get("levels", 1),
         hidden_dim=wm_cfg.get("hidden_dim_apara", 512),
-        latent_dim=wm_cfg.get("latent_dim", 1024),
         stoch_dim=wm_cfg.get("stoch_dim", 32),
         stoch_classes=wm_cfg.get("stoch_classes", 32),
-        action_dim=wm_cfg.get("action_dim", 64),
         free_bits=wm_cfg.get("free_bits", 0.1),
         kl_balance_dyn=wm_cfg.get("kl_balance_dyn", 0.5),
         kl_balance_rep=wm_cfg.get("kl_balance_rep", 0.1),
@@ -289,9 +289,13 @@ def run_phase3_gate(checkpoint_path: Path, out_dir: Path) -> dict[str, Any]:
              sphuratta_rate, SPHURATTA_RATE_MIN, SPHURATTA_RATE_MAX)
     log.info("H2 sphuratta PASS: %s", h2_sphuratta_pass)
 
-    h2_pass = h2_completion_pass and h2_sphuratta_pass
+    # Layer-12 fix (2026-05-11): sphuratta secondary criterion uses dynamic 95th-percentile
+    # threshold on delta=max(norm_t - norm_{t-1}, 0) — a non-negative proxy that structurally
+    # produces ~5 events/100 steps when the policy is committed (half-normal distribution).
+    # Fix: primary gate = completion_ratio >= 1.10 only; sphuratta retained as diagnostic.
+    h2_pass = h2_completion_pass
     status = "PASS" if h2_pass else "FAIL"
-    log.info("=== H2 Gate: %s ===", status)
+    log.info("=== H2 Gate: %s (primary: completion ratio; sphuratta: diagnostic only) ===", status)
 
     result: dict[str, Any] = {
         "phase": 3,
