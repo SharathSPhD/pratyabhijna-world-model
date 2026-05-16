@@ -27,6 +27,7 @@ import torch
 
 from pwm.generation.domain_metadata import CreativeMetadata, Domain, WMStateDecoder
 from pwm.generation.creative_specs import CreativeSpec
+from pwm.generation.music_notation import MusicNotation, annotate as annotate_music
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -263,8 +264,14 @@ def generate_one(spec: CreativeSpec, wm: Any, decoder: WMStateDecoder,
                           step=hash(spec.id) % 100, spec_id=spec.id)
     prefix = decoder.format_for_llm(meta)
 
-    # 3. Build LLM user prompt (prefix + creative prompt, NO Shaiva vocab)
-    full_user = f"{prefix}{spec.user_prompt}"
+    # 3. Generate music notation (Sprint 4) — injected into LLM prompt
+    music = annotate_music(meta, spec.domain, spec_id=spec.id)
+
+    # 3b. Build LLM user prompt (prefix + music context + creative prompt, NO Shaiva vocab)
+    music_prefix = ""
+    if music.llm_music_context:
+        music_prefix = f"[Music: {music.llm_music_context}]\n"
+    full_user = f"{prefix}{music_prefix}{spec.user_prompt}"
 
     # 4. Generate
     t0 = time.time()
@@ -292,6 +299,7 @@ def generate_one(spec: CreativeSpec, wm: Any, decoder: WMStateDecoder,
         "text": text,
         "scores": scores,
         "music_context": spec.music_context,
+        "music_notation": music.to_dict(),   # Sprint 4: machine-parseable notation
         "structured_hints": spec.structured_output_hints,
         "generation_time_s": round(elapsed, 1),
         "generated_at": datetime.now(timezone.utc).isoformat(),
