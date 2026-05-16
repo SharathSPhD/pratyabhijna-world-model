@@ -1,0 +1,114 @@
+{
+  "sprint": 3,
+  "title": "FastAPI SSE streaming backend",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:35:00+01:00",
+  "api_server": {
+    "port": 9001,
+    "host": "127.0.0.1",
+    "pid": 3056181,
+    "wm_ready": true,
+    "ollama_ok": true,
+    "model": "nemotron-3-super:120b",
+    "checkpoint": "checkpoints/step_1000000.pt"
+  },
+  "endpoint_checks": {
+    "health": {
+      "path": "GET /health",
+      "status": "PASS",
+      "result": {"status": "ok", "wm_ready": true, "ollama_ok": true}
+    },
+    "generate": {
+      "path": "POST /generate",
+      "status": "PASS",
+      "result": "Returns job_id immediately; background task fires without SSE connection",
+      "verified": "Job status transitions queued→warming→generating without any SSE client"
+    },
+    "stream_sse": {
+      "path": "GET /stream/{job_id}",
+      "status": "PASS",
+      "event_sequence_verified": [
+        "event: wm_status (stage=warming, pct=0)",
+        "event: wm_status (stage=warming, pct=20)",
+        "event: wm_status (stage=warming, pct=40)",
+        "event: wm_status (stage=warming, pct=60)",
+        "event: wm_status (stage=warming, pct=80)",
+        "event: wm_status (stage=ready, register=ardent, section=opening)",
+        "event: generation_start",
+        "event: token x N",
+        "event: result",
+        "event: done"
+      ],
+      "disconnect_safe": "Generation continues as background task; reconnect replays event_log",
+      "keepalive": "60s keepalive events prevent proxy timeout on slow 120B model"
+    },
+    "result": {
+      "path": "GET /result/{job_id}",
+      "status": "PASS",
+      "result": "Returns job status and full result when complete"
+    },
+    "refine": {
+      "path": "POST /refine/{job_id}",
+      "status": "PASS",
+      "result": "Creates new job with feedback prepended to theme; fires background task immediately",
+      "verified": "Refine job transitions to 'warming' within 2s of POST"
+    },
+    "domains": {
+      "path": "GET /domains",
+      "status": "PASS",
+      "result": "Returns 15 domains and 19 predefined specs"
+    },
+    "batch": {
+      "path": "POST /batch",
+      "status": "PASS",
+      "result": "Creates N jobs, all start background tasks simultaneously"
+    }
+  },
+  "architecture_verification": {
+    "background_task_pattern": "PASS — asyncio.create_task() starts generation before SSE connect",
+    "disconnect_safe": "PASS — _generation_stream is observer not driver",
+    "event_log_replay": "PASS — reconnecting clients replay event_log then subscribe to live queue",
+    "wm_warmup_async": "PASS — WM warmup runs in executor with progress events emitted concurrently",
+    "token_streaming": "PASS — blocking Ollama iter_lines in thread, tokens pushed via asyncio.Queue"
+  },
+  "known_issues": {
+    "cuda_oom_in_text_encoder": {
+      "status": "FIXED",
+      "description": "TextEncoder used CUDA by default; OOM when 120B model loads 87GB VRAM",
+      "fix": "sentence_transformers forced to CPU via device='cpu' in _load_model() and encode()",
+      "fallback": "Hash-based h_t fallback works correctly when TextEncoder unavailable"
+    },
+    "generation_time": {
+      "status": "EXPECTED",
+      "description": "120B model on single GB10 takes 100-200s per generation at 15 tok/s",
+      "mitigation": "SSE streaming with keepalive prevents client timeout; jobs queue in Ollama"
+    }
+  },
+  "e2e_test_result": {
+    "job_id": "56a6c2de-a184-4709-89e2-8a47ddd219b4",
+    "domain": "english_romantic",
+    "theme": "winter lake at first light",
+    "style": "Keatsian ode",
+    "status": "complete",
+    "camatk_total": 0.8271,
+    "r_vfe": 1.0,
+    "r_structure": 0.6667,
+    "r_length": 0.6417,
+    "r_imagery": 1.0,
+    "word_count": 77,
+    "token_count": 104,
+    "wm_register": "ardent",
+    "wm_section": "climax",
+    "text_preview": "O Morning, silver-breath'd upon the frozen deep, / Thou com'st not with the blaze of summer's fire, / But soft as prayer that slips from lips that weep / With joy too deep for sound, too pure for lyre.",
+    "disconnect_safe_verified": "Job completed without any persistent SSE client; polled via /result only",
+    "polls_until_complete": 17,
+    "poll_interval_s": 10,
+    "total_wait_s": 170
+  },
+  "triz_c2_resolution": {
+    "contradiction": "Streaming responsiveness vs WM conditioning quality",
+    "solution": "P28 (Mechanics Substitution) + P32 (Colour Changes)",
+    "implementation": "WM warm-up emits progress SSE events while running in executor",
+    "result": "First SSE event in <200ms; WM conditioning completes in ~2s; t=0 perceived activity"
+  }
+}
