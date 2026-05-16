@@ -1,0 +1,28 @@
+{
+  "phase": 5,
+  "phase_name": "llm_vimarsa_bridge",
+  "checkpoint": "checkpoints/final.pt",
+  "protocol": {
+    "h4_episodes": 200,
+    "h4_steps": 32,
+    "h4_sphuratta_pctile": 75,
+    "h4_entropy_threshold_nats": 0.5,
+    "h4_meaningful_frac_threshold": 0.7,
+    "h5_episodes": 200,
+    "h5_steps": 32,
+    "h5_phase2_baseline": 2.5301936708483845,
+    "h5_threshold": 2.0
+  },
+  "h4_meaningful_rate": 1.0,
+  "h4_n_sphuratta": 1600,
+  "h4_n_meaningful": 1600,
+  "h4_threshold": 0.7,
+  "h4_pass": true,
+  "h5_mean_reward_phase5": 5.419244105815888,
+  "h5_phase2_baseline": 2.5301936708483845,
+  "h5_reward_ratio": 2.14182976119721,
+  "h5_threshold": 2.0,
+  "h5_pass": true,
+  "h_pass": true,
+  "status": "PASS"
+}
