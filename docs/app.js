@@ -471,6 +471,86 @@ function initCopyButton() {
   });
 }
 
+// ─── Creative Works rendering ─────────────────────────────────────────────────────────────
+const LANG_BADGE = {
+  "Sanskrit": "lang-sanskrit",
+  "Kannada":  "lang-kannada",
+  "English":  "lang-english",
+  "Sanskrit/Kannada mix": "lang-mix",
+};
+
+function renderCreations(outputs) {
+  const grid = document.getElementById("creations-grid");
+  if (!grid || !outputs || !outputs.length) return;
+  grid.replaceChildren();
+
+  outputs.forEach(out => {
+    const langCls = LANG_BADGE[out.language] || "lang-english";
+    const styleShort = out.style.length > 65 ? out.style.slice(0,65) + "…" : out.style;
+    const card = el("div", { class: "creation-card" }, [
+      el("div", { class: "creation-header" }, [
+        el("div", {}, [
+          el("h3", { class: "creation-title" }, [out.title]),
+          el("div", { class: "creation-meta" }, [
+            el("span", {}, [out.language]),
+            el("span", {}, [styleShort]),
+          ]),
+        ]),
+        el("div", { style: "display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem" }, [
+          el("span", { class: "creation-id" }, [out.id]),
+          el("span", { class: "lang-badge " + langCls }, [out.language]),
+        ]),
+      ]),
+      el("div", { class: "wm-prefix-chip" }, [
+        "WM: " + (out.wm_prefix || "(no prefix)")
+      ]),
+      el("div", { class: "creation-text" }, [out.text || "(generating…)"]),
+      el("div", { class: "creation-scores" }, [
+        el("span", { class: "creation-score-item" }, [
+          "R_camatk: ",
+          el("span", { class: "creation-score-val" }, [
+            (out.scores && out.scores.r_camatk != null) ? out.scores.r_camatk.toFixed(4) : "—",
+          ]),
+        ]),
+        el("span", { class: "creation-score-item" }, [
+          "WM_VFE: ",
+          el("span", { class: "creation-score-val" }, [
+            out.wm_vfe != null ? out.wm_vfe.toFixed(4) : "—",
+          ]),
+        ]),
+        el("span", { class: "creation-score-item" }, [
+          "words: ",
+          el("span", { class: "creation-score-val" }, [
+            (out.scores && out.scores.word_count) ? String(out.scores.word_count) : "—",
+          ]),
+        ]),
+        el("span", { class: "creation-score-item" }, [
+          "checkpoint: ",
+          el("span", { class: "creation-score-val" }, [out.checkpoint || "step_1000000"]),
+        ]),
+      ]),
+    ]);
+    grid.appendChild(card);
+  });
+
+  const badge = document.getElementById("creations-count");
+  if (badge) badge.textContent = outputs.length + " works generated";
+}
+
+async function loadCreativeOutputs() {
+  const BASE = "https://raw.githubusercontent.com/SharathSPhD/pratyabhijna-world-model/main/benchmarks/results/";
+  try {
+    const resp = await fetch(BASE + "creative_outputs.json");
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data && data.outputs && data.outputs.length) {
+      renderCreations(data.outputs);
+    }
+  } catch (_) {
+    // Silent fail — grid keeps loading state until JSON is available on GitHub
+  }
+}
+
 // ─── Entry point ─────────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   renderPhases();
@@ -482,6 +562,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initCopyButton();
   requestAnimationFrame(() => {
     renderCharts();
-    loadLiveData();  // silent no-op locally; live override on GitHub Pages
+    loadLiveData();          // silent no-op locally; live data on GitHub Pages
+    loadCreativeOutputs();   // loads creative_outputs.json from GitHub raw after generation
   });
 });
