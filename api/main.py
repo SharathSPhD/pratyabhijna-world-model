@@ -47,6 +47,7 @@ from pwm.generation.engine import (  # type: ignore
     load_wm, score_camatk, warmup_wm_on_text,
 )
 from pwm.generation.creative_specs import ALL_SPECS  # type: ignore
+from pwm.generation.music_notation import annotate as annotate_music  # type: ignore
 
 # ─── FastAPI App ─────────────────────────────────────────────────────────────
 
@@ -283,6 +284,7 @@ async def _run_generation_task(job_id: str, req: GenerateRequest) -> None:
     h_t = None
     meta = None
     prefix = ""
+    music_prefix = ""
 
     if state.wm_ready and state.wm is not None:
         try:
@@ -303,10 +305,16 @@ async def _run_generation_task(job_id: str, req: GenerateRequest) -> None:
             )
             prefix = state.decoder.format_for_llm(meta)       # type: ignore
 
+            # Sprint 4: Music notation annotation
+            music = annotate_music(meta, req.domain, spec_id=job_id)
+            music_prefix = (f"[Music: {music.llm_music_context}]\n"
+                            if music.llm_music_context else "")
+
             job.update({"wm_energy": round(meta.energy, 4),
                         "wm_register": meta.register,
                         "wm_section": meta.section_name,
-                        "wm_prefix": prefix})
+                        "wm_prefix": prefix,
+                        "music_notation": music.to_dict()})
 
             emit("wm_status", {
                 "stage": "ready", "pct": 100,
@@ -314,6 +322,7 @@ async def _run_generation_task(job_id: str, req: GenerateRequest) -> None:
                 "energy": round(meta.energy, 3),
                 "register": meta.register,
                 "section": meta.section_name,
+                "music_notation": music.to_dict(),
             })
         except Exception as exc:
             emit("wm_status", {"stage": "skipped",
@@ -327,7 +336,8 @@ async def _run_generation_task(job_id: str, req: GenerateRequest) -> None:
     emit("generation_start", {"message": "Generating...", "job_id": job_id,
                               "domain": req.domain, "language": req.language})
 
-    user_prompt = _build_user_prompt(req, prefix)
+    # Combine WM prefix + music context + request into user prompt
+    user_prompt = _build_user_prompt(req, prefix + music_prefix)
     full_text: list[str] = []
     token_count = 0
     token_queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=4096)
@@ -415,6 +425,7 @@ async def _run_generation_task(job_id: str, req: GenerateRequest) -> None:
             "wm_register": job.get("wm_register", ""),
             "wm_section": job.get("wm_section", ""),
             "music_context": req.music_context,
+            "music_notation": job.get("music_notation", {}),
             "domain": req.domain,
             "language": req.language,
             "generated_at": job["generated_at"],
