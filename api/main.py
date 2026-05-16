@@ -63,6 +63,16 @@ class AppState:
 state = AppState()
 
 
+def _broadcast(job: dict, event_str: str) -> None:
+    """Append event to job log and push to all active SSE subscriber queues."""
+    job.setdefault("event_log", []).append(event_str)
+    for q in job.get("queues", []):
+        try:
+            q.put_nowait(event_str)
+        except asyncio.QueueFull:
+            pass  # slow consumer — skip rather than block
+
+
 async def _load_wm_background() -> None:
     """Background task: loads WM without blocking API startup."""
     state.wm_loading = True
@@ -238,34 +248,37 @@ def _build_user_prompt(req: GenerateRequest, prefix: str) -> str:
     return " ".join(parts)
 
 
-# ─── SSE Stream Generator ─────────────────────────────────────────────────────
+# ─── SSE Helpers ─────────────────────────────────────────────────────────────
 
-async def _sse_event(event: str, data: dict) -> str:
+def _sse_event(event: str, data: dict) -> str:
+    """Format a single SSE event string."""
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
-async def _generation_stream(job_id: str, req: GenerateRequest) -> AsyncGenerator[str, None]:
-    """
-    SSE stream generator implementing TRIZ C2 solution:
-    1. Immediately yield wm_status events while WM warms up
-    2. Yield content tokens as the LLM generates them
-    3. Yield result event when complete
+# ─── Background Generation Task ───────────────────────────────────────────────
 
-    Client sees: wm_warming → wm_ready → token stream → result
+async def _run_generation_task(job_id: str, req: GenerateRequest) -> None:
+    """
+    Background asyncio task: runs full generation pipeline independently of any
+    SSE connection.  Results accumulate in state.jobs[job_id]; SSE streams
+    observe via per-job subscriber queues.
+
+    TRIZ C2 resolution (P28 Mechanics Substitution + P32 Colour Changes):
+    - Generation runs as an autonomous task — not driven by the SSE consumer.
+    - Client disconnect never kills an in-flight generation.
+    - Reconnecting clients replay the full event log instantly, then subscribe
+      to the live queue for subsequent tokens.
     """
     job = state.jobs[job_id]
-    job["status"] = "warming"
+    loop = asyncio.get_event_loop()
+
+    def emit(event: str, data: dict) -> None:
+        _broadcast(job, _sse_event(event, data))
 
     # ── Phase 1: WM warm-up ──────────────────────────────────────────────────
-    yield await _sse_event("wm_status", {
-        "stage": "warming",
-        "message": "World model warming up...",
-        "pct": 0,
-        "job_id": job_id,
-    })
-
-    # Run WM warm-up in executor (non-blocking)
-    loop = asyncio.get_event_loop()
+    job["status"] = "warming"
+    emit("wm_status", {"stage": "warming", "message": "World model warming up...",
+                       "pct": 0, "job_id": job_id})
 
     h_t = None
     meta = None
@@ -274,121 +287,108 @@ async def _generation_stream(job_id: str, req: GenerateRequest) -> AsyncGenerato
     if state.wm_ready and state.wm is not None:
         try:
             seed = req.seed_text or req.theme or req.style or "creative music poetry"
-            for pct in range(20, 100, 20):
-                yield await _sse_event("wm_status", {
-                    "stage": "warming",
-                    "pct": pct,
-                    "message": f"WM warm-up {pct}%...",
-                })
-                await asyncio.sleep(0)  # yield control
-
-            h_t = await loop.run_in_executor(
+            # Emit progress events while warmup runs in executor
+            warmup_future = loop.run_in_executor(
                 None, warmup_wm_on_text, state.wm, seed, 60
             )
-            meta = state.decoder.decode(h_t, domain=req.domain,  # type: ignore
-                                         step=hash(job_id) % 100,
-                                         spec_id=job_id)
-            prefix = state.decoder.format_for_llm(meta)  # type: ignore
+            for pct in (20, 40, 60, 80):
+                await asyncio.sleep(0.4)   # ~4×0.4s to cover ~2s warmup
+                emit("wm_status", {"stage": "warming", "pct": pct,
+                                   "message": f"WM warm-up {pct}%..."})
+            h_t = await warmup_future
 
-            job["wm_energy"] = round(meta.energy, 4)
-            job["wm_register"] = meta.register
-            job["wm_section"] = meta.section_name
-            job["wm_prefix"] = prefix
+            meta = state.decoder.decode(                       # type: ignore
+                h_t, domain=req.domain,
+                step=hash(job_id) % 100, spec_id=job_id
+            )
+            prefix = state.decoder.format_for_llm(meta)       # type: ignore
 
-            yield await _sse_event("wm_status", {
-                "stage": "ready",
-                "pct": 100,
+            job.update({"wm_energy": round(meta.energy, 4),
+                        "wm_register": meta.register,
+                        "wm_section": meta.section_name,
+                        "wm_prefix": prefix})
+
+            emit("wm_status", {
+                "stage": "ready", "pct": 100,
                 "message": f"WM ready — register={meta.register}, section={meta.section_name}",
                 "energy": round(meta.energy, 3),
                 "register": meta.register,
                 "section": meta.section_name,
             })
-
-        except Exception as e:
-            yield await _sse_event("wm_status", {
-                "stage": "skipped",
-                "message": f"WM unavailable ({e}); proceeding with base generation",
-            })
+        except Exception as exc:
+            emit("wm_status", {"stage": "skipped",
+                               "message": f"WM unavailable ({exc}); using base generation"})
     else:
-        yield await _sse_event("wm_status", {
-            "stage": "loading",
-            "message": "WM still loading; proceeding without WM conditioning",
-        })
+        emit("wm_status", {"stage": "loading",
+                           "message": "WM still loading; proceeding without WM conditioning"})
 
     # ── Phase 2: Streaming LLM generation ────────────────────────────────────
     job["status"] = "generating"
-    yield await _sse_event("generation_start", {
-        "message": "Generating...",
-        "job_id": job_id,
-        "domain": req.domain,
-        "language": req.language,
-    })
+    emit("generation_start", {"message": "Generating...", "job_id": job_id,
+                              "domain": req.domain, "language": req.language})
 
     user_prompt = _build_user_prompt(req, prefix)
+    full_text: list[str] = []
+    token_count = 0
+    token_queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=4096)
+
+    payload = {
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user",   "content": user_prompt},
+        ],
+        "stream": True,
+        "think": False,
+        "options": {
+            "num_predict": req.num_predict,
+            "temperature": req.temperature,
+            "top_p": req.top_p,
+        },
+    }
+
+    def _stream_worker(q: asyncio.Queue, ev_loop: asyncio.AbstractEventLoop) -> None:
+        """Blocking Ollama streaming call in thread pool.
+
+        Pushes individual tokens to the asyncio queue via run_coroutine_threadsafe so
+        the event loop is never blocked.  Sends None sentinel on completion.
+        """
+        try:
+            resp = requests.post(OLLAMA_URL, json=payload, stream=True, timeout=360)
+            for raw_line in resp.iter_lines():
+                if not raw_line:
+                    continue
+                try:
+                    chunk = json.loads(raw_line.decode("utf-8"))
+                    tok = chunk.get("message", {}).get("content", "")
+                    if tok:
+                        asyncio.run_coroutine_threadsafe(q.put(tok), ev_loop)
+                    if chunk.get("done", False):
+                        break
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    continue
+        except Exception as exc:
+            asyncio.run_coroutine_threadsafe(
+                q.put(f"\n[stream error: {exc}]"), ev_loop
+            )
+        finally:
+            asyncio.run_coroutine_threadsafe(q.put(None), ev_loop)  # sentinel
 
     try:
-        # Use Ollama streaming endpoint via async queue (non-blocking event loop).
-        # The sync requests.iter_lines() runs in a thread; tokens are pushed to
-        # an asyncio.Queue so the async generator can yield them without blocking.
-        full_text: list[str] = []
-        token_queue: asyncio.Queue[str | None] = asyncio.Queue()
-        payload = {
-            "model": MODEL,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": user_prompt},
-            ],
-            "stream": True,
-            "think": False,
-            "options": {
-                "num_predict": req.num_predict,
-                "temperature": req.temperature,
-                "top_p": req.top_p,
-            },
-        }
-
-        def _stream_worker(q: asyncio.Queue, ev_loop: asyncio.AbstractEventLoop) -> None:
-            """Blocking Ollama stream — runs in a thread pool."""
-            try:
-                resp = requests.post(OLLAMA_URL, json=payload, stream=True, timeout=360)
-                for line in resp.iter_lines():
-                    if not line:
-                        continue
-                    try:
-                        chunk = json.loads(line.decode("utf-8"))
-                        tok = chunk.get("message", {}).get("content", "")
-                        if tok:
-                            asyncio.run_coroutine_threadsafe(q.put(tok), ev_loop)
-                        if chunk.get("done", False):
-                            break
-                    except (json.JSONDecodeError, UnicodeDecodeError):
-                        continue
-            except Exception as exc:
-                asyncio.run_coroutine_threadsafe(
-                    q.put(f"\n[stream error: {exc}]"), ev_loop
-                )
-            finally:
-                asyncio.run_coroutine_threadsafe(q.put(None), ev_loop)  # sentinel
-
         loop.run_in_executor(None, _stream_worker, token_queue, loop)
 
-        token_count = 0
         while True:
-            token = await asyncio.wait_for(token_queue.get(), timeout=360.0)
-            if token is None:
+            tok = await asyncio.wait_for(token_queue.get(), timeout=360.0)
+            if tok is None:
                 break
-            full_text.append(token)
+            full_text.append(tok)
             token_count += 1
-            yield await _sse_event("token", {
-                "token": token,
-                "n": token_count,
-            })
+            emit("token", {"token": tok, "n": token_count})
 
         text = "".join(full_text)
         job["text"] = text
 
         # ── Phase 3: Score and finalise ──────────────────────────────────────
-        scores = {}
         if meta is not None:
             scores = score_camatk(text, meta, req.domain)
         else:
@@ -408,7 +408,7 @@ async def _generation_stream(job_id: str, req: GenerateRequest) -> AsyncGenerato
             "music_context": req.music_context,
         })
 
-        yield await _sse_event("result", {
+        emit("result", {
             "job_id": job_id,
             "text": text,
             "scores": scores,
@@ -419,13 +419,63 @@ async def _generation_stream(job_id: str, req: GenerateRequest) -> AsyncGenerato
             "language": req.language,
             "generated_at": job["generated_at"],
         })
+        emit("done", {"job_id": job_id, "status": "complete"})
 
-        yield await _sse_event("done", {"job_id": job_id, "status": "complete"})
-
-    except Exception as e:
+    except Exception as exc:
         job["status"] = "error"
-        job["error"] = str(e)
-        yield await _sse_event("error", {"job_id": job_id, "error": str(e)})
+        job["error"] = str(exc)
+        emit("error", {"job_id": job_id, "error": str(exc)})
+
+    finally:
+        # Signal all active SSE streams that the generator is finished
+        for q in job.get("queues", []):
+            try:
+                q.put_nowait(None)   # None = stream-end sentinel
+            except asyncio.QueueFull:
+                pass
+
+
+# ─── SSE Observer Stream ──────────────────────────────────────────────────────
+
+async def _generation_stream(job_id: str) -> AsyncGenerator[str, None]:
+    """
+    SSE observer: replays the full event_log for late/reconnecting clients,
+    then subscribes to live events via a per-job asyncio.Queue.
+
+    Disconnect-safe: if the client drops, only the queue is removed; the
+    background _run_generation_task continues unaffected.
+    """
+    job = state.jobs[job_id]
+
+    # Replay all events emitted so far (catch-up for late connections)
+    for event_str in list(job.get("event_log", [])):
+        yield event_str
+
+    # If already complete/errored, nothing more to stream
+    if job["status"] in ("complete", "error"):
+        return
+
+    # Subscribe to live events
+    q: asyncio.Queue[str | None] = asyncio.Queue(maxsize=4096)
+    job.setdefault("queues", []).append(q)
+
+    try:
+        while True:
+            try:
+                event_str = await asyncio.wait_for(q.get(), timeout=360.0)
+            except asyncio.TimeoutError:
+                yield _sse_event("keepalive", {"job_id": job_id})
+                continue
+            if event_str is None:
+                break   # background task signalled completion
+            yield event_str
+            if '"done"' in event_str or '"error"' in event_str:
+                break
+    finally:
+        try:
+            job.get("queues", []).remove(q)
+        except ValueError:
+            pass
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -486,8 +536,15 @@ async def generate(req: GenerateRequest) -> dict:
         "id": job_id,
         "status": "queued",
         "request": req.model_dump(),
+        "event_log": [],    # replay buffer for reconnecting SSE clients
+        "queues": [],       # active asyncio.Queue per SSE subscriber
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+
+    # Start generation immediately as a background task — independent of any
+    # SSE connection.  Client disconnect will NOT kill generation.
+    asyncio.create_task(_run_generation_task(job_id, req))
+
     return {
         "job_id": job_id,
         "stream_url": f"/stream/{job_id}",
@@ -499,21 +556,19 @@ async def generate(req: GenerateRequest) -> dict:
 @app.get("/stream/{job_id}")
 async def stream_generation(job_id: str) -> StreamingResponse:
     """
-    SSE stream for a generation job.
-    Events: wm_status, generation_start, token, result, done, error.
+    SSE observer for a generation job.
+    Events: wm_status, generation_start, token, result, done, error, keepalive.
 
-    TRIZ C2 (P28 + P32): WM warm-up runs asynchronously; SSE emits progress
-    events so client perceives activity from t=0ms.
+    TRIZ C2 (P28 Mechanics Substitution + P32 Colour Changes):
+    - Generation runs as autonomous background task (not SSE-driven).
+    - Reconnecting clients replay event_log instantly, then subscribe to live queue.
+    - 60-second keepalive prevents proxy timeout on slow models.
     """
     if job_id not in state.jobs:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
-    job = state.jobs[job_id]
-    req_data = job["request"]
-    req = GenerateRequest(**req_data)
-
     return StreamingResponse(
-        _generation_stream(job_id, req),
+        _generation_stream(job_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -564,9 +619,12 @@ async def refine(job_id: str, req: RefineRequest) -> dict:
         "id": new_job_id,
         "status": "queued",
         "request": new_req.model_dump(),
+        "event_log": [],
+        "queues": [],
         "parent_job_id": job_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    asyncio.create_task(_run_generation_task(new_job_id, new_req))
 
     return {
         "job_id": new_job_id,
@@ -579,7 +637,7 @@ async def refine(job_id: str, req: RefineRequest) -> dict:
 
 @app.post("/batch")
 async def submit_batch(req: BatchRequest) -> dict:
-    """Submit up to 10 generation specs as a batch."""
+    """Submit up to 10 generation specs as a batch.  All jobs start immediately."""
     batch_id = str(uuid.uuid4())
     job_ids = []
     for gen_req in req.specs:
@@ -588,9 +646,12 @@ async def submit_batch(req: BatchRequest) -> dict:
             "id": job_id,
             "status": "queued",
             "request": gen_req.model_dump(),
+            "event_log": [],
+            "queues": [],
             "batch_id": batch_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
+        asyncio.create_task(_run_generation_task(job_id, gen_req))
         job_ids.append(job_id)
 
     state.batches[batch_id] = {
