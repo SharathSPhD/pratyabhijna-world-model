@@ -311,7 +311,8 @@ class TrikaCoreLevel(nn.Module):
 
         continue_logits = self.continue_head(feat).squeeze(-1)
         l_continue = F.binary_cross_entropy_with_logits(
-            continue_logits, (1.0 - done_seq).float()
+            continue_logits, (~done_seq).float() if done_seq.dtype == torch.bool
+            else (1.0 - done_seq).float()
         )
         l_pred = l_obs + l_reward + l_continue
 
