@@ -1,0 +1,40 @@
+{
+  "sprint": 12,
+  "title": "Checkpoint Integration — Trained WM + EFEActor + CittaStore",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "tests": {
+    "test_load_trained_components_returns_three_modules": "PASS",
+    "test_efe_weights_differ_from_random_init": "PASS",
+    "test_citta_store_has_three_levels": "PASS",
+    "test_wm_produces_finite_h_on_cuda": "PASS",
+    "test_trained_pipeline_loop_runs": "PASS"
+  },
+  "total_tests": 5,
+  "passed": 5,
+  "checkpoint": {
+    "path": "pwm-phase2/checkpoints/step_1000000.pt",
+    "step": 1000000,
+    "wm_source": "step_multilingual.pt (fine-tuned, step=30000)",
+    "efe_citta_source": "step_1000000.pt (base, step=1000000)"
+  },
+  "architecture_verified": {
+    "efe_actor": {
+      "input_dim": 1536,
+      "comment": "h(512) + z.flatten(1024) — exact match with checkpoint",
+      "net0_weight_shape": [256, 1536],
+      "net0_weight_norm_trained": 32.21
+    },
+    "citta_store": {
+      "n_levels": 3,
+      "blend_gate_shape": [512, 1024],
+      "comment": "Must use n_levels=3; n_levels=1 in S9-S11 tests was only for unit testing"
+    }
+  },
+  "api_changes": {
+    "engine.py": "Added load_trained_components() — loads WM+EFE+Citta from trained checkpoint",
+    "api/main.py": "Updated /v1/generate to use load_trained_components() instead of random-weight modules",
+    "pancakrtya_loop_v2.py": "Added auto-init guard in run_stanza() for _wm_states=None"
+  },
+  "key_finding": "CHECKPOINT_ML (multilingual fine-tune) lacks efe_actor/citta_store keys. EFE+Citta must always load from base CHECKPOINT (step_1000000.pt). WM uses fine-tuned weights when available."
+}

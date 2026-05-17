@@ -119,6 +119,10 @@ class PancakrtyaLoopV2:
         cfg = self.cfg
         dev = self._device
 
+        # Auto-initialise WM state if run_stanza called without prior init()
+        if self._wm_states is None:
+            self.init(batch_size=obs.shape[0] if obs.dim() > 1 else 1)
+
         # ── Act 1: Cit (sṛṣṭi) — WM observe step ────────────────────────
         # observe_step(obs, action, states, step) → (new_states, logits_post, logits_prior)
         # h_t = new_states[0][0] : (B, hidden_dim)
