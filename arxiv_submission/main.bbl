@@ -172,6 +172,25 @@ C.~Salge, C.~Glackin, and D.~Polani, ``Empowerment --- an introduction,'' \emph{
 R.~Mendonca, O.~Rybkin, K.~Daniilidis, D.~Hafner, and D.~Pathak, ``Discovering and achieving goals via world models,'' in \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 2021. [Online]. Available: \url{https://arxiv.org/abs/2110.09514}
 \BIBentrySTDinterwordspacing
 
+\bibitem{altshuller1996innovinnovation}
+G.~S. Altshuller, \emph{And Suddenly the Inventor Appeared: {TRIZ}, the Creative Problem Solving Process}.\hskip 1em plus 0.5em minus 0.4em\relax Worcester, MA: Technical Innovation Center, 1996.
+
+\bibitem{savransky2000engineering}
+S.~D. Savransky, ``Engineering of creativity: Introduction to {TRIZ} methodology of inventive problem solving,'' \emph{CRC Press}, 2000, chapter 3: Contradiction Matrix and Inventive Principles.
+
+\bibitem{wei2022cot}
+J.~Wei, X.~Wang, D.~Schuurmans, M.~Bosma, F.~Xia, E.~Chi, Q.~V. Le, and D.~Zhou, ``Chain-of-thought prompting elicits reasoning in large language models,'' in \emph{Advances in Neural Information Processing Systems}, vol.~35, 2022.
+
+\bibitem{guo2025deepseek}
+\BIBentryALTinterwordspacing
+D.~Guo, D.~Yang, H.~Zhang \emph{et~al.}, ``{DeepSeek-R1}: Incentivizing reasoning capability in {LLMs} via reinforcement learning,'' \emph{arXiv preprint arXiv:2501.12948}, 2025, demonstrates extended internal chain-of-thought as \texttt{<think>} tokens for reasoning models; ADR-002 exploits the same prefill mechanism. [Online]. Available: \url{https://arxiv.org/abs/2501.12948}
+\BIBentrySTDinterwordspacing
+
+\bibitem{nemotron2024}
+\BIBentryALTinterwordspacing
+{NVIDIA}, ``Nemotron-3 super 120b: Extended reasoning via thinking tokens,'' 2024, production reasoning model used as Phase 7 slow-model in cascade. [Online]. Available: \url{https://build.nvidia.com/nvidia/nemotron-super-49b-v1}
+\BIBentrySTDinterwordspacing
+
 \bibitem{crspp2023}
 {PWM Team}, ``{CRSPP}: Camatkāra-regularised successor preference prior for active inference world models,'' University of York, Tech. Rep., 2023, internal technical report; implementation at \url{https://github.com/SharathSPhD/pratyabhijna-world-model/blob/main/pwm/active_inference/crspp.py}.
 
@@ -195,24 +214,5 @@ N.~Reimers and I.~Gurevych, ``Sentence-{BERT}: Sentence embeddings using {Siames
 
 \bibitem{kingma2014adam}
 D.~P. Kingma and J.~Ba, ``Adam: A method for stochastic optimization,'' \emph{arXiv preprint arXiv:1412.6980}, 2015, presented at ICLR 2015.
-
-\bibitem{altshuller1996innovinnovation}
-G.~S. Altshuller, \emph{And Suddenly the Inventor Appeared: {TRIZ}, the Creative Problem Solving Process}.\hskip 1em plus 0.5em minus 0.4em\relax Worcester, MA: Technical Innovation Center, 1996.
-
-\bibitem{savransky2000engineering}
-S.~D. Savransky, ``Engineering of creativity: Introduction to {TRIZ} methodology of inventive problem solving,'' \emph{CRC Press}, 2000, chapter 3: Contradiction Matrix and Inventive Principles.
-
-\bibitem{nemotron2024}
-\BIBentryALTinterwordspacing
-{NVIDIA}, ``Nemotron-3 super 120b: Extended reasoning via thinking tokens,'' 2024, production reasoning model used as Phase 7 slow-model in cascade. [Online]. Available: \url{https://build.nvidia.com/nvidia/nemotron-super-49b-v1}
-\BIBentrySTDinterwordspacing
-
-\bibitem{guo2025deepseek}
-\BIBentryALTinterwordspacing
-D.~Guo, D.~Yang, H.~Zhang \emph{et~al.}, ``{DeepSeek-R1}: Incentivizing reasoning capability in {LLMs} via reinforcement learning,'' \emph{arXiv preprint arXiv:2501.12948}, 2025, demonstrates extended internal chain-of-thought as \texttt{<think>} tokens for reasoning models; ADR-002 exploits the same prefill mechanism. [Online]. Available: \url{https://arxiv.org/abs/2501.12948}
-\BIBentrySTDinterwordspacing
-
-\bibitem{wei2022cot}
-J.~Wei, X.~Wang, D.~Schuurmans, M.~Bosma, F.~Xia, E.~Chi, Q.~V. Le, and D.~Zhou, ``Chain-of-thought prompting elicits reasoning in large language models,'' in \emph{Advances in Neural Information Processing Systems}, vol.~35, 2022.
 
 \end{thebibliography}
