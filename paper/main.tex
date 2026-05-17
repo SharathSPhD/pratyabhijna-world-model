@@ -441,6 +441,34 @@ as a channel capacity measure.
 The LEXA system~\cite{mendonca2021discovering} learns goal-conditioned empowerment
 in latent space, most closely related to PWM's EFE + empowerment combination.
 
+\subsection{TRIZ-Guided Architecture Evolution and LLM Cascade Streaming}
+
+TRIZ (Theory of Inventive Problem Solving)~\cite{altshuller1996innovinnovation,savransky2000engineering}
+is a systematic innovation methodology developed by Altshuller from the analysis of
+hundreds of thousands of patents. Its Contradiction Matrix maps pairs of
+engineering parameters to recommended Inventive Principles; the 40 principles
+provide canonical resolution strategies for physical and technical contradictions.
+TRIZ has been applied to software
+architecture~\cite{savransky2000engineering} but rarely to deep learning system
+design. PWM applies TRIZ formally to four contradictions encountered during
+development (C1–C4), treating the principles as architectural search guides and
+the Ideal Final Result (IFR) as an optimisation target.
+
+Large language model cascade streaming addresses a fundamental latency--quality
+trade-off: small fast models (4B parameters) deliver sub-second TTFT but lower
+quality; large models (120B parameters) produce higher-quality output but incur
+60--90\,s chain-of-thought latency on single-GPU hardware.
+The chain-of-thought mechanism~\cite{wei2022cot} — eliciting step-by-step
+reasoning — is central to modern LLM quality, but its latency cost is
+prohibitive in interactive applications.
+DeepSeek-R1~\cite{guo2025deepseek} and Nemotron-3-Super~\cite{nemotron2024} expose
+the internal reasoning chain via \texttt{<think>} tokens, enabling assistant-role
+prefill to replace cold reasoning with pre-computed context.
+PWM's ADR-002 exploits this interface: the WM's vimarśa state $h_t$ is serialised
+as a structured \texttt{<think>} block and injected before generation, collapsing
+120B switch latency from $\sim$65\,s to $\sim$5\,s without sacrificing generation
+quality.
+
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Architecture}\label{sec:arch}
 
@@ -579,7 +607,7 @@ steps are taken during actor/critic training.
 This mirrors the Kashmir Śaiva concept of \emph{sṛṣṭi} (creation) — the agent
 creates experience internally rather than extracting it from the world.
 
-\subsection{Camatkāra Reward}
+\subsection{Camatkāra Reward}\label{sec:camatk}
 
 The camatkāra reward combines three sources of creative surprise:
 %
