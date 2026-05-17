@@ -1,0 +1,33 @@
+{
+  "sprint": 9,
+  "title": "PancakrtyaLoopV2 + SSE API",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "tests": {
+    "test_loop_v2_import": "PASS",
+    "test_all_six_acts_fire": "PASS",
+    "test_sse_event_sequence": "PASS",
+    "test_domain_neutral_labels": "PASS",
+    "test_wm_survives_llm_failure": "PASS",
+    "test_full_run_complete_event": "PASS"
+  },
+  "total_tests": 6,
+  "passed": 6,
+  "contracts": {
+    "contract1_pancakrtya_invariant": true,
+    "contract2_layer_boundary": true,
+    "contract3_wm_primary": true
+  },
+  "sse_events": [
+    "wm_state",
+    "stanza_start",
+    "token",
+    "stanza_end",
+    "complete"
+  ],
+  "api_endpoints": [
+    "/v1/generate",
+    "/v1/health"
+  ],
+  "note": "Stub EFE/Citta/Bridge replaced with real wiring after S10/S11"
+}

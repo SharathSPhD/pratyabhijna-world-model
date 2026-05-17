@@ -1,0 +1,22 @@
+{
+  "sprint": 11,
+  "title": "VimarsaBridgeV2 logits_processor",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "tests": {
+    "test_bridge_v2_import": "PASS",
+    "test_bridge_returns_callable": "PASS",
+    "test_logits_processor_shifts_distribution": "PASS",
+    "test_kl_div_above_threshold": "PASS",
+    "test_load_or_init_without_checkpoint": "PASS",
+    "test_train_step_reduces_loss": "PASS",
+    "test_cuda_if_available": "PASS"
+  },
+  "total_tests": 7,
+  "passed": 7,
+  "kl_div": 0.15354,
+  "kl_threshold": 0.05,
+  "cuda_verified": true,
+  "architecture": "Linear(hidden_dim=512, vocab_size=128256) + log_scale param",
+  "checkpoint_auto_load": true
+}
