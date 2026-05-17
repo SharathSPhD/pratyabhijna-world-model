@@ -1247,7 +1247,16 @@ if _HYDRA:
             if unexpected:
                 log.info("WM warm-start: %d unexpected keys (ignored): %s",
                          len(unexpected), unexpected[:5])
-            log.info("Loaded WM-only from checkpoint: %s (step=%d)", wm_ckpt, ckpt.get("step", -1))
+            ckpt_step = ckpt.get("step", -1)
+            log.info("Loaded WM-only from checkpoint: %s (step=%d)", wm_ckpt, ckpt_step)
+            # Freeze WM immediately when warm-starting from a trained checkpoint
+            # (WM was already trained in a prior phase; re-running Phase A with near-zero
+            # loss causes Adam to decay encoder norms via momentum → breaks H8).
+            if ckpt_step >= trainer._WM_FREEZE_STEP:
+                trainer._WM_FREEZE_STEP = 0
+                for p in trainer.world_model.parameters():
+                    p.requires_grad_(False)
+                log.info("WM freeze overridden to step 0 (checkpoint already trained); requires_grad=False.")
 
         trainer.train()
 else:

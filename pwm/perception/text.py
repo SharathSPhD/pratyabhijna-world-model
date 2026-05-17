@@ -43,11 +43,16 @@ class TextEncoder(nn.Module):
         # Embedding dim known at first forward call; set lazily
         self.proj: nn.Linear | None = None
 
-    def _load_model(self) -> None:
-        """Lazy-load sentence-transformer (avoids import cost at startup)."""
+    def _load_model(self, device: str = "cpu") -> None:
+        """Lazy-load sentence-transformer (avoids import cost at startup).
+
+        Always initialises on CPU — the 120B LLM occupies GPU VRAM.
+        sentence_transformers defaults to CUDA when available, so we force CPU
+        explicitly to prevent OOM when VRAM is saturated.
+        """
         try:
             from sentence_transformers import SentenceTransformer  # type: ignore[import]
-            self._st_model = SentenceTransformer(self.model_name)
+            self._st_model = SentenceTransformer(self.model_name, device=device)
         except ImportError:
             raise ImportError(
                 "sentence-transformers required: pip install sentence-transformers"
@@ -64,12 +69,15 @@ class TextEncoder(nn.Module):
             (B, obs_dim) float tensor
         """
         if self._st_model is None:
-            self._load_model()
+            # Force CPU to avoid VRAM OOM when 120B LLM is loaded
+            self._load_model(device="cpu")
 
-        # sentence-transformers encode: returns numpy (B, embed_dim)
+        # sentence-transformers encode: move result to target device after
+        # CPU-only embedding computation
         embeddings = self._st_model.encode(  # type: ignore[union-attr]
-            texts, convert_to_tensor=True, device=device, show_progress_bar=False
-        )  # (B, embed_dim)
+            texts, convert_to_tensor=True, device=torch.device("cpu"),
+            show_progress_bar=False
+        ).to(device)  # (B, embed_dim)
 
         embed_dim = embeddings.shape[-1]
         if self.proj is None:

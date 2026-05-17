@@ -147,7 +147,7 @@ class ReplayBuffer:
     def update_priorities(self, indices: np.ndarray, vfe_values: np.ndarray) -> None:
         """Update priorities after WM loss computation on replayed batch."""
         for idx, vfe in zip(indices, vfe_values):
-            priority = (float(vfe) + 1e-6) ** self.ALPHA
+            priority = (abs(float(vfe)) + 1e-6) ** self.ALPHA
             self._max_priority = max(self._max_priority, priority)
             self.tree.update(int(idx), priority)
 
