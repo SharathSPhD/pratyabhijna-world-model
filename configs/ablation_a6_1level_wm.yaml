@@ -1,0 +1,103 @@
+# Ablation A6: 1-level (Aparā-only) World Model
+# Tests H7: "3-level Trika > 1-level on long-horizon creativity"
+# Run for 100K steps (3 seeds: 51, 52, 53) from random init.
+# Metrics: first-step VFE after 10K steps, and domain separation
+# (silhouette score in h-space) — compared to Phase 6 3-level gate values.
+#
+# Reference Phase 6 (3-level) metrics (phase_6_gate_step1000000.json):
+#   imagination VFE ratio: 1.56e-4  (vs Phase 3 VFE 3.110)
+#   H7 PASS threshold: ratio < 0.85
+#
+# A6 expected outcome (1-level, no Parāparā/Parā):
+#   lower domain separation, higher long-horizon VFE → H7 FAIL for ablation
+#   (confirming necessity of 3-level hierarchy)
+
+defaults:
+  - _self_
+  - llm_backend
+
+world_model:
+  levels: 1                    # Ablation: Aparā only (no Parāparā, no Parā)
+  stoch_dim: 32
+  stoch_classes: 32
+  hidden_dim_apara: 512
+  backbone_apara: "gru"
+  kl_balance_dyn: 0.5
+  kl_balance_rep: 0.1
+  free_bits: 0.1               # Phase 2 validated (prevents prior entropy ceiling)
+  obs_dim: 512
+  action_dim: 64
+  vocab_size: 32000
+
+actor:
+  type: "efe"                  # Same as Phase 6: EFE actor (not REINFORCE)
+  horizon: 32                  # Same as Phase 6
+  gamma: 0.997
+  lam: 0.95
+  entropy_coef: 3e-3
+  lr: 3e-5
+
+critic:
+  lr: 1e-4
+
+idl:
+  enabled: true
+  lambda_idl: 0.05             # Phase 2 validated
+
+memory:
+  enabled: true                # Hopfield CittaStore enabled (same as Phase 6)
+  n_episodic_apara: 4096
+  n_semantic_apara: 128
+  hopfield_beta: 32
+
+sleep:
+  enabled: true                # Sleep enabled (same as Phase 6)
+  period: 10000
+  nrem_steps: 200
+  rem_steps: 50
+
+llm:
+  enabled: false               # LLM disabled: ablation measures WM only
+  narrate_on_sphuratta: false
+
+reward:
+  alpha_1: 1.0                 # VFE component
+  alpha_2: 1.0                 # Hopfield delta (camatkāra)
+  alpha_3: 0.5                 # Empowerment
+  lambda_ext: 0.0
+
+mala_regularisers:
+  enabled: true
+  lambda_anava: 0.01
+  lambda_mayiya: 0.01
+  lambda_karma: 0.01
+
+training:
+  batch_size: 32
+  seq_len: 64
+  lr_wm: 1e-4
+  gradient_clip: 100.0
+  replay_capacity: 100_000
+  min_buffer_steps: 1000
+  mixed_precision: "bfloat16"
+  torch_compile: true
+  max_steps: 100_000           # 100K steps per seed (3 seeds = 300K total)
+  eval_interval: 5_000
+  checkpoint_interval: 25_000
+  seed: 51                     # Override per run: 51, 52, 53
+
+corpus:
+  domain: "mixed"
+  data_dir: "${oc.env:CORPUS_ROOT,data/corpus}"
+  window_size: 64
+  stride: 16
+  max_tokens: 500_000
+
+sphuratta:
+  percentile: 5
+  min_gap: 100
+
+logging:
+  wandb_project: "${oc.env:WANDB_PROJECT,pratyabhijna-world-model}"
+  log_interval: 100
+  run_name: "a6_1level_wm_seed${training.seed}"
