@@ -1,0 +1,98 @@
+{
+  "sprint": 5,
+  "title": "LoRA domain adapters + ISO 15919 transliteration",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T02:00:00+01:00",
+  "components": {
+    "lora_adapters": {
+      "file": "pwm/generation/lora_adapters.py",
+      "class": "DomainLoRABank",
+      "architecture": "LoRALinear(obs_dim=512, r=8, alpha=16.0) × 15 domains",
+      "trainable_params": 122880,
+      "total_params": 4055040,
+      "scale": 2.0,
+      "init": "A: Kaiming uniform, B: zeros (identity init — no shift before training)",
+      "domains": [
+        "sanskrit_classical", "carnatic", "hindustani",
+        "western_pop", "western_jazz",
+        "kannada_film", "hindi_film", "tamil_classical",
+        "telugu_padyam", "bengali_lyric",
+        "english_romantic", "english_modernist", "english_beat",
+        "world_fusion", "generic"
+      ],
+      "features": [
+        "merge_weights(): fuses A+B into W for zero-overhead inference",
+        "save(): persists only A+B tensors (not frozen W)",
+        "load(): restores A+B, re-freezes W",
+        "trainable_parameters(): returns only A+B for optimizer"
+      ],
+      "shape_test": "PASS — DomainLoRABank(512, r=8) forward: (2,512)→(2,512) for all 15 domains",
+      "save_load_test": "PASS — roundtrip preserves 122,880 trainable param count",
+      "training_status": "NOT YET TRAINED — CUDA blocked by memory saturation (120/128GB). Zero B-init means untrained bank acts as identity (correct initial state)."
+    },
+    "transliteration": {
+      "file": "pwm/generation/transliterate.py",
+      "class": "TranslitResult",
+      "entry_points": [
+        "transliterate_text(text) -> TranslitResult",
+        "annotate_output(record: dict) -> dict  # mutates in-place"
+      ],
+      "scripts_supported": ["devanagari", "tamil", "telugu", "kannada", "bengali"],
+      "standard": "ISO 15919 / IAST (via indic-transliteration==2.3.82)",
+      "strategy": "Line-by-line detection preserves Indic combining character sequences (matras, viramas, anusvaras)",
+      "verified_outputs": {
+        "kannada": "ಮಳೆ ಬಂದೆ ಮಣ್ಣು → maḻè baṃdè maṇṇu",
+        "devanagari": "मुखड़ा → mukhar̤ā",
+        "tamil": "குயில் கடல் → ghuyil ghaḍhal",
+        "telugu": "నది సంధ్య → nadi saṃdhya",
+        "bengali": "বসন্ত ফুল বাতাস → vasanta phula vātāsa",
+        "latin": "passthrough unchanged",
+        "mixed": "[Tamil]+[English]+[Bengali] poem → per-line transliteration, mixed_language=True"
+      },
+      "latex_annotation": "TranslitResult.latex_annotation() produces \\textit{IAST} for IEEE paper figures"
+    }
+  },
+  "integration": {
+    "engine_py": "add_transliteration() called in generate_one() after scoring",
+    "api_main_py": "transliteration dict emitted in 'result' SSE event and GET /result response",
+    "pancakrtya_loop_py": "PancakrtyaLoop.transliterate_narration() static method on kriyā narration output"
+  },
+  "e2e_test": {
+    "job_id": "ab974f13-a31c-4c82-84f8-8558941e3ed6",
+    "domain": "kannada_film",
+    "theme": "ಮಳೆ ಬಂದ ರಾತ್ರಿ (rainy night)",
+    "status": "COMPLETE — transliteration verified in GET /result",
+    "camatk_score": 0.6561,
+    "wm_energy": 18.3389,
+    "transliteration": {
+      "script": "kannada",
+      "has_indic": true,
+      "mixed": true,
+      "iast_preview": "maḻèyòḻagè manassu narèyuttadè / mòdalu maḻèya baṃda rātri, ninna kaṇṇu noḍidarè",
+      "latex_annotation": "\\textit{maḻèyòḻagè manassu narèyuttadè ...} (LaTeX-ready IAST)"
+    },
+    "note": "mixed=True because poem contains Kannada script verses with English parenthetical translations per line"
+  },
+  "known_limitations": {
+    "lora_untrained": "LoRA B matrices are zero-initialised → no domain adaptation until training. Training blocked by CUDA OOM (Ollama 120B occupies GPU). Planned for Sprint 6 after memory freed.",
+    "tamil_iast_approximations": "Tamil consonants map to approximate IAST (e.g. க→gh vs canonical k). indic-transliteration v2.3.82 uses Classical Sanskrit IAST table; Tamil-specific mapping not yet customised.",
+    "yaman_carnatic_mismatch": "Documented in sprint4_gate.json: Yaman is a Hindustani raga used in Carnatic context. Raga list separation planned for Sprint 6."
+  },
+  "triz_principle": {
+    "number": 10,
+    "name": "Prior Action",
+    "application": "Transliteration computed immediately after text generation (in the same pipeline step) so downstream consumers (API clients, LaTeX paper) receive IAST without a separate post-processing pass"
+  },
+  "commits": {
+    "pwm_phase2": "0cf282b — Sprint 5: LoRA r=8 adapters + ISO 15919 transliteration",
+    "pwm_main": "d088b58 — Sprint 5 API: ISO 15919 transliteration in SSE result event"
+  },
+  "next_sprint": {
+    "sprint": 6,
+    "title": "LoRA training + paper figures + arXiv submission prep",
+    "entry_criteria": [
+      "Sprints 1-5 gate pass (all ✓)",
+      "Memory freed for CUDA LoRA training (Ollama unloaded or system restart)"
+    ]
+  }
+}
