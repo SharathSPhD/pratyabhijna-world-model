@@ -32,7 +32,10 @@ from pwm.generation.lora_adapters import make_lora_bank  # Sprint 6
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 
-LLAMA_SERVER_URL = "http://localhost:8080"
+# S16: Use Ollama's OpenAI-compatible endpoint (running at :11434 with nemotron-3-super:120b).
+# llama-server fallback remains at :8080 if Ollama is unavailable.
+LLAMA_SERVER_URL = "http://localhost:11434"
+OLLAMA_MODEL_NAME = "nemotron-3-super:120b"
 LLAMA_MODEL_PATH = "/home/sharaths/projects/pwm-phase3/models/nemotron-120b.gguf"
 CHECKPOINT  = Path("/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt")
 # Use multilingual fine-tuned checkpoint if available
@@ -250,6 +253,7 @@ def get_llm_backend() -> Any:
             n_gpu_layers=999,
             n_ctx=4096,
             server_url=LLAMA_SERVER_URL,
+            model_name=OLLAMA_MODEL_NAME,
         )
     return _LLAMA_BACKEND
 

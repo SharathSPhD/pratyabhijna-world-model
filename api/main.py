@@ -44,6 +44,7 @@ sys.path.insert(0, "/home/sharaths/projects/pwm-phase2")
 from pwm.generation.domain_metadata import Domain, WMStateDecoder  # type: ignore
 from pwm.generation.engine import (  # type: ignore
     CHECKPOINT, LLAMA_MODEL_PATH as MODEL, LLAMA_SERVER_URL as OLLAMA_URL,
+    OLLAMA_MODEL_NAME,
     load_wm, load_trained_components, score_camatk, warmup_wm_on_text,
     get_llm_backend,
 )
