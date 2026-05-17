@@ -1,0 +1,9 @@
+{"hypothesis_id": "H1", "description": "EFE actor > REINFORCE on sparse creative reward (episodes to first sphurattā)", "gate_file": "phase_2_gate.json", "gate_pass": true}
+{"hypothesis_id": "H2", "description": "Hopfield memory improves pattern completion accuracy", "gate_file": "phase3_gate.json", "gate_pass": true}
+{"hypothesis_id": "H3", "description": "Sleep consolidation reduces catastrophic forgetting in sequential domain training", "gate_file": "phase4_gate.json", "gate_pass": true}
+{"hypothesis_id": "H4", "description": "VimarsaBridge improves narration quality (human 'meaningful' rate ≥70%)", "gate_file": "phase5_gate.json", "gate_pass": true}
+{"hypothesis_id": "H5", "description": "PWM > PCE v0.4 on creative quality (R_camatk density + S_svātantrya)", "gate_file": "phase_5_gate_step0500000.json", "gate_pass": true}
+{"hypothesis_id": "H6", "description": "Camatkāra correlates with human aesthetic judgment (DTW distance)", "gate_file": "phase_6_gate_step1000000.json", "gate_pass": true}
+{"hypothesis_id": "H7", "description": "3-level Trika hierarchy outperforms 1-level Aparā-only on long-horizon creativity", "gate_file": "ablation_a6_1level_wm.json", "gate_pass": true}
+{"hypothesis_id": "H8", "description": "Mala regularisers prevent latent collapse (metre satisfaction rate)", "gate_file": "phase_6_gate_step1000000.json", "gate_pass": true}
+{"hypothesis_id": "H9", "description": "S_svātantrya correlates with human novelty ratings (Spearman ρ)", "gate_file": "phase_6_gate_step1000000.json", "gate_pass": true}
