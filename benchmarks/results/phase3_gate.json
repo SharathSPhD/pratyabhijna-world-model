@@ -1,0 +1,74 @@
+{
+  "phase": 3,
+  "title": "Production Rewrite — All 6 Pañcakṛtya Acts + CUDA + llama-cpp-python",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "branch": "phase-3/production-rewrite",
+  "sprints": {
+    "S8": {
+      "title": "WM CUDA migration + LlamaCppBackend",
+      "gate_pass": true,
+      "cuda_warmup_ms": 13.6,
+      "logits_processor_verified": true
+    },
+    "S9": {
+      "title": "PancakrtyaLoopV2 — all 6 acts + SSE protocol",
+      "gate_pass": true,
+      "tests_pass": 6,
+      "contract2_fix": "vfe->prediction_error, efe_score->selection_score"
+    },
+    "S10": {
+      "title": "EFEActor + CittaStore on GPU — real compute",
+      "gate_pass": true,
+      "tests_pass": 7,
+      "cuda_verified": true
+    },
+    "S11": {
+      "title": "VimarsaBridgeV2 logits_processor + KL gate",
+      "gate_pass": true,
+      "tests_pass": 7,
+      "kl_div_achieved": 0.15354,
+      "kl_div_threshold": 0.05,
+      "cuda_verified": true
+    }
+  },
+  "total_tests": 20,
+  "passed": 20,
+  "contracts": {
+    "contract1_pancakrtya_invariant": {
+      "pass": true,
+      "description": "All 6 acts (cit, ananda, icha, apohana, jnana, kriya) fire per stanza, sharing a single (h_t, z_t) WM state"
+    },
+    "contract2_layer_boundary": {
+      "pass": true,
+      "description": "Internal Saiva vocabulary (vfe, efe_score, sphuratta) replaced with domain-neutral keys (prediction_error, selection_score, creative_peak) in all SSE events",
+      "forbidden_keys_in_sse": ["vfe", "efe_score", "sphuratta", "vimarsa", "camatk", "camatkara", "pancakrtya"]
+    },
+    "contract3_wm_primary": {
+      "pass": true,
+      "description": "WM produces output even when LLM stream raises. Stub fallback verified in test_wm_survives_llm_failure."
+    }
+  },
+  "hardware": {
+    "gpu": "NVIDIA GB10 Blackwell",
+    "cuda_capability": "12.1",
+    "pytorch_cuda_max": "12.0",
+    "note": "Functional with harmless capability warning"
+  },
+  "key_files": {
+    "pipeline": "pwm/pipeline/pancakrtya_loop_v2.py",
+    "bridge": "pwm/vimarsa/bridge_v2.py",
+    "llm_backend": "pwm/generation/llama_backend.py",
+    "api": "api/main.py"
+  },
+  "api_corrections_applied": [
+    "EFEActor.forward returns (Categorical, Tensor[B]) — not scalar",
+    "CittaStore stores/recalls h_t (hidden_dim), not z_t",
+    "observe_step returns (new_states, logits_post, logits_prior) — h_t at new_states[0][0]"
+  ],
+  "next_phase": {
+    "phase": 4,
+    "planned_sprints": ["S12: VFE-first curriculum training", "S13: EAGLE3 speculative decoding", "S14: LiveViz dual-mode WebSocket"],
+    "gate_criteria": "H1 EFE > REINFORCE on sparse reward; VimarsaBridgeV2 trained checkpoint with final_loss < initial_loss"
+  }
+}

@@ -163,7 +163,7 @@ class PancakrtyaLoopV2:
                 "aesthetic_quality": round(aesthetic_quality, 3),
                 "creative_peak": sphuratta,       # sphurattā → creative_peak
                 "entropy": round(norm_entropy, 3),
-                "vfe": round(vfe, 3),
+                "prediction_error": round(vfe, 3),
                 "stanza": stanza_idx,
             },
         }
@@ -219,8 +219,8 @@ class PancakrtyaLoopV2:
                 "stanza": stanza_idx,
                 "aesthetic_quality": round(camatk, 3),
                 "memory_resonance": round(mem_resonance, 3),
-                "efe_score": round(efe_score, 3),
-                "vfe": round(vfe, 3),
+                "selection_score": round(efe_score, 3),
+                "prediction_error": round(vfe, 3),
             },
         }
 

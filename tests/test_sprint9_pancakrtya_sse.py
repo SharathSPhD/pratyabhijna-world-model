@@ -148,7 +148,9 @@ def test_domain_neutral_labels():
         pass
 
     # Check all event data keys — no Śaiva vocabulary in external API
-    forbidden = {"sphuratta", "vimarsa", "camatk", "camatkara", "pancakrtya"}
+    # Also block raw internal metric names: vfe and efe_score must not leak as SSE keys
+    forbidden = {"sphuratta", "vimarsa", "camatk", "camatkara", "pancakrtya",
+                 "vfe", "efe_score"}
     for ev in events:
         for key in ev.get("data", {}).keys():
             assert key.lower() not in forbidden, \

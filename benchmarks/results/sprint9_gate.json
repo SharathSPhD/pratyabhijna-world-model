@@ -29,5 +29,11 @@
     "/v1/generate",
     "/v1/health"
   ],
-  "note": "Stub EFE/Citta/Bridge replaced with real wiring after S10/S11"
+  "sse_key_audit": {
+    "vfe_replaced_by": "prediction_error",
+    "efe_score_replaced_by": "selection_score",
+    "contract2_keys_forbidden": ["vfe", "efe_score", "sphuratta", "vimarsa", "camatk", "camatkara", "pancakrtya"],
+    "contract2_keys_allowed": ["prediction_error", "selection_score", "aesthetic_quality", "creative_peak", "memory_resonance", "energy", "entropy"]
+  },
+  "note": "Contract 2 fix applied: vfe->prediction_error, efe_score->selection_score in SSE payloads. Test forbidden set updated to catch future regressions."
 }
