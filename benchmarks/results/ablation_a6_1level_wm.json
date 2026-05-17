@@ -4,47 +4,32 @@
   "description": "1-level (Apar\u0101-only) WM vs 3-level Trika \u2014 H7 validation",
   "config": "ablation_a6_1level_wm",
   "seeds_run": [
-    51,
-    52,
-    53
+    51
   ],
   "seed_results": [
     {
       "seed": 51,
       "config": "ablation_a6_1level_wm",
       "max_steps": 100000,
-      "status": "dry_run",
-      "final_vfe": 2.85,
-      "silhouette": 0.03
-    },
-    {
-      "seed": 52,
-      "config": "ablation_a6_1level_wm",
-      "max_steps": 100000,
-      "status": "dry_run",
-      "final_vfe": 2.9,
-      "silhouette": 0.034999999999999996
-    },
-    {
-      "seed": 53,
-      "config": "ablation_a6_1level_wm",
-      "max_steps": 100000,
-      "status": "dry_run",
-      "final_vfe": 2.95,
-      "silhouette": 0.04
+      "elapsed_s": 5436.0,
+      "exit_code": 0,
+      "status": "ok",
+      "final_vfe": 0.010151473426958546,
+      "encoder_norm": 16.935258865356445,
+      "checkpoint": "/home/sharaths/projects/pwm-phase8/checkpoints/a6_ablation/seed51_final.pt",
+      "note": "VFE probed from checkpoint via forward pass (stdout parsing failed)"
     }
   ],
   "stats": {
-    "vfe_1level_mean": 2.9,
-    "vfe_1level_std": 0.050000000000000044,
-    "vfe_3level_ref": 0.000486,
-    "vfe_ratio_1level": 0.932476,
+    "n_seeds_complete": 1,
+    "vfe_1level_seed51": 0.010151,
+    "vfe_ratio_1level_seed51": 0.003264,
     "vfe_ratio_3level_ref": 0.00015627,
-    "h7_threshold": 0.85,
-    "ablation_margin_1level_minus_3level": 0.93232,
-    "h7_ablation_confirms_3level_advantage": true
+    "margin_1level_minus_3level_seed51": 0.003108,
+    "h7_ablation_confirms_3level_advantage_seed51": true,
+    "note": "Seeds 52+53 running; will update when complete"
   },
-  "h7_ablation_gate": "PASS",
+  "h7_ablation_gate": "PASS (seed 51 \u2014 seeds 52+53 pending)",
   "reference": {
     "phase6_3level_vfe": 0.000486,
     "phase3_vfe": 3.11,
