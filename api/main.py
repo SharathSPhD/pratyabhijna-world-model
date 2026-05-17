@@ -48,6 +48,7 @@ from pwm.generation.engine import (  # type: ignore
 )
 from pwm.generation.creative_specs import ALL_SPECS  # type: ignore
 from pwm.generation.music_notation import annotate as annotate_music  # type: ignore
+from pwm.generation.transliterate import annotate_output as add_transliteration  # type: ignore  # Sprint 5
 
 # ─── FastAPI App ─────────────────────────────────────────────────────────────
 
@@ -410,12 +411,18 @@ async def _run_generation_task(job_id: str, req: GenerateRequest) -> None:
                 "note": "WM not available; VFE score omitted",
             }
 
+        # Sprint 5: ISO 15919 / IAST transliteration for non-Latin scripts
+        translit_record: dict = {"text": text}
+        add_transliteration(translit_record)
+        transliteration = translit_record.get("transliteration", {})
+
         job.update({
             "status": "complete",
             "scores": scores,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "token_count": token_count,
             "music_context": req.music_context,
+            "transliteration": transliteration,
         })
 
         emit("result", {
@@ -426,6 +433,7 @@ async def _run_generation_task(job_id: str, req: GenerateRequest) -> None:
             "wm_section": job.get("wm_section", ""),
             "music_context": req.music_context,
             "music_notation": job.get("music_notation", {}),
+            "transliteration": transliteration,     # Sprint 5
             "domain": req.domain,
             "language": req.language,
             "generated_at": job["generated_at"],
