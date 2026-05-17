@@ -856,26 +856,34 @@ class PancakrtyaLoopV2:
         dev = self._device
 
         # ── Act 1: Cit (sṛṣṭi) — WM observe ─────────────────────────────
+        # observe_step returns (new_states, logits_post, logits_prior)
+        # h_t is at new_states[0][0], z_t at new_states[0][1]
         a_t = torch.zeros(1, cfg.action_dim, device=dev)
-        self._wm_states, h_t_batch, vfe = self.wm.observe_step(
+        self._wm_states, logits_post, logits_prior = self.wm.observe_step(
             obs, a_t, self._wm_states, stanza_idx
         )
-        h_t = h_t_batch.squeeze(0)   # (hidden_dim,)
+        h_t = self._wm_states[0][0]   # (B=1, hidden_dim)
+        z_t_full = self._wm_states[0][1]  # (B, stoch_dim, stoch_classes)
+
+        # VFE proxy: KL(posterior || prior) from logits
+        import torch.nn.functional as _F
+        if logits_post[0].numel() > 1:
+            lp = _F.log_softmax(logits_post[0].reshape(1,-1), dim=-1)
+            pr = _F.softmax(logits_prior[0].reshape(1,-1), dim=-1)
+            vfe = float(_F.kl_div(lp, pr, reduction='batchmean'))
+        else:
+            vfe = 0.0
 
         # ── Act 2: Ānanda — EFE actor ─────────────────────────────────────
-        # EFEActor.forward() returns (Categorical dist, efe: Tensor[B]) — take mean
-        _, efe_batch = self.efe(h_t.unsqueeze(0), self._wm_states[0][1])
+        # EFEActor.forward(h, z) → (Categorical, efe: Tensor[B]) — take mean
+        _, efe_batch = self.efe(h_t, z_t_full)
         efe_score = float(efe_batch.mean())
 
         # ── Act 3: Icchā — Hopfield recall ───────────────────────────────
-        z_t = self._wm_states[0][1].squeeze(0)   # (stoch_dim, stoch_classes)
-        # CittaStore API: recall(query, mode="episodic") — no top_k param
-        z_query = z_t.flatten().unsqueeze(0)     # (1, stoch_dim*stoch_classes)
-        mem_t = self.citta.recall(z_query, mode="episodic").squeeze(0)  # (d,)
-        mem_resonance = float(torch.cosine_similarity(
-            mem_t.unsqueeze(0),
-            z_query,
-        ))
+        # CittaStore stores/recalls h_t (hidden_dim), NOT z_t
+        # API: recall(query: Tensor[B, dim], mode="episodic") → Tensor[B, dim]
+        mem_t = self.citta.recall(h_t, mode="episodic")  # (B, hidden_dim)
+        mem_resonance = float(torch.cosine_similarity(h_t, mem_t))
 
         # ── Act 4: Apohana — entropy gate ────────────────────────────────
         z_probs = torch.softmax(z_t.flatten().float(), dim=0)
@@ -917,10 +925,9 @@ class PancakrtyaLoopV2:
 
         stanza_text = "".join(generated_tokens)
 
-        # Post-kriyā: store in Hopfield episodic memory
-        # CittaStore API: store_episode(h, level=0) — stores z-flat as pattern
-        z_flat = z_t.flatten().unsqueeze(0)  # (1, d)
-        self.citta.store_episode(z_flat, level=0)
+        # Post-kriyā: store h_t in episodic Hopfield memory
+        # CittaStore API: store_episode(h: Tensor[B, hidden_dim], level=0)
+        self.citta.store_episode(h_t, level=0)
 
         # Camatkāra: simplified inline (full scorer in Sprint 10)
         vfe_f = float(vfe) if not isinstance(vfe, float) else vfe
