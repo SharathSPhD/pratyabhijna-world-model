@@ -22,7 +22,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
 import torch
 
 from pwm.generation.domain_metadata import CreativeMetadata, Domain, WMStateDecoder
@@ -33,15 +32,16 @@ from pwm.generation.lora_adapters import make_lora_bank  # Sprint 6
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 
-OLLAMA_URL  = "http://localhost:11434/api/chat"
-OLLAMA_CHAT = "http://localhost:11434/api/chat"
-MODEL       = "nemotron-3-super:120b"
+LLAMA_SERVER_URL = "http://localhost:8080"
+LLAMA_MODEL_PATH = "/home/sharaths/projects/pwm-phase3/models/nemotron-120b.gguf"
 CHECKPOINT  = Path("/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt")
 # Use multilingual fine-tuned checkpoint if available
 CHECKPOINT_ML = Path("/home/sharaths/projects/pwm-phase2/checkpoints/step_multilingual.pt")
 # Sprint 6: Trained LoRA domain adapters (Fisher LDA, 200 steps, 75% loss reduction)
 LORA_CHECKPOINT = Path("/home/sharaths/projects/pwm-phase2/checkpoints/lora_final.pt")
-DEVICE      = torch.device("cpu")
+DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+_LLAMA_BACKEND: Any = None
 
 # WM config — MUST match checkpoint architecture:
 #   n_levels=3 (Aparā, Parāparā, Parā levels present in checkpoint)
@@ -87,28 +87,22 @@ IMAGERY_VOCAB: dict[str, list[str]] = {
 # ─── WM Loading ─────────────────────────────────────────────────────────────
 
 def load_wm() -> Any:
-    """
-    Load TrikaWorldModel from checkpoint onto CPU.
-
-    Loads the multilingual fine-tuned checkpoint if available,
-    otherwise falls back to the base 1M-step checkpoint.
-    """
+    """Load TrikaWorldModel from checkpoint onto CUDA."""
     import sys
     sys.path.insert(0, str(Path(__file__).parents[2]))
     from pwm.world_model.trika import TrikaWorldModel  # type: ignore
 
     wm = TrikaWorldModel(**WM_CFG).to(DEVICE)
 
-    # Prefer fine-tuned multilingual checkpoint; fall back to base
     ckpt_path = CHECKPOINT_ML if CHECKPOINT_ML.exists() else CHECKPOINT
     if ckpt_path.exists():
         ckpt = torch.load(ckpt_path, map_location=DEVICE, weights_only=False)
         result = wm.load_state_dict(ckpt["world_model"], strict=False)
         if result.missing_keys:
             print(f"  [WM] {len(result.missing_keys)} missing keys (strict=False)")
-        print(f"  [WM] Loaded: {ckpt_path.name}")
+        print(f"  [WM] Loaded: {ckpt_path.name} on {DEVICE}")
     else:
-        print("  [WM] No checkpoint found — using random weights")
+        print(f"  [WM] No checkpoint found — random weights on {DEVICE}")
 
     wm.eval()
     return wm
@@ -194,25 +188,33 @@ def warmup_wm_on_text(wm: Any, seed_text: str, steps: int = 60,
 
 # ─── LLM Generation ─────────────────────────────────────────────────────────
 
-def call_ollama(system: str, user: str, num_predict: int = 900,
-                temperature: float = 0.88, top_p: float = 0.92) -> str:
-    """Call Ollama with think:False to prevent reasoning contamination."""
-    resp = requests.post(OLLAMA_CHAT, json={
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        "stream": False,
-        "think": False,
-        "options": {
-            "num_predict": num_predict,
-            "temperature": temperature,
-            "top_p": top_p,
-        },
-    }, timeout=420)  # 7min — 120B @ 15 tok/s needs >300s for 900 tokens under load
-    resp.raise_for_status()
-    return resp.json()["message"]["content"].strip()
+def get_llm_backend() -> Any:
+    """Return LlamaCppBackend singleton (lazy-initialised)."""
+    global _LLAMA_BACKEND
+    if _LLAMA_BACKEND is None:
+        from pwm.generation.llama_backend import LlamaCppBackend
+        _LLAMA_BACKEND = LlamaCppBackend(
+            model_path=LLAMA_MODEL_PATH,
+            n_gpu_layers=999,
+            n_ctx=4096,
+            server_url=LLAMA_SERVER_URL,
+        )
+    return _LLAMA_BACKEND
+
+
+def call_llm(system: str, user: str, num_predict: int = 900,
+             temperature: float = 0.88, top_p: float = 0.92,
+             logits_processor: Any = None) -> str:
+    """Call llama.cpp backend (replaces call_ollama)."""
+    backend = get_llm_backend()
+    return backend.generate(
+        system=system,
+        user=user,
+        logits_processor=logits_processor,
+        max_tokens=num_predict,
+        temperature=temperature,
+        top_p=top_p,
+    )
 
 
 # ─── Scoring ─────────────────────────────────────────────────────────────────
@@ -293,7 +295,7 @@ def generate_one(spec: CreativeSpec, wm: Any, decoder: WMStateDecoder,
 
     # 4. Generate
     t0 = time.time()
-    text = call_ollama(
+    text = call_llm(
         spec.system_prompt, full_user,
         num_predict=spec.num_predict,
         temperature=spec.temperature,
@@ -321,7 +323,7 @@ def generate_one(spec: CreativeSpec, wm: Any, decoder: WMStateDecoder,
         "structured_hints": spec.structured_output_hints,
         "generation_time_s": round(elapsed, 1),
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "model": MODEL,
+        "model": LLAMA_MODEL_PATH,
         "checkpoint": str(CHECKPOINT),
     }
     # Sprint 5: ISO 15919 transliteration for non-Latin scripts

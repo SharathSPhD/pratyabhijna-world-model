@@ -1,0 +1,23 @@
+{
+  "sprint": 10,
+  "title": "EFEActor + CittaStore on GPU",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "tests": {
+    "test_efe_actor_forward_returns_tuple": "PASS",
+    "test_efe_varies_across_inputs": "PASS",
+    "test_efe_actor_on_cuda": "PASS",
+    "test_citta_store_recall_after_store": "PASS",
+    "test_citta_store_recall_changes_with_stored": "PASS",
+    "test_citta_store_on_cuda": "PASS",
+    "test_efe_and_citta_pipeline_integration": "PASS"
+  },
+  "total_tests": 7,
+  "passed": 7,
+  "cuda_verified": true,
+  "api_corrections": {
+    "efe_return_type": "tuple(Categorical, Tensor[B]) \u2014 plan corrected",
+    "citta_store_dim": "stores/recalls h_t (hidden_dim), not z_t \u2014 plan corrected",
+    "observe_step_return": "(new_states, logits_post, logits_prior) \u2014 plan corrected"
+  }
+}

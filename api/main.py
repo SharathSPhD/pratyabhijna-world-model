@@ -710,3 +710,150 @@ async def get_batch_status(batch_id: str) -> dict:
             for jid in batch["job_ids"]
         ],
     }
+
+
+# ─── v1 Endpoints (Phase 3: PancakrtyaLoopV2 + SSE) ─────────────────────────
+
+class V1GenerateRequest(BaseModel):
+    """Request schema for neo-fm-web API contract."""
+    domain: str = Field("kannada_film", description="Creative domain key")
+    seed: str = Field("", description="Seed text for WM warmup")
+    n_stanzas: int = Field(4, ge=1, le=8)
+    language: str = Field("auto", description="Language hint (kn, hi, en, ...)")
+    style: str = Field("lyrical", description="Style hint (romantic, devotional, ...)")
+    stream: bool = Field(True, description="If true, return SSE stream")
+
+
+@app.post("/v1/generate")
+async def generate_v1(req: V1GenerateRequest) -> StreamingResponse:
+    """
+    SSE generation endpoint using PancakrtyaLoopV2.
+
+    Pañcakṛtya loop (Contract 1): all 6 acts per stanza.
+    Layer boundary (Contract 2): SSE events use domain-neutral keys.
+    WM primary (Contract 3): stub output if LLM unavailable.
+
+    SSE event protocol:
+      event: wm_state      — WM energy, aesthetic_quality, creative_peak
+      event: stanza_start  — stanza index
+      event: token         — generated token text
+      event: stanza_end    — per-stanza scores
+      event: complete      — mean_aesthetic_quality, total_stanzas
+    """
+    import torch
+    from pwm.pipeline.pancakrtya_loop_v2 import PancakrtyaLoopV2, LoopConfig
+    from pwm.active_inference.efe_actor import EFEActor
+    from pwm.memory.citta_store import CittaStore
+    from pwm.vimarsa.bridge_v2 import VimarsaBridgeV2
+
+    # Resolve device — S8 will set DEVICE=cuda; graceful fallback
+    try:
+        from pwm.generation.engine import DEVICE, load_wm, warmup_wm_on_text, get_llm_backend
+    except ImportError:
+        # Pre-S8 fallback: use cpu and Ollama (temporary)
+        import torch
+        DEVICE = torch.device("cpu")
+        from pwm.generation.engine import load_wm, warmup_wm_on_text
+        get_llm_backend = None
+
+    async def _event_stream():
+        wm = load_wm()
+
+        # Build sub-components (S10: these move to startup singleton)
+        efe = EFEActor(
+            hidden_dim=512, stoch_dim=32, n_cats=32, action_dim=64
+        ).to(DEVICE)
+        citta = CittaStore(hidden_dim=512, n_levels=1).to(DEVICE)
+        bridge = VimarsaBridgeV2.load_or_init(
+            hidden_dim=512, vocab_size=128256,
+            ckpt_path=Path("checkpoints/vimarsa_bridge_v2.pt"),
+            device=str(DEVICE),
+        )
+
+        # LLM backend — uses get_llm_backend() post-S8, Ollama pre-S8
+        if get_llm_backend is not None:
+            llm = get_llm_backend()
+        else:
+            from pwm.generation.llama_backend import LlamaCppBackend
+            llm = LlamaCppBackend(
+                model_path="models/nemotron-120b.gguf",
+                n_gpu_layers=999,
+                server_url="http://localhost:8080",
+            )
+
+        cfg = LoopConfig(
+            n_stanzas=req.n_stanzas,
+            device=str(DEVICE),
+            max_tokens_per_stanza=256,
+            temperature=0.88,
+            top_p=0.92,
+        )
+        loop = PancakrtyaLoopV2(wm, efe, citta, bridge, llm, cfg)
+
+        # Build obs sequence: WM warmed up on seed text
+        seed = req.seed or req.domain
+        try:
+            from pwm.generation.engine import warmup_wm_on_text
+            h = warmup_wm_on_text(wm, seed, steps=60, domain=req.domain)
+        except Exception:
+            h = torch.zeros(512, device=DEVICE)
+        obs_list = [h.unsqueeze(0)] * req.n_stanzas
+
+        # Build prompts
+        def _system_prompt() -> str:
+            domain_labels = {
+                "kannada_film": "Kannada film song",
+                "carnatic": "Carnatic classical lyric",
+                "hindi_film": "Hindi film song",
+                "english_pop": "English pop song",
+                "jazz": "jazz standard",
+                "world_fusion": "world fusion lyric",
+            }
+            label = domain_labels.get(req.domain, req.domain.replace("_", " "))
+            return (
+                f"You are a lyricist writing a {label}. "
+                f"Style: {req.style}. Language: {req.language}. "
+                "Write one stanza only. Be evocative, musical, and authentic. "
+                "No explanations, no titles — just the lyric."
+            )
+
+        def _user_prompt(stanza_idx: int, prev_text: str) -> str:
+            if stanza_idx == 0:
+                seed_hint = f'Starting with the theme: "{req.seed}"' if req.seed else ""
+                return f"Write the opening stanza. {seed_hint}"
+            return f"Continue from:\n{prev_text.strip()[-200:]}\n\nWrite the next stanza."
+
+        # Stream events
+        for event in loop.run(obs_list, _system_prompt(), _user_prompt):
+            sse_line = f"event: {event['event']}\ndata: {json.dumps(event['data'])}\n\n"
+            yield sse_line
+            await asyncio.sleep(0)
+
+    return StreamingResponse(_event_stream(), media_type="text/event-stream")
+
+
+@app.get("/v1/health")
+async def health_v1() -> dict:
+    """Enhanced health endpoint for neo-fm-web integration."""
+    import torch
+    cuda_ok = torch.cuda.is_available()
+
+    llama_ok = False
+    try:
+        r = requests.get("http://localhost:8080/health", timeout=2)
+        llama_ok = r.status_code == 200
+    except Exception:
+        pass
+
+    bridge_ckpt = Path("checkpoints/vimarsa_bridge_v2.pt")
+
+    return {
+        "status": "ok",
+        "device": "cuda" if cuda_ok else "cpu",
+        "cuda_available": cuda_ok,
+        "wm_ready": state.wm_ready,
+        "llama_server_ok": llama_ok,
+        "bridge_trained": bridge_ckpt.exists(),
+        "version": "phase3",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
