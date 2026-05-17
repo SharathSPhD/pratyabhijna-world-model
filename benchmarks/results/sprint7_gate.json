@@ -1,0 +1,94 @@
+{
+  "sprint": 7,
+  "title": "API exhaustive gallery + quality debug/refine loop",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T07:21:57.666650+00:00",
+  "components": {
+    "output_gallery": {
+      "url": "https://sharathsphd.github.io/pratyabhijna-world-model/api_examples.html",
+      "total_outputs": 22,
+      "mean_camatk": 0.8453,
+      "pass_count": 14,
+      "pass_threshold": 0.8,
+      "indic_outputs": 17,
+      "scripts_covered": [
+        "kannada",
+        "devanagari",
+        "bengali",
+        "tamil",
+        "telugu",
+        "latin"
+      ],
+      "sprint_breakdown": {
+        "sprint_2_batch": 19,
+        "sprint_7_freshapi": 3
+      }
+    },
+    "quality_fixes": {
+      "k01_regenerated": {
+        "prior_camatk": 0.4414,
+        "new_camatk": 0.8868,
+        "delta": 0.4454,
+        "pathology": "repetition collapse \u2014 6 unique / 34 total words (17.6% diversity)",
+        "fix": "temperature 0.95 + semantically-rich Kannada seed text (monsoon theme)",
+        "job_id": "36edf7eb-3d7b-4173-9ee6-e6aa9ce2623d"
+      },
+      "id_deduplication": {
+        "collisions_resolved": [
+          "k05\u2192k05b",
+          "h01\u2192h01b",
+          "bn01\u2192bn01b"
+        ],
+        "reason": "sprint-7 fresh API jobs appended to batch (sprint-2) outputs"
+      }
+    },
+    "fresh_api_verification": {
+      "k05b": {
+        "camatk": 0.7171,
+        "script": "kannada",
+        "has_indic": true
+      },
+      "h01b": {
+        "camatk": 0.9723,
+        "script": "devanagari",
+        "has_indic": true
+      },
+      "bn01b": {
+        "camatk": 0.9102,
+        "script": "bengali",
+        "has_indic": true
+      }
+    },
+    "github_pages": {
+      "url": "https://sharathsphd.github.io/pratyabhijna-world-model/api_examples.html",
+      "http_status": 200,
+      "size_kb": 106,
+      "deploy_workflow": ".github/workflows/deploy-pages.yml",
+      "triggers": "push to main, paths: docs/**"
+    }
+  },
+  "gate_metric": {
+    "mean_camatk": 0.8453,
+    "threshold": 0.8,
+    "pass": true,
+    "zero_below_0_60": true,
+    "all_sprint_gates_closed": true,
+    "sprints": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ]
+  },
+  "commits": {
+    "gallery_initial": "c2774b9 \u2014 feat: exhaustive API output gallery (22 domains)",
+    "quality_fix": "beb3b8a \u2014 fix: k01 repetition collapse + dedup sprint-7 IDs"
+  },
+  "ralph_loop": {
+    "iteration": 2,
+    "completion_promise": "api-exhaustive: HTML artifact live on GitHub Pages with all 19 domain outputs verified, all gates closed, main branch fully merged and pushed",
+    "promise_true": true
+  }
+}
