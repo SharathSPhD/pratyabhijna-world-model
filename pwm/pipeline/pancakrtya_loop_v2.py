@@ -297,7 +297,7 @@ def _compute_vfe_proxy(logits_post: Tensor, logits_prior: Tensor) -> float:
     try:
         lp = F.log_softmax(logits_post.reshape(1, -1).float(), dim=-1)
         pr = F.softmax(logits_prior.reshape(1, -1).float(), dim=-1)
-        return float(F.kl_div(lp, pr, reduction="batchmean").clamp(0.0, 100.0))
+        return float(F.kl_div(lp, pr, reduction="batchmean").clamp(0.0, 100.0).detach())
     except Exception:
         return 0.0
 
