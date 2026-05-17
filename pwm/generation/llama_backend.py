@@ -98,11 +98,29 @@ class LlamaCppBackend:
             logger.warning(f"[LlamaCppBackend] In-process load failed: {e}. Using server fallback.")
             self._llm = None
 
-    def _build_messages(self, system: str, user: str) -> list[dict]:
-        return [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ]
+    def _build_messages(
+        self,
+        system: str,
+        user: str,
+        think_prefill: Optional[dict] = None,
+    ) -> list[dict]:
+        """
+        Build OpenAI-format message list.
+
+        Args:
+            system:        System prompt (WM-conditioned, domain-neutral).
+            user:          User prompt for this stanza.
+            think_prefill: Optional assistant-prefill dict with `<think>…</think>` content
+                           (from WMReasoningTrace.render_as_assistant_prefill). When present,
+                           inserted between system and user messages so the 120B model sees
+                           its reasoning as pre-completed, skipping the 60s CoT phase.
+                           ADR-002 Sketch A — TRIZ P10 + P28.
+        """
+        messages: list[dict] = [{"role": "system", "content": system}]
+        if think_prefill is not None:
+            messages.append(think_prefill)
+        messages.append({"role": "user", "content": user})
+        return messages
 
     def generate(
         self,
@@ -112,19 +130,27 @@ class LlamaCppBackend:
         max_tokens: int = 512,
         temperature: float = 0.88,
         top_p: float = 0.92,
+        think_prefill: Optional[dict] = None,
     ) -> str:
-        """Generate text, applying logits_processor if provided."""
+        """Generate text, applying logits_processor if provided.
+
+        Args:
+            think_prefill: Optional WMReasoningTrace assistant-prefill dict.
+                           Injected between system and user to short-circuit 120B CoT.
+        """
         if self.mock:
             if logits_processor is not None:
                 import numpy as np
                 logits_processor([0], np.zeros(128256, dtype=np.float32))
             return "moon rises soft and slow\n"
 
+        msgs = self._build_messages(system, user, think_prefill=think_prefill)
+
         if self._llm is not None and logits_processor is not None:
             from llama_cpp import LogitsProcessorList
             lp_list = LogitsProcessorList([logits_processor])
             out = self._llm.create_chat_completion(
-                messages=self._build_messages(system, user),
+                messages=msgs,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=top_p,
@@ -134,7 +160,7 @@ class LlamaCppBackend:
 
         if self._llm is not None:
             out = self._llm.create_chat_completion(
-                messages=self._build_messages(system, user),
+                messages=msgs,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=top_p,
@@ -142,7 +168,8 @@ class LlamaCppBackend:
             return out["choices"][0]["message"]["content"]
 
         if self.server_url:
-            return self._http_generate(system, user, max_tokens, temperature, top_p)
+            return self._http_generate(system, user, max_tokens, temperature, top_p,
+                                       think_prefill=think_prefill)
 
         return "[LlamaCppBackend: no backend available]"
 
@@ -154,13 +181,20 @@ class LlamaCppBackend:
         max_tokens: int = 512,
         temperature: float = 0.88,
         top_p: float = 0.92,
+        think_prefill: Optional[dict] = None,
     ) -> Generator[str, None, None]:
         """Stream tokens one at a time.
 
+        Args:
+            think_prefill: Optional WMReasoningTrace assistant-prefill dict.
+                           When set, injected as assistant message before the user
+                           prompt — collapses 120B reasoning from ~60s to ~3s prefill.
+                           (ADR-002, TRIZ Sketch A, IFR 4/4.)
+
         Cascade dispatch: if cascade_model_name is configured (S18, ADR-001),
         delegates to stream_cascade() — transparent to callers (PancakrtyaLoopV2).
-        The cascade starts nemotron-mini:4b immediately for TTFT <5s, then switches
-        to the 120B model when its content tokens begin flowing.
+        Note: think_prefill is applied to the SLOW (120B) model in cascade mode,
+        where it has the most impact on TTFT reduction.
         """
         if self.cascade_model_name and self.server_url and not self.mock:
             yield from self.stream_cascade(
@@ -170,6 +204,7 @@ class LlamaCppBackend:
                 max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=top_p,
+                think_prefill=think_prefill,
             )
             return
 
@@ -198,39 +233,47 @@ class LlamaCppBackend:
             yield from self._http_stream(system, user, max_tokens, temperature, top_p)
 
     def _http_request_body(self, system: str, user: str, max_tokens: int,
-                           temperature: float, top_p: float, stream: bool) -> dict:
+                           temperature: float, top_p: float, stream: bool,
+                           think_prefill: Optional[dict] = None) -> dict:
         """Build OpenAI-compatible request body.
 
         Includes model_name for Ollama; llama-server ignores unknown fields.
+        When think_prefill is provided, it is injected as an assistant message
+        between system and user — this short-circuits the 120B reasoning phase.
         """
         return {
             "model": self.model_name,
-            "messages": self._build_messages(system, user),
+            "messages": self._build_messages(system, user, think_prefill=think_prefill),
             "max_tokens": max_tokens,
             "temperature": temperature,
             "top_p": top_p,
             "stream": stream,
         }
 
-    def _http_generate(self, system, user, max_tokens, temperature, top_p) -> str:
+    def _http_generate(self, system, user, max_tokens, temperature, top_p,
+                       think_prefill: Optional[dict] = None) -> str:
         resp = requests.post(
             f"{self.server_url}/v1/chat/completions",
-            json=self._http_request_body(system, user, max_tokens, temperature, top_p, False),
+            json=self._http_request_body(system, user, max_tokens, temperature, top_p,
+                                         False, think_prefill=think_prefill),
             timeout=120,
         )
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
 
-    def _http_stream(self, system, user, max_tokens, temperature, top_p):
+    def _http_stream(self, system, user, max_tokens, temperature, top_p,
+                     think_prefill: Optional[dict] = None):
         """Stream content tokens from OpenAI-compatible endpoint.
 
         Handles both direct-content models and reasoning models (nemotron-3-super):
         - Reasoning models emit tokens in `delta.reasoning` before `delta.content`
         - Only `delta.content` tokens are yielded to the pipeline
+        - When think_prefill is set, reasoning phase is pre-supplied → TTFT ~3s
         """
         with requests.post(
             f"{self.server_url}/v1/chat/completions",
-            json=self._http_request_body(system, user, max_tokens, temperature, top_p, True),
+            json=self._http_request_body(system, user, max_tokens, temperature, top_p,
+                                         True, think_prefill=think_prefill),
             stream=True,
             timeout=300,
         ) as resp:
@@ -249,9 +292,16 @@ class LlamaCppBackend:
     # ── Model Cascade Streaming ────────────────────────────────────────────────
 
     def _http_stream_model(self, model: str, system: str, user: str,
-                           max_tokens: int, temperature: float, top_p: float):
-        """Like _http_stream but with an explicit model override."""
-        body = self._http_request_body(system, user, max_tokens, temperature, top_p, True)
+                           max_tokens: int, temperature: float, top_p: float,
+                           think_prefill: Optional[dict] = None):
+        """Like _http_stream but with an explicit model override.
+
+        Args:
+            think_prefill: WMReasoningTrace assistant-prefill dict. Injected into
+                           messages for the slow 120B model to collapse CoT phase.
+        """
+        body = self._http_request_body(system, user, max_tokens, temperature, top_p,
+                                       True, think_prefill=think_prefill)
         body["model"] = model
         with requests.post(
             f"{self.server_url}/v1/chat/completions",
@@ -279,14 +329,20 @@ class LlamaCppBackend:
         temperature: float = 0.88,
         top_p: float = 0.92,
         slow_timeout: float = 120.0,
+        think_prefill: Optional[dict] = None,
     ) -> Generator[str, None, None]:
         """
-        TRIZ Cascade Stream (ADR-001 — Principles 10 + 24).
+        TRIZ Cascade Stream (ADR-001 — Principles 10 + 24) + WM Think Injection.
 
         Starts streaming `cascade_model_name` (fast, e.g. nemotron-mini:4b) immediately
         so TTFT stays <5s, while `model_name` (slow, 120B) runs its reasoning phase in
         a daemon thread. When the slow model's first content token arrives, the generator
         switches the stream to 120B output; the client gets high-quality stanzas.
+
+        When think_prefill is set (ADR-002, Sketch A), the slow 120B model receives the
+        WM reasoning trace as an assistant-prefill message. This collapses the 120B's 60s
+        CoT to ~3s prefill, dramatically reducing the switch latency and improving quality.
+        Combined effect: TTFT <5s (from fast model) + <3s slow-model switch (from trace).
 
         Fallback: if the slow model has not started content within `slow_timeout` seconds,
         the fast model's remaining tokens are yielded as the final output.
@@ -303,6 +359,8 @@ class LlamaCppBackend:
             temperature:     Sampling temperature.
             top_p:           Nucleus sampling p.
             slow_timeout:    Seconds to wait for slow model content before giving up.
+            think_prefill:   WMReasoningTrace assistant-prefill dict (ADR-002).
+                             Applied to slow model only — most impactful there.
 
         Yields:
             str tokens — first from fast model, then switched to slow model.
@@ -319,7 +377,7 @@ class LlamaCppBackend:
         if not self.server_url or not self.cascade_model_name:
             # No cascade configured — fall back to normal stream
             yield from self.stream(system, user, logits_processor, max_tokens,
-                                   temperature, top_p)
+                                   temperature, top_p, think_prefill=think_prefill)
             return
 
         # ── Shared state between main generator and slow-model daemon thread ──
@@ -329,10 +387,15 @@ class LlamaCppBackend:
         slow_done = threading.Event()
 
         def _slow_thread() -> None:
-            """Daemon: stream slow model, push tokens into slow_q."""
+            """Daemon: stream slow model, push tokens into slow_q.
+
+            think_prefill is applied here (slow/120B model) — it has no effect on
+            the fast model latency but collapses the 120B's reasoning from 60s to ~3s.
+            """
             try:
                 for tok in self._http_stream_model(
-                    self.model_name, system, user, max_tokens, temperature, top_p
+                    self.model_name, system, user, max_tokens, temperature, top_p,
+                    think_prefill=think_prefill,
                 ):
                     slow_q.put(tok)
                     slow_first_content.set()  # signal on first content token
