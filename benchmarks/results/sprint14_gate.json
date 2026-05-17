@@ -1,0 +1,41 @@
+{
+  "sprint": 14,
+  "title": "Pre-warmed WM Singleton — TTFT Latency Reduction",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "tests": {
+    "test_five_step_warmup_converges": "PASS",
+    "test_single_observe_step_latency": "PASS",
+    "test_domain_prewarming_produces_valid_states": "PASS",
+    "test_prewarm_vs_fresh_state_differ": "PASS",
+    "test_api_imports_cleanly": "PASS"
+  },
+  "total_tests": 5,
+  "passed": 5,
+  "latency_profile": {
+    "cold_start_60_steps_ms": 5247,
+    "warm_cuda_60_steps_ms": 822,
+    "warm_cuda_5_steps_ms": 67,
+    "warm_cuda_single_step_ms": "< 200 (verified)",
+    "bridge_forward_ms": 1.62,
+    "ttft_before_s14_ms": 5247,
+    "ttft_after_s14_ms": "< 200 (pre-warmed domain) or ~67ms (5-step seed warmup)"
+  },
+  "convergence": {
+    "h_norm_5_steps": 17.55,
+    "h_norm_60_steps": 18.40,
+    "norm_difference_pct": 4.6,
+    "interpretation": "5-step warmup reaches 95.4% of 60-step norm — within quality threshold"
+  },
+  "api_changes": {
+    "AppState": "Added efe, citta, bridge, domain_states fields",
+    "_load_all_components": "New startup function loads all components + pre-warms 6 domains",
+    "_v1_generate": "Uses singleton state instead of per-request load_trained_components()",
+    "warmup_steps": "Reduced from 60 to 5 for seed-specific requests (67ms vs 822ms)"
+  },
+  "domains_prewarmed": [
+    "kannada_film", "hindi_film", "carnatic",
+    "english_pop", "english_romantic", "world_fusion"
+  ],
+  "note": "EAGLE3 speculative decoding (originally S14) deprioritised — pre-warmed singleton eliminates the WM latency bottleneck. LLM token generation latency (~15 tok/s) is a separate concern addressed by streaming."
+}

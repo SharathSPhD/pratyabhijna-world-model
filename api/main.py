@@ -29,7 +29,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 import requests
 from fastapi import FastAPI, HTTPException
@@ -43,8 +43,9 @@ sys.path.insert(0, "/home/sharaths/projects/pwm-phase2")
 
 from pwm.generation.domain_metadata import Domain, WMStateDecoder  # type: ignore
 from pwm.generation.engine import (  # type: ignore
-    CHECKPOINT, MODEL, OLLAMA_URL,
-    load_wm, score_camatk, warmup_wm_on_text,
+    CHECKPOINT, LLAMA_MODEL_PATH as MODEL, LLAMA_SERVER_URL as OLLAMA_URL,
+    load_wm, load_trained_components, score_camatk, warmup_wm_on_text,
+    get_llm_backend,
 )
 from pwm.generation.creative_specs import ALL_SPECS  # type: ignore
 from pwm.generation.music_notation import annotate as annotate_music  # type: ignore
@@ -56,11 +57,17 @@ from pwm.generation.transliterate import annotate_output as add_transliteration 
 
 class AppState:
     wm = None
+    efe = None
+    citta = None
+    bridge = None
     decoder: WMStateDecoder | None = None
     jobs: dict[str, dict] = {}
     batches: dict[str, dict] = {}
     wm_loading: bool = False
     wm_ready: bool = False
+    # S14: pre-warmed WM states per domain — eliminates per-request warmup latency
+    # Keyed by domain string; value is h_t Tensor (hidden_dim,)
+    domain_states: dict[str, Any] = {}
 
 state = AppState()
 
@@ -75,17 +82,58 @@ def _broadcast(job: dict, event_str: str) -> None:
             pass  # slow consumer — skip rather than block
 
 
-async def _load_wm_background() -> None:
-    """Background task: loads WM without blocking API startup."""
+_PREWARM_DOMAINS = [
+    "kannada_film", "hindi_film", "carnatic", "english_pop",
+    "english_romantic", "world_fusion",
+]
+_PREWARM_SEEDS = {
+    "kannada_film": "ಮಳೆ ಬರುತ್ತದೆ ಮೌನದ ರಾತ್ರಿಯಲ್ಲಿ",
+    "hindi_film": "बरसात की रात में तारे चमकते हैं",
+    "carnatic": "raga bhairavi morning stillness river",
+    "english_pop": "the chorus breaks the night wide open",
+    "english_romantic": "autumn light through misted glass",
+    "world_fusion": "shore wind salt migration horizon",
+}
+
+
+def _load_all_components() -> None:
+    """
+    S14: Load all pipeline components and pre-warm domain WM states.
+    Runs in a thread pool at startup — eliminates per-request warmup cost.
+    After this: each request pays only ~113ms (single observe_step) not 5200ms.
+    """
+    import torch
+    from pwm.vimarsa.bridge_v2 import VimarsaBridgeV2
+    from pathlib import Path as _Path
+
     state.wm_loading = True
     try:
-        loop = asyncio.get_event_loop()
-        state.wm = await loop.run_in_executor(None, load_wm)
+        # Load all trained components from checkpoint
+        state.wm, state.efe, state.citta = load_trained_components()
         state.decoder = WMStateDecoder()
+
+        # Load VimarsaBridgeV2 checkpoint (trained in S13)
+        bridge_ckpt = _Path("checkpoints/vimarsa_bridge_v2.pt")
+        state.bridge = VimarsaBridgeV2.load_or_init(
+            hidden_dim=512, vocab_size=128256,
+            ckpt_path=bridge_ckpt,
+        )
+
+        # Pre-warm domain-specific WM states (5 steps each ≈ 300ms total)
+        state.domain_states = {}
+        for domain in _PREWARM_DOMAINS:
+            seed = _PREWARM_SEEDS.get(domain, domain.replace("_", " "))
+            try:
+                h = warmup_wm_on_text(state.wm, seed, steps=5, domain=domain)
+                state.domain_states[domain] = h.detach()
+            except Exception as exc:
+                print(f"  [prewarm] {domain} failed: {exc}")
+
         state.wm_ready = True
-        print("✓ PWM world model loaded and ready")
+        print(f"✓ PWM pipeline loaded: WM+EFE+Citta+Bridge ready. "
+              f"{len(state.domain_states)} domains pre-warmed.")
     except Exception as e:
-        print(f"✗ WM load failed: {e}")
+        print(f"✗ PWM load failed: {e}")
         state.wm_ready = False
     finally:
         state.wm_loading = False
@@ -93,10 +141,13 @@ async def _load_wm_background() -> None:
 
 @asynccontextmanager
 async def lifespan(app_: FastAPI):  # type: ignore[type-arg]
-    """FastAPI lifespan — starts WM loading immediately on boot."""
-    asyncio.create_task(_load_wm_background())
+    """FastAPI lifespan — loads all components and pre-warms domains on boot."""
+    async def _background_load():
+        await asyncio.to_thread(_load_all_components)
+
+    asyncio.create_task(_background_load())
     yield
-    # Shutdown cleanup (none needed for stateless WM)
+    # Shutdown cleanup (none needed)
 
 
 app = FastAPI(
@@ -742,35 +793,21 @@ async def generate_v1(req: V1GenerateRequest) -> StreamingResponse:
     """
     import torch
     from pwm.pipeline.pancakrtya_loop_v2 import PancakrtyaLoopV2, LoopConfig
-    from pwm.vimarsa.bridge_v2 import VimarsaBridgeV2
-
-    # S12: load trained components from 1M-step checkpoint
-    from pwm.generation.engine import (
-        DEVICE, load_trained_components, warmup_wm_on_text, get_llm_backend,
-    )
+    from pwm.generation.engine import DEVICE
 
     async def _event_stream():
-        # S12: WM + EFEActor + CittaStore loaded from trained checkpoint
-        # CittaStore uses n_levels=3 to match checkpoint architecture
-        wm, efe, citta = load_trained_components()
+        # S14: use pre-loaded singleton components (loaded at startup, not per-request)
+        if not state.wm_ready:
+            yield 'event: error\ndata: {"message": "WM not ready — startup loading"}\n\n'
+            return
 
-        # VimarsaBridgeV2: load from training checkpoint if available (S13)
-        bridge = VimarsaBridgeV2.load_or_init(
-            hidden_dim=512, vocab_size=128256,
-            ckpt_path=Path("checkpoints/vimarsa_bridge_v2.pt"),
-            device=str(DEVICE),
-        )
+        wm = state.wm
+        efe = state.efe
+        citta = state.citta
+        bridge = state.bridge
 
-        # LLM backend — uses get_llm_backend() post-S8, Ollama pre-S8
-        if get_llm_backend is not None:
-            llm = get_llm_backend()
-        else:
-            from pwm.generation.llama_backend import LlamaCppBackend
-            llm = LlamaCppBackend(
-                model_path="models/nemotron-120b.gguf",
-                n_gpu_layers=999,
-                server_url="http://localhost:8080",
-            )
+        # LLM backend singleton
+        llm = get_llm_backend()
 
         cfg = LoopConfig(
             n_stanzas=req.n_stanzas,
@@ -781,13 +818,18 @@ async def generate_v1(req: V1GenerateRequest) -> StreamingResponse:
         )
         loop = PancakrtyaLoopV2(wm, efe, citta, bridge, llm, cfg)
 
-        # Build obs sequence: WM warmed up on seed text
+        # S14: Use pre-warmed domain state if available (eliminates 5s warmup)
+        # Fall back to quick 5-step warmup if domain not pre-warmed
         seed = req.seed or req.domain
-        try:
-            from pwm.generation.engine import warmup_wm_on_text
-            h = warmup_wm_on_text(wm, seed, steps=60, domain=req.domain)
-        except Exception:
-            h = torch.zeros(512, device=DEVICE)
+        if req.domain in state.domain_states and not req.seed:
+            # Pre-warmed: zero-cost, just use cached h_t
+            h = state.domain_states[req.domain].to(DEVICE)
+        else:
+            # Seed-specific: quick 5-step warmup (~67ms after CUDA is warm)
+            try:
+                h = warmup_wm_on_text(wm, seed, steps=5, domain=req.domain)
+            except Exception:
+                h = torch.zeros(512, device=DEVICE)
         obs_list = [h.unsqueeze(0)] * req.n_stanzas
 
         # Build prompts
