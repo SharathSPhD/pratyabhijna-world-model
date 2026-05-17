@@ -8,15 +8,14 @@ Verifies:
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 import torch
 
 from pwm.vimarsa.bridge_v2 import VimarsaBridgeV2
+from pwm.generation.engine import VIMARSA_BRIDGE_CHECKPOINT
 
-CKPT = Path(__file__).resolve().parents[1] / "checkpoints" / "vimarsa_bridge_v2.pt"
+CKPT = VIMARSA_BRIDGE_CHECKPOINT
 
 
 def test_checkpoint_exists():
