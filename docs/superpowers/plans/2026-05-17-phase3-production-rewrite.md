@@ -863,14 +863,18 @@ class PancakrtyaLoopV2:
         h_t = h_t_batch.squeeze(0)   # (hidden_dim,)
 
         # ── Act 2: Ānanda — EFE actor ─────────────────────────────────────
-        efe_score = float(self.efe(h_t.unsqueeze(0), self._wm_states[0][1]))
+        # EFEActor.forward() returns (Categorical dist, efe: Tensor[B]) — take mean
+        _, efe_batch = self.efe(h_t.unsqueeze(0), self._wm_states[0][1])
+        efe_score = float(efe_batch.mean())
 
         # ── Act 3: Icchā — Hopfield recall ───────────────────────────────
         z_t = self._wm_states[0][1].squeeze(0)   # (stoch_dim, stoch_classes)
-        mem_t = self.citta.recall(z_t, top_k=5)
+        # CittaStore API: recall(query, mode="episodic") — no top_k param
+        z_query = z_t.flatten().unsqueeze(0)     # (1, stoch_dim*stoch_classes)
+        mem_t = self.citta.recall(z_query, mode="episodic").squeeze(0)  # (d,)
         mem_resonance = float(torch.cosine_similarity(
-            mem_t.flatten().unsqueeze(0),
-            z_t.flatten().unsqueeze(0),
+            mem_t.unsqueeze(0),
+            z_query,
         ))
 
         # ── Act 4: Apohana — entropy gate ────────────────────────────────
@@ -913,8 +917,10 @@ class PancakrtyaLoopV2:
 
         stanza_text = "".join(generated_tokens)
 
-        # Post-kriyā: store in Hopfield memory
-        self.citta.store(z_t, stanza_text)
+        # Post-kriyā: store in Hopfield episodic memory
+        # CittaStore API: store_episode(h, level=0) — stores z-flat as pattern
+        z_flat = z_t.flatten().unsqueeze(0)  # (1, d)
+        self.citta.store_episode(z_flat, level=0)
 
         # Camatkāra: simplified inline (full scorer in Sprint 10)
         vfe_f = float(vfe) if not isinstance(vfe, float) else vfe
