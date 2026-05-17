@@ -29,6 +29,7 @@ from pwm.generation.domain_metadata import CreativeMetadata, Domain, WMStateDeco
 from pwm.generation.creative_specs import CreativeSpec
 from pwm.generation.music_notation import MusicNotation, annotate as annotate_music
 from pwm.generation.transliterate import annotate_output as add_transliteration  # Sprint 5
+from pwm.generation.lora_adapters import make_lora_bank  # Sprint 6
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,8 @@ MODEL       = "nemotron-3-super:120b"
 CHECKPOINT  = Path("/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt")
 # Use multilingual fine-tuned checkpoint if available
 CHECKPOINT_ML = Path("/home/sharaths/projects/pwm-phase2/checkpoints/step_multilingual.pt")
+# Sprint 6: Trained LoRA domain adapters (Fisher LDA, 200 steps, 75% loss reduction)
+LORA_CHECKPOINT = Path("/home/sharaths/projects/pwm-phase2/checkpoints/lora_final.pt")
 DEVICE      = torch.device("cpu")
 
 # WM config — MUST match checkpoint architecture:
@@ -111,18 +114,22 @@ def load_wm() -> Any:
     return wm
 
 
-def warmup_wm_on_text(wm: Any, seed_text: str, steps: int = 60) -> torch.Tensor:
+def warmup_wm_on_text(wm: Any, seed_text: str, steps: int = 60,
+                      domain: str = "generic",
+                      lora_bank: Any = None) -> torch.Tensor:
     """
     Warm up WM hidden state using domain-appropriate text tokens.
 
     Uses the correct TrikaWorldModel observe_step() API with sentence-level
     TextEncoder embeddings — the same input space the WM was trained on.
 
+    Sprint 6: If lora_bank is provided, each TextEncoder output is passed through
+    the domain-specific LoRA adapter before the WM observe step, injecting
+    domain geometry into h_t.
+
     Falls back to a deterministic hash-based h_t if the encoder is unavailable,
     ensuring the generation pipeline is always functional.
     """
-    from pwm.generation.domain_metadata import WMStateDecoder  # type: ignore
-
     B = 1
     obs_dim = int(WM_CFG["obs_dim"])
     action_dim = int(WM_CFG["action_dim"])
@@ -160,6 +167,10 @@ def warmup_wm_on_text(wm: Any, seed_text: str, steps: int = 60) -> torch.Tensor:
                     for ci, c in enumerate(chunk[:obs_dim]):
                         obs[0, (ord(c) * (ci + 1)) % obs_dim] += 0.1
                     obs = torch.nn.functional.normalize(obs, dim=-1)
+
+                # Sprint 6: apply domain LoRA adapter to obs before WM step
+                if lora_bank is not None:
+                    obs = lora_bank(domain, obs)
 
                 a_t = torch.zeros(B, action_dim, device=DEVICE)
                 a_t[0, step % action_dim] = 1.0
@@ -252,11 +263,17 @@ def score_camatk(text: str, meta: CreativeMetadata, domain: Domain) -> dict:
 # ─── Main Generation Loop ───────────────────────────────────────────────────
 
 def generate_one(spec: CreativeSpec, wm: Any, decoder: WMStateDecoder,
-                 seed_text: str = "") -> dict:
-    """Generate one creative work from spec + WM state."""
-    # 1. Warm up WM on domain-appropriate seed text
+                 seed_text: str = "", lora_bank: Any = None) -> dict:
+    """Generate one creative work from spec + WM state.
+
+    Sprint 6: lora_bank (DomainLoRABank) applies domain-specific LoRA
+    adaptation to TextEncoder outputs during WM warmup, injecting domain
+    geometry into h_t before metadata decoding.
+    """
+    # 1. Warm up WM on domain-appropriate seed text (with domain LoRA if available)
     seed = seed_text or spec.user_prompt[:200]
-    h_t = warmup_wm_on_text(wm, seed, steps=60)
+    h_t = warmup_wm_on_text(wm, seed, steps=60, domain=spec.domain,
+                             lora_bank=lora_bank)
 
     # 2. Decode h_t → domain-neutral metadata
     # Pass spec.id as secondary seed so rāga/register/section vary across specs
@@ -321,12 +338,18 @@ def run_all_specs(specs: list[CreativeSpec],
     decoder = WMStateDecoder()
     seed_texts = seed_texts or {}
 
+    # Sprint 6: load trained LoRA domain adapters (loaded once, reused per spec)
+    lora_bank = make_lora_bank(obs_dim=int(WM_CFG["obs_dim"]),
+                               checkpoint=LORA_CHECKPOINT)
+    lora_bank.freeze_base_weights()
+
     outputs = []
     for i, spec in enumerate(specs):
         print(f"\n[{i+1}/{len(specs)}] {spec.id}: {spec.title}")
         seed = seed_texts.get(spec.id, "")
         try:
-            result = generate_one(spec, wm, decoder, seed_text=seed)
+            result = generate_one(spec, wm, decoder, seed_text=seed,
+                                  lora_bank=lora_bank)
             outputs.append(result)
             score = result["scores"]["camatk_total"]
             print(f"  ✓ {result['generation_time_s']:.1f}s | energy={result['wm_energy']:.2f} "
