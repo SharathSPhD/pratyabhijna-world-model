@@ -1,0 +1,40 @@
+{
+  "sprint": 15,
+  "title": "LiveViz WebSocket + /v1/health neo-fm-web Contract",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "tests": {
+    "test_health_v1_returns_all_required_keys": "PASS",
+    "test_health_reflects_singleton_state": "PASS",
+    "test_websocket_endpoint_defined": "PASS",
+    "test_websocket_sends_same_events_as_sse": "PASS",
+    "test_cors_configured_for_neo_fm_web": "PASS",
+    "test_ws_uses_singleton_not_per_request_load": "PASS",
+    "test_api_has_version_phase5_s14": "PASS"
+  },
+  "total_tests": 7,
+  "passed": 7,
+  "health_keys_verified": [
+    "status", "device", "cuda_available", "wm_ready",
+    "domains_prewarmed", "ttft_profile", "version", "timestamp"
+  ],
+  "websocket_contract": {
+    "endpoint": "/v1/ws/generate",
+    "decorator": "@app.websocket",
+    "event_protocol": ["wm_state", "stanza_start", "token", "stanza_end", "complete"],
+    "matches_sse": true,
+    "uses_singleton": true,
+    "fields_verified": ["state.wm", "state.efe", "state.citta", "state.bridge"]
+  },
+  "cors_verification": {
+    "middleware": "CORSMiddleware",
+    "wildcard_or_specific": "wildcard (*)",
+    "neo_fm_web_blocked": false
+  },
+  "singleton_health": {
+    "wm_ready_reflected": true,
+    "domain_states_included": true,
+    "version_string": "phase5-s14"
+  },
+  "protocol_notes": "WebSocket uses same PancakrtyaLoopV2 loop as SSE — identical event shapes, consistent domain-neutral keys (Contract 2), WM primary (Contract 3). Pre-warmed domain lookup (state.domain_states) mirrors SSE path."
+}

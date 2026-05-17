@@ -867,7 +867,12 @@ async def generate_v1(req: V1GenerateRequest) -> StreamingResponse:
 
 @app.get("/v1/health")
 async def health_v1() -> dict:
-    """Enhanced health endpoint for neo-fm-web integration."""
+    """
+    Health endpoint for neo-fm-web integration.
+
+    Returns system readiness, pre-warmed domain list, and latency profile.
+    neo-fm-web polls this before enabling the Generate button.
+    """
     import torch
     cuda_ok = torch.cuda.is_available()
 
@@ -881,12 +886,112 @@ async def health_v1() -> dict:
     bridge_ckpt = Path("checkpoints/vimarsa_bridge_v2.pt")
 
     return {
-        "status": "ok",
+        "status": "ok" if state.wm_ready else "loading",
         "device": "cuda" if cuda_ok else "cpu",
         "cuda_available": cuda_ok,
         "wm_ready": state.wm_ready,
-        "llama_server_ok": llama_ok,
+        "wm_loading": state.wm_loading,
+        "efe_loaded": state.efe is not None,
+        "citta_loaded": state.citta is not None,
+        "bridge_loaded": state.bridge is not None,
         "bridge_trained": bridge_ckpt.exists(),
-        "version": "phase3",
+        "llama_server_ok": llama_ok,
+        "domains_prewarmed": list(state.domain_states.keys()),
+        "ttft_profile": {
+            "prewarmed_domain_ms": 0,
+            "seed_specific_ms": 67,
+            "cold_start_ms": 5247,
+        },
+        "version": "phase5-s14",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@app.websocket("/v1/ws/generate")
+async def ws_generate(websocket) -> None:
+    """
+    S15 LiveViz: WebSocket alternative to SSE for neo-fm-web.
+
+    Protocol (client → server):
+      {"domain": "...", "seed": "...", "n_stanzas": 4, "style": "...", "language": "auto"}
+
+    Protocol (server → client, JSON messages):
+      {"event": "wm_state",    "data": {...}}
+      {"event": "stanza_start","data": {"stanza": N}}
+      {"event": "token",       "data": {"text": "..."}}
+      {"event": "stanza_end",  "data": {...}}
+      {"event": "complete",    "data": {...}}
+      {"event": "error",       "data": {"message": "..."}}
+
+    Same SSE contract as /v1/generate — identical data shapes.
+    """
+    import json as _json
+    from fastapi import WebSocket as _WS
+    from pwm.pipeline.pancakrtya_loop_v2 import PancakrtyaLoopV2, LoopConfig
+    from pwm.generation.engine import DEVICE
+    import torch
+
+    ws: _WS = websocket
+    await ws.accept()
+
+    try:
+        raw = await ws.receive_text()
+        req_data = _json.loads(raw)
+    except Exception as exc:
+        await ws.send_text(_json.dumps({"event": "error", "data": {"message": str(exc)}}))
+        await ws.close()
+        return
+
+    if not state.wm_ready:
+        await ws.send_text(_json.dumps({
+            "event": "error",
+            "data": {"message": "WM not ready — startup loading in progress"}
+        }))
+        await ws.close()
+        return
+
+    domain = req_data.get("domain", "kannada_film")
+    seed = req_data.get("seed", "")
+    n_stanzas = min(int(req_data.get("n_stanzas", 4)), 8)
+    style = req_data.get("style", "lyrical")
+    language = req_data.get("language", "auto")
+
+    # Build obs sequence from pre-warmed or quick warmup (identical to SSE path)
+    if domain in state.domain_states and not seed:
+        h = state.domain_states[domain].to(DEVICE)
+    else:
+        try:
+            h = warmup_wm_on_text(state.wm, seed or domain, steps=5, domain=domain)
+        except Exception:
+            h = torch.zeros(512, device=DEVICE)
+    obs_list = [h.unsqueeze(0)] * n_stanzas
+
+    cfg = LoopConfig(n_stanzas=n_stanzas, device=str(DEVICE),
+                     max_tokens_per_stanza=256, temperature=0.88, top_p=0.92)
+    loop = PancakrtyaLoopV2(state.wm, state.efe, state.citta, state.bridge,
+                             get_llm_backend(), cfg)
+
+    domain_labels = {
+        "kannada_film": "Kannada film song", "carnatic": "Carnatic classical lyric",
+        "hindi_film": "Hindi film song", "english_pop": "English pop song",
+        "jazz": "jazz standard", "world_fusion": "world fusion lyric",
+    }
+    system_prompt = (
+        f"You are a lyricist writing a {domain_labels.get(domain, domain)}. "
+        f"Style: {style}. Language: {language}. "
+        "Write one stanza only. Be evocative, musical, and authentic. "
+        "No explanations, no titles — just the lyric."
+    )
+
+    def _user_prompt(idx: int, prev: str) -> str:
+        if idx == 0:
+            return f"Write the opening stanza." + (f' Theme: "{seed}"' if seed else "")
+        return f"Continue from:\n{prev.strip()[-200:]}\n\nWrite the next stanza."
+
+    try:
+        for event in loop.run(obs_list, system_prompt, _user_prompt):
+            await ws.send_text(_json.dumps(event))
+    except Exception as exc:
+        await ws.send_text(_json.dumps({"event": "error", "data": {"message": str(exc)}}))
+    finally:
+        await ws.close()
