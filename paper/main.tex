@@ -1498,12 +1498,12 @@ confirms genuine svātantrya (creative freedom) at the committed-mode level.
 Phase 7 addresses \textbf{C4}, the core production UX contradiction:
 \emph{improving streaming responsiveness (TTFT) worsens generation quality
 (120B reasoning)}.
-Using the TRIZ Contradiction Matrix (parameters P9/P25 speed vs.\ P28
-measurement accuracy), two inventive principles were applied (Principles~10
-and~24).
+Using the TRIZ Contradiction Matrix~\cite{altshuller1996innovinnovation,savransky2000engineering}
+(parameters P9/P25 speed vs.\ P28 measurement accuracy),
+two inventive principles were applied (Principles~10 and~24).
 
 \paragraph{ADR-001: Model Cascade Streaming (IFR 3/4).}
-A two-phase cascade (Algorithm~\ref{alg:cascade}) streams
+A two-phase cascade streams
 \texttt{nemotron-mini:4b} immediately while \texttt{nemotron-3-super:120b}
 pre-generates in a daemon thread.
 The fast model yields the first tokens at TTFT~$<$~5\,s;
@@ -1525,9 +1525,10 @@ camatkāra score, and VFE.
 this into a \texttt{<think>}\ldots\texttt{</think>} block injected as an
 \texttt{assistant}-role prefill message between Acts~5 (Jñāna) and 6 (Kriyā)
 of \texttt{PancakrtyaLoopV2.run\_stanza()}.
-Modern reasoning models (\texttt{nemotron-3-super:120b}) treat an
-assistant-role prefill as pre-completed thinking, emitting content tokens
-immediately instead of re-deriving the creative context.
+Modern reasoning models (\texttt{nemotron-3-super:120b}~\cite{nemotron2024})
+implement an internal chain-of-thought via \texttt{<think>} tokens~\cite{guo2025deepseek,wei2022cot}
+and treat an assistant-role prefill as pre-completed thinking, emitting
+content tokens immediately instead of re-deriving the creative context.
 The result: switch latency collapses from $\sim$65\,s to $\sim$5\,s — a
 \textbf{13$\times$} reduction.
 
