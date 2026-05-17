@@ -1,0 +1,14 @@
+{
+  "n_steps": 200,
+  "obs_dim": 512,
+  "r": 8,
+  "alpha": 16.0,
+  "lr": 0.0003,
+  "final_loss": 0.14789491891860962,
+  "initial_loss": 0.593899667263031,
+  "loss_reduction": 0.7509765923928212,
+  "elapsed_s": 2.3,
+  "checkpoint": "checkpoints/lora_final.pt",
+  "device": "cuda",
+  "trainable_params": 122880
+}
