@@ -42,6 +42,8 @@ CHECKPOINT  = Path("/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.
 CHECKPOINT_ML = Path("/home/sharaths/projects/pwm-phase2/checkpoints/step_multilingual.pt")
 # Sprint 6: Trained LoRA domain adapters (Fisher LDA, 200 steps, 75% loss reduction)
 LORA_CHECKPOINT = Path("/home/sharaths/projects/pwm-phase2/checkpoints/lora_final.pt")
+# Sprint 13: Trained VimarsaBridgeV2 checkpoint — canonical authoritative location
+VIMARSA_BRIDGE_CHECKPOINT = Path("/home/sharaths/projects/pwm-phase4/checkpoints/vimarsa_bridge_v2.pt")
 DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 _LLAMA_BACKEND: Any = None

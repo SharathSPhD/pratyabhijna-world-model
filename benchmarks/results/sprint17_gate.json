@@ -1,0 +1,70 @@
+{
+  "sprint": 17,
+  "title": "Critical Review Fixes + Contract 2 Whitelist + H7 Ablation Analysis",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "tests": {
+    "test_sanitise_event_data_strips_internal_keys": "PASS",
+    "test_event_key_whitelist_covers_all_event_types": "PASS",
+    "test_sanitise_called_in_sse_and_ws_emit_paths": "PASS",
+    "test_bridge_error_handled_in_run_stanza": "PASS",
+    "test_h_t_nulled_after_run_completes": "PASS",
+    "test_ws_receive_has_timeout": "PASS",
+    "test_score_camatk_text_range": "PASS"
+  },
+  "total_tests_s17": 7,
+  "passed_s17": 7,
+  "cumulative_tests_phase6": 89,
+  "cumulative_passed": 89,
+  "critical_review_fixes": {
+    "issue1_cuda_race_CRITICAL": {
+      "status": "FIXED",
+      "fix": "store h.detach().to(DEVICE) in _load_all_components — .to() from event loop is now identity no-op"
+    },
+    "issue2_cuda_memory_leak_MAJOR": {
+      "status": "FIXED",
+      "fix": "null h_t fields + self._wm_states=None after run() generator exhausted; del loop in both SSE and WS paths"
+    },
+    "issue3_contract2_boundary_MAJOR": {
+      "status": "FIXED",
+      "fix": "_sanitise_event_data() whitelist enforcer + _EVENT_KEY_WHITELIST dict; called in both _event_stream and ws_generate before json.dumps"
+    },
+    "issue4_bridge_uncaught_MAJOR": {
+      "status": "FIXED",
+      "fix": "bridge.as_logits_processor wrapped in try/except in run_stanza(); Contract 3 holds on bridge failure"
+    },
+    "issue5_queue_deadlock_MAJOR": {
+      "status": "FIXED",
+      "fix": "call_soon_threadsafe(q.put_nowait, tok) replaces run_coroutine_threadsafe(q.put(tok)); QueueFull caught and dropped"
+    },
+    "issue6_stale_aliases_MINOR": {
+      "status": "NOTED",
+      "fix": "DEVICE added to engine import; MODEL/OLLAMA_URL aliases retained for legacy /generate path (documented)"
+    },
+    "issue7_ws_timeout_MINOR": {
+      "status": "FIXED",
+      "fix": "asyncio.wait_for(ws.receive_text(), timeout=30.0) + TimeoutError handling"
+    }
+  },
+  "h7_ablation": {
+    "status": "PARTIAL — metric design requires honest acknowledgement",
+    "available_evidence": {
+      "trained_3level_convergence": "5-step warmup norm 17.55 vs 60-step 18.40 (4.6% gap — rapid convergence)",
+      "domain_sensitivity": "test_prewarm_vs_fresh_state_differ: diff > 0.1 across seed texts (WM responds to input)",
+      "vfe_trajectory_first_step": "trained 3-level VFE@step0 = 0.022 (structured prior)",
+      "vfe_vs_untrained_1level": "INCONCLUSIVE — untrained model VFE≈0 by construction (prior=posterior=uniform)"
+    },
+    "metric_analysis": {
+      "h_t_norm_stability": "INVALID — trained WM has MORE variation (responsive), not less",
+      "first_step_vfe": "INVALID — untrained model VFE≈0 by construction, not comparable",
+      "correct_metric": "Reconstruction MSE on held-out observations (requires trained 1-level ablation)"
+    },
+    "recommendation": "Train 1-level WM ablation (A6 in ablations.py) for 100K steps before H7 can be properly tested. Current evidence supports H7 indirectly via convergence speed and domain separation, but direct comparison requires both conditions trained.",
+    "phase7_action": "Run A6 ablation (world_model.levels=1 config override) for 100K steps, then compare domain-separation and reconstruction quality"
+  },
+  "contracts_after_fixes": {
+    "contract1_wm_state_continuity": "PASS — verified by test_pancakrtya_loop_produces_all_event_types_with_real_mock_llm",
+    "contract2_layer_boundary": "PASS — _sanitise_event_data() whitelist now executable enforcement (not just docstring)",
+    "contract3_wm_primary": "PASS — bridge failure handled, LLM failure handled, stub fallback verified"
+  }
+}

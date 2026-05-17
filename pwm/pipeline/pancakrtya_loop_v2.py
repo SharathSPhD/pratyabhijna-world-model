@@ -174,7 +174,13 @@ class PancakrtyaLoopV2:
 
         # ── Act 5: Jñāna — VimarsaBridge → logits_processor ─────────────
         # VimarsaBridgeV2.as_logits_processor(h_t) → Callable[[list,np.array], np.array]
-        bias_fn = self.bridge.as_logits_processor(h_t)
+        # Issue-4 fix: guard bridge call — OOM/NaN in h_t must not propagate out
+        # of run_stanza uncaught (Contract 3: WM must survive component failures).
+        try:
+            bias_fn = self.bridge.as_logits_processor(h_t)
+        except Exception as e:
+            logger.warning(f"[PancakrtyaLoopV2] Bridge error (s{stanza_idx}): {e}. Proceeding with no bias.")
+            bias_fn = None
 
         # ── Emit stanza_start ─────────────────────────────────────────────
         yield {"event": "stanza_start", "data": {"stanza": stanza_idx}}
@@ -286,6 +292,13 @@ class PancakrtyaLoopV2:
                 "generation_complete": True,
             },
         }
+
+        # Issue-2 fix: release CUDA tensors held in StanzaResult.h_t so the
+        # GC can reclaim GPU memory immediately rather than waiting for the next
+        # collection cycle. This prevents OOM accumulation under concurrent requests.
+        for r in all_results:
+            r.h_t = None
+        self._wm_states = None
 
 
 # ─── Internal helpers ─────────────────────────────────────────────────────────

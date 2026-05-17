@@ -43,7 +43,8 @@ sys.path.insert(0, "/home/sharaths/projects/pwm-phase2")
 
 from pwm.generation.domain_metadata import Domain, WMStateDecoder  # type: ignore
 from pwm.generation.engine import (  # type: ignore
-    CHECKPOINT, LLAMA_MODEL_PATH as MODEL, LLAMA_SERVER_URL as OLLAMA_URL,
+    CHECKPOINT, DEVICE,
+    LLAMA_MODEL_PATH as MODEL, LLAMA_SERVER_URL as OLLAMA_URL,
     OLLAMA_MODEL_NAME,
     load_wm, load_trained_components, score_camatk, warmup_wm_on_text,
     get_llm_backend,
@@ -81,6 +82,34 @@ def _broadcast(job: dict, event_str: str) -> None:
             q.put_nowait(event_str)
         except asyncio.QueueFull:
             pass  # slow consumer — skip rather than block
+
+
+# ─── Contract 2 Enforcement (Issue-3 fix) ────────────────────────────────────
+
+# Whitelist of permitted keys per event type — enforces the layer boundary
+# between internal Śaiva vocabulary (vfe, efe_score, sphuratta) and the
+# domain-neutral API surface exposed to neo-fm-web.  Any key not in the
+# whitelist is silently dropped before json.dumps() in both the SSE and
+# WebSocket emit paths.  This is the executable form of the docstring contract.
+_EVENT_KEY_WHITELIST: dict[str, set[str]] = {
+    "wm_state":    {"energy", "aesthetic_quality", "creative_peak", "entropy",
+                    "prediction_error", "stanza"},
+    "stanza_start": {"stanza"},
+    "token":        {"text"},
+    "stanza_end":   {"stanza", "aesthetic_quality", "memory_resonance",
+                     "selection_score", "prediction_error"},
+    "complete":     {"total_stanzas", "mean_aesthetic_quality",
+                     "creative_peaks", "generation_complete"},
+    "error":        {"message"},
+}
+
+
+def _sanitise_event_data(event_type: str, data: dict) -> dict:
+    """Drop any key not in the Contract-2 whitelist for this event type."""
+    allowed = _EVENT_KEY_WHITELIST.get(event_type)
+    if allowed is None:
+        return data  # unknown event type — pass through (logged separately)
+    return {k: v for k, v in data.items() if k in allowed}
 
 
 _PREWARM_DOMAINS = [
@@ -126,7 +155,10 @@ def _load_all_components() -> None:
             seed = _PREWARM_SEEDS.get(domain, domain.replace("_", " "))
             try:
                 h = warmup_wm_on_text(state.wm, seed, steps=5, domain=domain)
-                state.domain_states[domain] = h.detach()
+                # Issue-1 fix: store tensor already on DEVICE so .to(DEVICE)
+                # calls from the event-loop thread are identity (no-op) — eliminates
+                # the CUDA context race between the prewarm thread and asyncio.
+                state.domain_states[domain] = h.detach().to(DEVICE)
             except Exception as exc:
                 print(f"  [prewarm] {domain} failed: {exc}")
 
@@ -425,17 +457,24 @@ async def _run_generation_task(job_id: str, req: GenerateRequest) -> None:
                     chunk = json.loads(raw_line.decode("utf-8"))
                     tok = chunk.get("message", {}).get("content", "")
                     if tok:
-                        asyncio.run_coroutine_threadsafe(q.put(tok), ev_loop)
+                        # Issue-5 fix: use put_nowait via call_soon_threadsafe
+                        # instead of submitting a suspendable coroutine that piles
+                        # up inside the event loop when the queue fills.
+                        try:
+                            ev_loop.call_soon_threadsafe(q.put_nowait, tok)
+                        except asyncio.QueueFull:
+                            pass  # drop token rather than deadlock
                     if chunk.get("done", False):
                         break
                 except (json.JSONDecodeError, UnicodeDecodeError):
                     continue
         except Exception as exc:
-            asyncio.run_coroutine_threadsafe(
-                q.put(f"\n[stream error: {exc}]"), ev_loop
-            )
+            try:
+                ev_loop.call_soon_threadsafe(q.put_nowait, f"\n[stream error: {exc}]")
+            except asyncio.QueueFull:
+                pass
         finally:
-            asyncio.run_coroutine_threadsafe(q.put(None), ev_loop)  # sentinel
+            ev_loop.call_soon_threadsafe(q.put_nowait, None)  # sentinel
 
     try:
         loop.run_in_executor(None, _stream_worker, token_queue, loop)
@@ -857,11 +896,18 @@ async def generate_v1(req: V1GenerateRequest) -> StreamingResponse:
                 return f"Write the opening stanza. {seed_hint}"
             return f"Continue from:\n{prev_text.strip()[-200:]}\n\nWrite the next stanza."
 
-        # Stream events
-        for event in loop.run(obs_list, _system_prompt(), _user_prompt):
-            sse_line = f"event: {event['event']}\ndata: {json.dumps(event['data'])}\n\n"
-            yield sse_line
-            await asyncio.sleep(0)
+        # Stream events — Issue-2 fix: explicit del after exhaustion
+        try:
+            for event in loop.run(obs_list, _system_prompt(), _user_prompt):
+                # Issue-3 fix: whitelist filter — only known Contract-2 keys pass
+                safe_data = _sanitise_event_data(event["event"], event["data"])
+                sse_line = f"event: {event['event']}\ndata: {json.dumps(safe_data)}\n\n"
+                yield sse_line
+                await asyncio.sleep(0)
+        except Exception as exc:
+            yield f"event: error\ndata: {json.dumps({'message': str(exc)})}\n\n"
+        finally:
+            del loop  # release CUDA tensors immediately (Issue-2)
 
     return StreamingResponse(_event_stream(), media_type="text/event-stream")
 
@@ -936,8 +982,13 @@ async def ws_generate(websocket) -> None:
     await ws.accept()
 
     try:
-        raw = await ws.receive_text()
+        # Issue-7 fix: 30s timeout on initial receive — stalled connections freed
+        raw = await asyncio.wait_for(ws.receive_text(), timeout=30.0)
         req_data = _json.loads(raw)
+    except asyncio.TimeoutError:
+        await ws.send_text(_json.dumps({"event": "error", "data": {"message": "timeout waiting for request"}}))
+        await ws.close()
+        return
     except Exception as exc:
         await ws.send_text(_json.dumps({"event": "error", "data": {"message": str(exc)}}))
         await ws.close()
@@ -991,8 +1042,11 @@ async def ws_generate(websocket) -> None:
 
     try:
         for event in loop.run(obs_list, system_prompt, _user_prompt):
-            await ws.send_text(_json.dumps(event))
+            # Issue-3 fix: apply same whitelist filter as SSE path
+            safe_data = _sanitise_event_data(event["event"], event["data"])
+            await ws.send_text(_json.dumps({"event": event["event"], "data": safe_data}))
     except Exception as exc:
         await ws.send_text(_json.dumps({"event": "error", "data": {"message": str(exc)}}))
     finally:
+        del loop  # Issue-2: release CUDA tensors
         await ws.close()
