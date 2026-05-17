@@ -1,0 +1,55 @@
+{
+  "phase": 5,
+  "title": "LLM Integration + Latency Product — Pre-warmed Singleton, VimarsaBridgeV2, LiveViz WebSocket",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "sprints": {
+    "S13_vimarsa_bridge_trained": {
+      "gate_pass": true,
+      "tests": 4,
+      "passed": 4,
+      "key_result": "VimarsaBridgeV2 loss 11.72 → 3.37 (71.2% reduction). KL-div > 0.05 confirmed — bridge applies genuine WM bias to LLM logits."
+    },
+    "S14_prewarm_singleton": {
+      "gate_pass": true,
+      "tests": 5,
+      "passed": 5,
+      "key_result": "TTFT: 5247ms → <200ms (pre-warmed domain) or ~67ms (5-step seed warmup). 5-step norm within 4.6% of 60-step (quality threshold passed)."
+    },
+    "S15_liveviz_ws": {
+      "gate_pass": true,
+      "tests": 7,
+      "passed": 7,
+      "key_result": "WebSocket /v1/ws/generate delivers identical event stream as SSE. /v1/health exposes all 8 keys neo-fm-web needs before enabling Generate."
+    }
+  },
+  "total_tests_phase5": 16,
+  "total_passed_phase5": 16,
+  "cumulative_phase5_tests": 75,
+  "cumulative_passed": 75,
+  "contracts_verified": {
+    "contract1_wm_state_continuity": "Single (h_t, z_t) shared across all 6 acts per stanza — no JSON boundary crossing",
+    "contract2_layer_boundary": "Internal Śaiva vocabulary (vfe, efe_score, sphuratta) absent from all SSE/WS payloads. Domain-neutral keys: prediction_error, selection_score, creative_peak",
+    "contract3_wm_primary": "LLM stub fallback (_stub_generate) ensures WM output even on LLM failure"
+  },
+  "latency_profile": {
+    "cold_start_ms": 5247,
+    "pre_warmed_domain_ms": "< 200",
+    "seed_specific_5_step_ms": 67,
+    "bridge_forward_ms": 1.62,
+    "websocket_overhead_vs_sse": "negligible (same loop, JSON serialise only)"
+  },
+  "architecture_changes": {
+    "AppState": "Added efe, citta, bridge, domain_states (dict[str,Tensor]) fields",
+    "_load_all_components": "Startup: loads all 4 components + pre-warms 6 domains with 5-step seed warmup",
+    "lifespan": "asyncio.to_thread(_load_all_components) — non-blocking startup, wm_ready flag",
+    "_v1_generate_sse": "Uses singleton state + pre-warmed domain lookup",
+    "ws_generate": "New: WebSocket endpoint with identical event protocol to SSE",
+    "health_v1": "Extended: all 8 keys, domains_prewarmed list, ttft_profile, version=phase5-s14"
+  },
+  "domains_prewarmed": [
+    "kannada_film", "hindi_film", "carnatic",
+    "english_pop", "english_romantic", "world_fusion"
+  ],
+  "next_phase": "Phase 6 — Full system + S16 neo-fm-web end-to-end demo + ablations (H1-H9)"
+}
