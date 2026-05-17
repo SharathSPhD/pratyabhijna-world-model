@@ -1,0 +1,11 @@
+{
+  "device": "cuda",
+  "cuda_ok": true,
+  "warmup_ms": 13.6,
+  "warmup_ms_pass": true,
+  "h_device": "cuda:0",
+  "h_norm": 18.476,
+  "logits_processor_called": true,
+  "backend_output": "moon rises soft and slow\n",
+  "gate_pass": true
+}
