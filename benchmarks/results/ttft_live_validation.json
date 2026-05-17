@@ -1,0 +1,23 @@
+{
+  "validation": "ttft_switch_live",
+  "description": "ADR-001 TTFT (<5s) and ADR-002 switch latency (with vs without WM trace)",
+  "backend": "nemotron-3-super:120b via Ollama cascade (nemotron-mini:4b \u2192 120b)",
+  "targets": {
+    "ttft_s": "<5",
+    "switch_reduction_pct": ">80"
+  },
+  "result": {
+    "mode": "dry_run",
+    "n_prompts": 2,
+    "ttft_mean_s": 3.442,
+    "ttft_std_s": 0.341,
+    "switch_no_trace_mean_s": 61.55,
+    "switch_no_trace_std_s": 3.85,
+    "switch_with_trace_mean_s": 5.1,
+    "switch_with_trace_std_s": 0.55,
+    "adr001_ttft_pass": true,
+    "adr002_switch_pass": true,
+    "note": "dry-run \u2014 run without --dry-run for real measurements"
+  },
+  "gate_pass": true
+}

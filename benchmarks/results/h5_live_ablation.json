@@ -10,13 +10,13 @@
   },
   "live_result": {
     "mode": "dry_run",
-    "n_samples_per_domain": 5,
-    "pwm_scores_mean": 0.7402,
-    "llm_scores_mean": 0.3485,
-    "ratio": 2.1237,
+    "n_samples_per_domain": 2,
+    "pwm_scores_mean": 0.7242,
+    "llm_scores_mean": 0.3631,
+    "ratio": 1.9944,
     "h5_threshold": 2.0,
-    "gate_pass": true,
+    "gate_pass": false,
     "note": "dry-run scores \u2014 run without --dry-run for real results"
   },
-  "gate_pass": true
+  "gate_pass": false
 }
