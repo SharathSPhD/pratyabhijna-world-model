@@ -43,6 +43,18 @@ H5_THRESHOLD = 2.0
 PHASE6_CHECKPOINT = PROJECT_ROOT / "checkpoints" / "phase6_step1000000.pt"
 VIMARSA_CHECKPOINT = PROJECT_ROOT / "checkpoints" / "vimarsa_bridge_v2.pt"
 
+# Fallback paths across worktrees
+_PHASE6_FALLBACKS = [
+    PHASE6_CHECKPOINT,
+    Path("/home/sharaths/projects/pwm-phase2/checkpoints/final_phase6_seed55.pt"),
+    Path("/home/sharaths/projects/pwm-phase6/checkpoints/final_phase6_seed55.pt"),
+]
+_BRIDGE_FALLBACKS = [
+    VIMARSA_CHECKPOINT,
+    Path("/home/sharaths/projects/pwm-phase6/checkpoints/vimarsa_bridge_v2.pt"),
+    Path("/home/sharaths/projects/pwm-phase5/checkpoints/vimarsa_bridge_v2.pt"),
+]
+
 
 def _find_checkpoint(candidates: list[Path]) -> Path | None:
     """Return first existing checkpoint path."""
@@ -81,16 +93,16 @@ def run_live_ablation(n_samples: int = 5, dry_run: bool = False) -> dict:
 
     # ── Load WM checkpoint ────────────────────────────────────────────────────
     ckpt_wm = _find_checkpoint([
-        PHASE6_CHECKPOINT,
+        *_PHASE6_FALLBACKS,
         PROJECT_ROOT / "checkpoints" / "phase5_step500000.pt",
-        *sorted((PROJECT_ROOT / "checkpoints").glob("phase*.pt"), reverse=True)[:3],
+        *sorted((PROJECT_ROOT / "checkpoints").glob("final_phase*.pt"), reverse=True)[:3],
     ])
     if ckpt_wm is None:
-        log.error("No WM checkpoint found in checkpoints/. Run training first.")
+        log.error("No WM checkpoint found. Searched: %s", _PHASE6_FALLBACKS)
         return {"error": "no_checkpoint", "gate_pass": False}
 
     ckpt_bridge = _find_checkpoint([
-        VIMARSA_CHECKPOINT,
+        *_BRIDGE_FALLBACKS,
         *sorted((PROJECT_ROOT / "checkpoints").glob("vimarsa*.pt"), reverse=True)[:2],
     ])
     if ckpt_bridge is None:
@@ -103,34 +115,41 @@ def run_live_ablation(n_samples: int = 5, dry_run: bool = False) -> dict:
     # ── Load components ───────────────────────────────────────────────────────
     import torch
     from pwm.world_model.trika import TrikaWorldModel
-    from pwm.vimarsa.bridge import VimarsaBridgeV2
+    from pwm.vimarsa.bridge_v2 import VimarsaBridgeV2
     from pwm.generation.llama_backend import LlamaCppBackend
     from pwm.generation.engine import DEVICE
     from pwm.eval.h5_ablation import run_h5_ablation, H5Config
 
     device = torch.device(DEVICE)
     log.info("Loading TrikaWorldModel from %s", ckpt_wm)
-    wm_state = torch.load(ckpt_wm, map_location=device, weights_only=True)
-    # TrikaWorldModel is typically a 1-level or 3-level model depending on checkpoint
-    levels = wm_state.get("config", {}).get("world_model", {}).get("levels", 1)
-    wm = TrikaWorldModel(levels=levels, obs_dim=512, action_dim=64,
-                         hidden_dim=512, device=device)
-    wm.load_state_dict(wm_state.get("world_model", wm_state), strict=False)
+    wm_state = torch.load(str(ckpt_wm), map_location=device, weights_only=False)
+    wm_sd = wm_state.get("world_model", wm_state)
+    # Detect n_levels from checkpoint keys
+    import re as _re
+    n_levels = max(
+        int(m.group(1)) for k in wm_sd
+        if (m := _re.match(r"levels\.(\d+)\.", k))
+    ) + 1
+    log.info("Detected n_levels=%d from checkpoint", n_levels)
+    wm = TrikaWorldModel(obs_dim=512, action_dim=64, n_levels=n_levels, hidden_dim=512,
+                         decoder_z_only=True)
+    wm.load_state_dict(wm_sd, strict=False)
     wm.eval().to(device)
-    log.info("WM loaded (levels=%d)", levels)
+    log.info("WM loaded (n_levels=%d)", n_levels)
 
     log.info("Loading VimarsaBridgeV2 from %s", ckpt_bridge)
-    bridge_state = torch.load(ckpt_bridge, map_location=device, weights_only=True)
-    bridge = VimarsaBridgeV2(h_dim=512, bridge_dim=256, lora_rank=16, device=device)
+    bridge_state = torch.load(str(ckpt_bridge), map_location=device, weights_only=False)
+    bridge = VimarsaBridgeV2(hidden_dim=512)
     bridge.load_state_dict(bridge_state.get("bridge", bridge_state), strict=False)
     bridge.eval().to(device)
     log.info("VimarsaBridgeV2 loaded")
 
     # Ollama backend (nemotron-3-super:120b, with cascade mini→super)
     llm = LlamaCppBackend(
+        model_path="",                       # not used in Ollama mode
+        server_url="http://localhost:11434",
         model_name="nemotron-3-super:120b",
         cascade_model_name="nemotron-mini:4b",
-        base_url="http://localhost:11434",
     )
 
     cfg = H5Config(
