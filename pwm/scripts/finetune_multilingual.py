@@ -143,6 +143,7 @@ def test_domain_sensitivity(wm: TrikaWorldModel, cache_dir: Path,
 # ── Fine-tuning loop ──────────────────────────────────────────────────────────
 
 def finetune(
+    checkpoint_in: str | None = None,
     steps: int = 100_000,
     lr: float = 5e-5,
     batch_size: int = 32,
@@ -156,14 +157,15 @@ def finetune(
     log.info("Device: %s", dev)
 
     # Load WM with correct checkpoint config
+    ckpt_path = Path(checkpoint_in) if checkpoint_in else CHECKPOINT_IN
     wm = TrikaWorldModel(**WM_CFG).to(dev)
-    ckpt = torch.load(CHECKPOINT_IN, map_location=dev, weights_only=False)
+    ckpt = torch.load(ckpt_path, map_location=dev, weights_only=False)
     missing, unexpected = wm.load_state_dict(ckpt["world_model"], strict=False)
     if missing:
         log.warning("Missing keys (%d): %s...", len(missing), missing[:3])
     if unexpected:
         log.warning("Unexpected keys (%d): %s...", len(unexpected), unexpected[:3])
-    log.info("Loaded: %s", CHECKPOINT_IN)
+    log.info("Loaded: %s", ckpt_path)
 
     # Corpus env using multilingual embed cache
     env = CachedCorpusEnv(
@@ -275,20 +277,31 @@ def main() -> None:
     parser.add_argument("--log-every",  type=int,   default=500)
     parser.add_argument("--test-only",  action="store_true",
                         help="Run domain sensitivity test on existing checkpoint only")
+    parser.add_argument("--checkpoint-in", type=str, default=None,
+                        help="Override input checkpoint path (default: checkpoints/step_1000000.pt)")
+    parser.add_argument("--device", type=str, default=None,
+                        help="Force device: 'cpu' or 'cuda'. Default: auto-detect.")
     args = parser.parse_args()
 
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if args.device:
+        dev = torch.device(args.device)
+    else:
+        dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Resolve checkpoint path (CLI override → CHECKPOINT_IN constant)
+    ckpt_in = args.checkpoint_in or str(CHECKPOINT_IN)
 
     if args.test_only:
-        log.info("Test-only mode: loading %s", CHECKPOINT_IN)
+        log.info("Test-only mode: loading %s", ckpt_in)
         wm = TrikaWorldModel(**WM_CFG).to(dev)
-        ckpt = torch.load(CHECKPOINT_IN, map_location=dev, weights_only=False)
+        ckpt = torch.load(ckpt_in, map_location=dev, weights_only=False)
         wm.load_state_dict(ckpt["world_model"], strict=False)
         wm.eval()
         gate = test_domain_sensitivity(wm, CACHE_DIR, dev)
         print(json.dumps(gate, indent=2))
     else:
         finetune(
+            checkpoint_in=ckpt_in,
             steps=args.steps,
             lr=args.lr,
             batch_size=args.batch_size,

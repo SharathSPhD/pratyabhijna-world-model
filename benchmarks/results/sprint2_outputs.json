@@ -1,0 +1,659 @@
+{
+  "outputs": [
+    {
+      "id": "s01",
+      "title": "Sanskrit Śloka — Anuṣṭubh, Nature and Perception",
+      "language": "sanskrit",
+      "domain": "sanskrit_classical",
+      "wm_seed_text": "bird call dawn dew grass familiar landscape paksin sisira",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "opening",
+      "wm_prefix_used": "[Creative state: register=ardent, section=opening, tension=released, mood=passion/devotion] ",
+      "text": "सुप्रभाते पक्षिनो गायन्ति सुमधुरम्  \nsuprabhāte pakṣino gāyanti sumadhuram  \n\nशिशिरे शीतले घासे श्वेतं बिन्दुर्भवति  \nśiśire śīṭhale ghāse śvetaṁ bindurbhavati  \n\nप्रातः किन्नरः स्फुरति किरणैरपि निर्मलः  \nprātaḥ kiṇarāḥ sphurati kiranair api nirmalaḥ  \n\nदृष्ट्वा स्वदेशं पुनः प्रसीदति मनः किल  \ndṛṣṭvā svadeśaṁ punah prasīdati manaḥ kil  \n\nsuprbhāte pakṣino gāyanti sumadhuram  \nśiśire śīṭhale ghāse śvetaṁ bindurbhavati  \nprātaḥ kiṇarāḥ sphurati kiranair api nirmalaḥ  \ndṛṣṭvā svadeśaṁ punah prasīdati manaḥ kil",
+      "scores": {
+        "camatk_total": 0.7958,
+        "r_vfe": 1.0,
+        "r_structure": 0.6667,
+        "r_length": 0.5167,
+        "r_imagery": 1.0,
+        "word_count": 62,
+        "unique_words": 42
+      },
+      "music_context": {
+        "raga": "Bhairav",
+        "tala": "Rupaka",
+        "tempo": "vilambit"
+      },
+      "structured_hints": [
+        "4 verses",
+        "8-syllable quarters",
+        "nature imagery"
+      ],
+      "generation_time_s": 154.5,
+      "generated_at": "2026-05-16T23:09:28.366176+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "s02",
+      "title": "Sanskrit Śloka — Monsoon, Memory, Longing",
+      "language": "sanskrit",
+      "domain": "sanskrit_classical",
+      "wm_seed_text": "monsoon cloud memory traveller rain home kadamba megha pravasa",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "resolution",
+      "wm_prefix_used": "[Creative state: register=ardent, section=resolution, tension=released, mood=passion/devotion] ",
+      "text": "वसुन्धरायां गिरिवरस्य शिखरे ध्रुवं  \nवातः पातयति पवनः सखे सख्यः सख्यः  \nमेघोऽयमपि स्मरति गृहम्, यत्र नः स्नेहः  \nनिपातति मधुरः शिशिरः कदम्बपुष्पः  \n\nvasundharāyāṃ girivarasy śikhare dhruvaṃ  \nvātaḥ pātayati pavanaḥ sakhe sakhyḥ sakhyḥ  \nmegho’yam api smarati gṛham, yatra naḥ snehaḥ  \nnipāti madhuraḥ śiśiraḥ kadamba-pushpaḥ",
+      "scores": {
+        "camatk_total": 0.6687,
+        "r_vfe": 1.0,
+        "r_structure": 0.3333,
+        "r_length": 0.3417,
+        "r_imagery": 1.0,
+        "word_count": 41,
+        "unique_words": 39
+      },
+      "music_context": {
+        "raga": "Miyan ki Malhar",
+        "tala": "Teental",
+        "tempo": "madhya"
+      },
+      "structured_hints": [
+        "4 verses",
+        "monsoon imagery",
+        "emotional tone"
+      ],
+      "generation_time_s": 105.7,
+      "generated_at": "2026-05-16T23:11:17.528862+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "k01",
+      "title": "Kannada Vachana — Secular, Inner Life",
+      "language": "kannada",
+      "domain": "kannada_film",
+      "wm_seed_text": "heart inner life silence question longing vachana kannada bhoomi",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "charana_2",
+      "wm_prefix_used": "[Creative state: section=charana_2, rāga=Bhairav, register=ardent, tension=released, mood=passion/devotion] ",
+      "text": "ನೀನು ಕಟ್ಟಲೇ ನೀನು ನಾಡಲೇ  \nಕಟ್ಟಲೇ ನೀನು ತರಲು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \n\nನೀನು ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ — ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ.",
+      "scores": {
+        "camatk_total": 0.4414,
+        "r_vfe": 1.0,
+        "r_structure": 0.0,
+        "r_length": 0.2833,
+        "r_imagery": 0.3529,
+        "word_count": 34,
+        "unique_words": 6
+      },
+      "music_context": {
+        "raga": "Bageshri",
+        "tala": "Adi",
+        "tempo": "madhya"
+      },
+      "structured_hints": [
+        "free verse",
+        "8-12 lines",
+        "secular craft theme",
+        "ankita signature"
+      ],
+      "generation_time_s": 76.6,
+      "generated_at": "2026-05-16T23:12:37.844561+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "k02",
+      "title": "Kannada Vachana — Doubt, Emptiness, City Life",
+      "language": "kannada",
+      "domain": "kannada_film",
+      "wm_seed_text": "rain red soil evening heron river bank Nagarahavissu Malgudi",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "charana_1",
+      "wm_prefix_used": "[Creative state: section=charana_1, rāga=Bhairav, register=ardent, tension=released, mood=passion/devotion] ",
+      "text": "ನೆರೆಯದ ಮನೆಗೆ ಕೀಲಿ ಕರೆಸುತ್ತೇನೆ  \nಅಜ್ಞಾತರ ಕೂಕುಬು ಕಲಿಯುತ್ತಾ  \nನನ್ನ ಕೈಯಲ್ಲಿ ಫೋನ್ ನಿನ್ನದಿದೆ — ಬಾಲೆಯ ನಿಂಡದ ಕಣ್ಣು  \nಕಾಲಿನ ಹಾಡು ನಿಲ್ಲಿದ್ದೇನೆ  \nಮನೆದ ಕವಚವನ್ನು ಮರೆತಿದ್ದೇನೆ  \nನೀರು ತೇಲಿದ ಕಪಾಲದಂತೆ  \nನನ್ನ ಮನಸ್ಸು ತುಂಬಿದೆ  \nಆಗಸ್ಸನ್ನು ಕೇಳೋದು ಅರದೇ  \nಉಳಿದ ಮನೆ ಕಸಿದ ಕತ್ತೆ  \nನನ್ನ ಮಾತು ಕರೆದರೆ ನಿಮ್ಮ ಕಿವಿ  \nಮುಂದೆ ಹೋಗದೇನೇ  \nಮಾರ್ಗವು ತೊಗವಿದೆ  \nನನ್ನ ಕಾಡು ಹಾರಿದೆ  \nಈ ಮನೆ ಇಲ್ಲದೇ.",
+      "scores": {
+        "camatk_total": 0.6947,
+        "r_vfe": 1.0,
+        "r_structure": 0.3704,
+        "r_length": 0.4083,
+        "r_imagery": 1.0,
+        "word_count": 49,
+        "unique_words": 45
+      },
+      "music_context": {
+        "raga": "Darbari Kanada",
+        "tala": "Misra Chapu",
+        "tempo": "slow"
+      },
+      "structured_hints": [
+        "paradoxical imagery",
+        "urban theme",
+        "10-14 lines"
+      ],
+      "generation_time_s": 97.4,
+      "generated_at": "2026-05-16T23:14:18.453242+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "k03",
+      "title": "Kannada Kīrtana — Nature, Seasons, Devotion to Earth",
+      "language": "kannada",
+      "domain": "carnatic",
+      "wm_seed_text": "rain earth flower song kannada folk harvest festival kere bele",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "anupallavi",
+      "wm_prefix_used": "[Creative state: rāga=Marwa, section=anupallavi, register=ardent, tension=released, tempo=medium, emotion=passion/devotion] ",
+      "text": "ಪಲ್ಲವಿ:\nಮಳೆ ಬಂದೆ ಮಣ್ಣು ಬಸ್ಸು, ಹೂಗಳು ಹೂಗು,\nಬೆಳೆಯ ವೇದನೆ ನಮ್ಮ ಹೃದಯದ ಮಂದಿರ.\n\nಪಲ್ಲವಿ:\nಮಳೆ ಬಂದೆ ಮಣ್ಣು ಬಸ್ಸು, ಹೂಗಳು ಹೂಗು,\nಬೆಳೆಯ ವೇದನೆ ನಮ್ಮ ಹೃದಯದ ಮಂದಿರ.\n\nಅನುಪಲ್ಲವಿ:\nಊದುವ ಗಗನದಲ್ಲಿ ಮಳೆ ಮತ್ತೆ ಬರಲಿ,\nಹೊಸ ಬೀಜು ಹೊಸ ಹopes, ಹಸಿರು ಮಣ್ಣಿನ ಗೀತೆ.\n\nಅನುಪಲ್ಲವಿ:\nಊದುವ ಗಗನದಲ್ಲಿ ಮಳೆ ಮತ್ತೆ ಬರಲಿ,\nಹೊಸ ಬೀಜು ಹೊಸ ಹopes, ಹಸಿರು ಮಣ್ಣಿನ ಗೀತೆ.\n\nಚರಣ:\nಮಣ್ಣು ತಾಯಿ ನಮಗೆ ದಾನ ಮಾಡಿದ ಮಣ್ಣು,\nಮಳೆ ತಾಯಿ ನಮಗೆ ದಾನ ಮಾಡಿದ ಮಳೆ,\nಬೆಳೆಯ ಹೂವು ನಮಗೆ ದಾನ ಮಾಡಿದ ಹೂವು,\nಈ ಕaled ಹruday ಮಣ್ಣಿನ ಮಗನ ಹೃದಯ.\n\nಭೂಮಿ ತಾಯಿ.",
+      "scores": {
+        "camatk_total": 0.6604,
+        "r_vfe": 1.0,
+        "r_structure": 0.0,
+        "r_length": 0.6417,
+        "r_imagery": 1.0,
+        "word_count": 77,
+        "unique_words": 39
+      },
+      "music_context": {
+        "raga": "Kapi",
+        "tala": "Adi",
+        "tempo": "madhya"
+      },
+      "structured_hints": [
+        "pallavi",
+        "anupallavi",
+        "caranam",
+        "nature ankita"
+      ],
+      "generation_time_s": 128.5,
+      "generated_at": "2026-05-16T23:16:30.004709+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "k04",
+      "title": "Kannada Ugābhoga — Wanderer, Solitude, Starlight",
+      "language": "kannada",
+      "domain": "carnatic",
+      "wm_seed_text": "childhood river village grandmother story told evening lamp",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "svarakalpana",
+      "wm_prefix_used": "[Creative state: rāga=Puriya Dhanashri, section=svarakalpana, register=ardent, tension=released, tempo=medium, emotion=passion/devotion] ",
+      "text": "ನೀಲದ ನಿಗೂಢತೆಯಲ್ಲಿ ನಾನು ನಡೆಯುತ್ತೇನೆ, ನದಿ ಹರಿದು ಹೋಗುವ ಸ್ವರಗಳನ್ನು ಕೇಳುತ್ತೇನೆ, ನಗರವು ಕತ್ತಲಿಟ್ಟಿರುವಂತೆ, ಮನೆಯಲ್ಲಿ ನಿದ್ರೆಯ ಲಹರಿ ಹಾರಿಹೋಗಿದೆ. ಚಂದ್ರನ ಹಾರಿತ ಕಿರಣಗಳು ನೀರಿನಲ್ಲಿ ಮರುಮರೆಯುತ್ತಾರೆ, ಹಸಿರು ಹಾಸಿಗೆ ಹೂಗಳಂತೆ. ನಿಮ್ನದ ಹಾರದ ನಕ್ಷತ್ರಗಳು ಕಣ್ಣುಗಳಂತೆ ಕಣ್ಣು ಹಾರಿದು ನೋಡುತ್ತವೆ, ಮಾತು ಮಾಡುವ ಬದಿಲಾಗಿ ಕಠಿಣವಾದ ಶಾಂತಿಯನ್ನು ನೀಡುತ್ತವೆ. ನನ್ನ ಹಾಡು ಹಾರದ ಹರತalet ಹಾರಿದು ಹೋಗುತ್ತದೆ, ಅದು ನನ್ನ ಹೃದಯದ ಹಾರದ ಕವಿತೆಯಂತೆ. ಈರಿಗೆ ಮಾತಾಡುವ ಹವಾವು ನನ್ನ ಚೆ coloured ಗಾಲನ್ನು ಮಸುಕಾಡುತ್ತದೆ, ಹಳೆಯ ಕಥೆಗಳಂತೆ. ಇ ನಾನು ನಿಲುಗಿಡುತ್ತೇನೆ, ಕಲ್ಲಿನ ಬಳಿ, ನದಿಯ ತೀರದಲ್ಲಿ, ಹೃದಯದ ಕAMPನವನ್ನು ನದಿಯ ಲಹರಿಗೆ ಹಾರುತ್ತೇನೆ, ನಿದ್ರೆಯಂತೆ.",
+      "scores": {
+        "camatk_total": 0.6458,
+        "r_vfe": 1.0,
+        "r_structure": 0.0,
+        "r_length": 0.5833,
+        "r_imagery": 1.0,
+        "word_count": 70,
+        "unique_words": 62
+      },
+      "music_context": {
+        "raga": "Kalyani",
+        "tala": "free",
+        "tempo": "slow"
+      },
+      "structured_hints": [
+        "free metre",
+        "6-10 lines",
+        "nocturnal imagery"
+      ],
+      "generation_time_s": 136.0,
+      "generated_at": "2026-05-16T23:18:49.315333+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "k05",
+      "title": "Kannada Bhavageete — Monsoon, Red Earth, First Rain",
+      "language": "kannada",
+      "domain": "kannada_film",
+      "wm_seed_text": "village well bullock cart woman water pot sunset dust road",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "mukhara",
+      "wm_prefix_used": "[Creative state: section=mukhara, rāga=Bhairav, register=ardent, tension=released, mood=passion/devotion] ",
+      "text": "ಕುಂಕುಮದ ಭೂಮಿ  \nಮುಳ್ಳು ಬಾರिशೆ  \nಜಿಂಬಲಿನ ಹಗಲಿನ ಮೈದಾನದಲ್ಲಿ  \nಬಿಳಿ ಜasminea ಹೂವುಗಳು ಕಸಕಸ ಮಾಡಿ  \nಮಣ್ಣಿನ ಮೇಲೆ ಮಳೆಯ ಹೊಸ ತುಲುವು  \nಮೂಲಕು ಹಾರುವಂತೆ ಕೂಕು  \nಮುಡ್ಡೆ ಕಾಡು ಹಾರುವಂತೆ  \nಜೀವು ಕಾಣುವಂತೆ  \n\nಮಳೆಯ ತುಳು  \nಮಣ್ಣಿನ ಗಂಧ  \nಜಿಂಬಲಿನ ಹೂವುಗಳ ಸುಗಂಧ  \nಬೇರೆಯದ ಹವೆಯಲ್ಲಿ ಹರಿವಾಗುವ  \nಬಳ್ಳಿಯ ಕಾಲು  \nಮಣ್ಣಿನ ಮೇಲೆ ಹುಡುಗುವ  \nಹಾರದ ಹಾರದ ಹಾರದ  \nಮಳೆಯ ತುಳು ಕೇಳುವ  \n\nಹರಿವು  \nಮಣ್ಣಿನ ಮೇಲೆ ಹಾರುವ ಹಾರುವ  \nಮಳೆಯ ಮಸಾಲು  \nಜಿಂಬಲಿನ ಹೂವುಗಳ ಹಾರುವ  \nಬಳ್ಳಿಯ ಕಾಲು  \nಮಣ್ಣಿನ ಮೇಲೆ ಹಾರುವ  \nಹಾರದ ಹಾರದ ಹಾರದ  \nಮಳೆಯ ತುಳು ಕೇಳುವ  \n\nಮಣ್ಣಿನ ಗಂಧ  \nಜಿಂಬಲಿನ ಹೂವುಗಳ ಸುಗಂಧ  \nಬಳ್ಳಿಯ ಕಾಲು  \nಮಣ್ಣಿನ ಮೇಲೆ ಹುಡುಗುವ  \nಹಾರದ ಹಾರದ ಹಾರದ  \nಮಳೆಯ ತುಳು ಕೇಳುವ  \nಜೀವನದ ಹಾರುವ  \nಮುಳ್ಳು ಬಾರिशೆ",
+      "scores": {
+        "camatk_total": 0.8503,
+        "r_vfe": 1.0,
+        "r_structure": 0.7407,
+        "r_length": 0.725,
+        "r_imagery": 0.9195,
+        "word_count": 87,
+        "unique_words": 40
+      },
+      "music_context": {
+        "raga": "Kapi",
+        "tala": "Adi",
+        "tempo": "medium"
+      },
+      "structured_hints": [
+        "4 stanzas × 4 lines",
+        "sensory imagery",
+        "monsoon theme"
+      ],
+      "generation_time_s": 162.6,
+      "generated_at": "2026-05-16T23:21:35.127637+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "h01",
+      "title": "Hindi Ghazal — City Rain, Longing, Monsoon Streets",
+      "language": "hindi",
+      "domain": "hindi_film",
+      "wm_seed_text": "barish raat dil aankhein zindagi hindi film song love",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "sanchari",
+      "wm_prefix_used": "[Creative state: section=sanchari, rāga=Marwa, register=ardent, tension=released, mood=passion/devotion] ",
+      "text": "भिगी सड़कों की खुशबू में बिखरी यादें,  \nतेरी ग़ैरमौजूदगी का असर बारिश में।  \n\nनीऊँ बिजली की चमक तैरती puddles में,  \nहर बूंद में तेरी कमी का एहसास बारिश में।  \n\nगर्म चाय की भाप भी अब ठंडी लगती है,  \nतेरे बिना ये शहर सुनसान हो गया बारिश में।  \n\nटूटे हुए शीशे में टूटा हुआ चेहरा देखता है,  \nतेरा इंतज़ार अब भी भीगा-भीगा सा बारिश में।  \n\nहवा में भीगते हुए पेड़ों की खुशबू आई,  \nजैसे तेरी याद ने साँसों को छुआ बारिश में।  \n\nमैदान-ए-ख़्याल में अब सिर्फ़ ये एक सवाल है,  \nकि क्या तेरा ausencia भी भीगता है बारिश में?  \n\nबेगम अफ़साना — तेरा नाम लेते लेते,  \nख़त्म हो गया ये ग़म भीगते-भीगते बारिश में।",
+      "scores": {
+        "camatk_total": 0.7354,
+        "r_vfe": 1.0,
+        "r_structure": 0.0,
+        "r_length": 0.9417,
+        "r_imagery": 1.0,
+        "word_count": 113,
+        "unique_words": 78
+      },
+      "music_context": {
+        "raga": "Bhimpalasi",
+        "tala": "Teental",
+        "tempo": "madhya"
+      },
+      "structured_hints": [
+        "7 couplets",
+        "consistent radif 'baarish mein'",
+        "qafia rhyme"
+      ],
+      "generation_time_s": 200.5,
+      "generated_at": "2026-05-16T23:24:59.162803+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "h02",
+      "title": "Hindi Film Song — Romantic, Separation, Journey",
+      "language": "hindi",
+      "domain": "hindi_film",
+      "wm_seed_text": "train platform fog departure last glimpse love bittersweet",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "antara_1",
+      "wm_prefix_used": "[Creative state: section=antara_1, rāga=Puriya Dhanashri, register=ardent, tension=released, mood=passion/devotion] ",
+      "text": "मुखड़ा:  \nप्लेटफ़ॉर्म पर धुंध में छाया तेरा,  \nहाथ में रुमाल लहराता तेरा इंतज़ार।  \n\nअंतरा 1:  \nसीटी की आवाज़ आई, जैसे दिल की धड़कन रुक गई,  \nतेरे कदमों की आहट, ट्रैक पर बिखरी रही।  \nहर बूँद में तेरी याद, धुंध में डूबी साँसों की खुशबू,  \nतेरा चेहरा अब भी, मेरी नज़रों के पार है।  \n\nअंतरा 2:  \nट्रेन चल पड़ी, पर तेरा इंतज़ार रहा वहीं,  \nप्लेटफ़ॉर्म का किनारा, तेरी खामोशी का गीत।  \nहवा में बिखरा तेरा scent, जैसे कोई पुराना गीत,  \nजाने के बाद भी, तू है… मेरे सफ़र का साथी।",
+      "scores": {
+        "camatk_total": 0.8706,
+        "r_vfe": 1.0,
+        "r_structure": 0.7407,
+        "r_length": 0.7417,
+        "r_imagery": 1.0,
+        "word_count": 89,
+        "unique_words": 68
+      },
+      "music_context": {
+        "raga": "Yaman",
+        "tala": "Dadra",
+        "tempo": "medium-slow"
+      },
+      "structured_hints": [
+        "mukhra 2 lines",
+        "antara_1 4 lines",
+        "antara_2 4 lines",
+        "singable"
+      ],
+      "generation_time_s": 107.7,
+      "generated_at": "2026-05-16T23:26:50.608470+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "ta01",
+      "title": "Tamil Poem — Sangam Style, Sea, Separation",
+      "language": "tamil",
+      "domain": "tamil_classical",
+      "wm_seed_text": "sea shore waiting cuckoo kadal neytal blue waterlily heron",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "climax",
+      "wm_prefix_used": "[Creative state: register=ardent, section=climax, tension=released, mood=passion/devotion] ",
+      "text": "கடலின் மிதப் புயலில் நெய்தல்கள் மழையடைந்துள்ளன  \nகுயிலின் குரல் தூரம் வந்து காதலின் காதலை அடுக்கிறது  \nஓரின் ஆழம் நீளும் கடலின் கழுவில் விழும் சூரியன்  \nநீ இல்லையென்று நெறிவு கேட்கும் நெஞ்சும், கனவு பட்டும்  \nஒரு வானம்படி வீசும் கதிர் கையால் நீ வருமா என்று  \nகடலின் குரலும், குயிலின் குரலும் ஒரே குரலாக மறைமugen  \nஉன் piedi என்றால் என்ன? கடலின் தூணில் உன் கால் தவிர்க்கவில்லை  \nஎன் காதலே, உன் கனவில் நான் நீட்கிறேன் — நீ வர வரை.",
+      "scores": {
+        "camatk_total": 0.7176,
+        "r_vfe": 1.0,
+        "r_structure": 0.3704,
+        "r_length": 0.5,
+        "r_imagery": 1.0,
+        "word_count": 60,
+        "unique_words": 52
+      },
+      "music_context": {
+        "raga": "Bhairavi",
+        "tala": "Rupaka",
+        "tempo": "slow"
+      },
+      "structured_hints": [
+        "8-12 lines",
+        "seashore imagery",
+        "akam tradition"
+      ],
+      "generation_time_s": 112.8,
+      "generated_at": "2026-05-16T23:28:46.812377+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "te01",
+      "title": "Telugu Padyamu — Nature, River, Evening",
+      "language": "telugu",
+      "domain": "telugu_padyam",
+      "wm_seed_text": "river evening birds lamp mother telugu padyam music",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "resolution",
+      "wm_prefix_used": "[Creative state: register=ardent, section=resolution, tension=released, mood=passion/devotion] ",
+      "text": "సంధ్యసమయం కృష్ణా నది తీరె  \nమేనెలు చలించుతాయి, నీటిలో చిన్న చింతలు  \nపక్షులూ గూడుకోవడంలో రంగులు మిశ్రింపుతాయి  \nగోస్థల్లో దీపములు మెరుగుపోయి ప్రకాశించుతాయి  \n\nమేనెలు తీరకలపై నిలిచిపోయి  \nగోటెలు ముద్రలూపంగా కొలుకుతాయి  \nకొద్దూ కొద్దీ పక్షులు పక్షములు పడిచెప్పుకుంటాయి  \nసుధారసమే నీళ్లు, శాంతి నీల గగ్నంలో  \n\nమంత్రాలు మూసకో వాళ్ళు తీరవరి మండలములో  \nకొమ్మల పులిచ్చుకొని, కరిమెనూలు పడిపోయి  \nపక్కలో నెమ్మదిగా గరెములు గుంపుగా  \nస్వగతమై నదీతీరె, స్నేహములే వస్తాయి  \n\nసంధ్యా గీతమే నదిలో నడిచిపోతుంది  \nదీపములు మీలుకోవటం, చంద్రుడు ముఖములో  \nపక్షుల కుంభిత ధ్వనులు, తీరవారి మurmurulu  \nసమయం నిలిచిపోతుంది — హృదయంలో స్నేహం స్థిరమై ఉంటుంది.",
+      "scores": {
+        "camatk_total": 0.8958,
+        "r_vfe": 1.0,
+        "r_structure": 1.0,
+        "r_length": 0.5833,
+        "r_imagery": 1.0,
+        "word_count": 70,
+        "unique_words": 68
+      },
+      "music_context": {
+        "raga": "Hindolam",
+        "tala": "Misra Chapu",
+        "tempo": "medium-slow"
+      },
+      "structured_hints": [
+        "4 stanzas",
+        "evening imagery",
+        "Krishna river"
+      ],
+      "generation_time_s": 199.6,
+      "generated_at": "2026-05-16T23:32:09.818959+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "bn01",
+      "title": "Bengali Lyric — Tagore Tradition, Seasonal Longing",
+      "language": "bengali",
+      "domain": "bengali_lyric",
+      "wm_seed_text": "spring flower wind light Rabindranath Tagore bengali song",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "climax",
+      "wm_prefix_used": "[Creative state: register=ardent, section=climax, tension=released, mood=passion/devotion] ",
+      "text": "বসন্ত আসে আকাশে নীল আলো,  \nফুল শুঁইতে শুঁইতে মধু মাকড়ি ভোরে।  \nবাতাস গায়ে গীত গায়ে চলে,  \nপাতা নाचे নाचे পান্না ভরে,  \nহৃদয়ে বাজে বাঁশি — এবার শুরু হয়।  \n\nমালতির গন্ধে হাওয়ায় ভেসে,  \nকমল শিশির জলে উঠে উঠে।  \nপাখি গায়ে গায়ে গাছের শাখায়,  \nমন বাঁচে বাঁচে নাচে যায়,  \nবসন্তের আহ্বান — প্রতিমা নয়, জীবন।  \n\nএক হাতে ফুলের মালা, অন্য হাতে গaan,  \nচরণবন্দন না, চরণে চুম্বন।  \nঅগ্নিময় নয়, মৃদু হলুদ আলো,  \nপ্রাণের প্রতিক্ষা — এখন Puron hoye gelo.  \nবসন্ত, তুই আসেছো — আমার প্রত্যাশার বসন্ত।",
+      "scores": {
+        "camatk_total": 0.9229,
+        "r_vfe": 1.0,
+        "r_structure": 1.0,
+        "r_length": 0.6917,
+        "r_imagery": 1.0,
+        "word_count": 83,
+        "unique_words": 71
+      },
+      "music_context": {
+        "raga": "Pahadi",
+        "tala": "Dadra",
+        "tempo": "medium"
+      },
+      "structured_hints": [
+        "3 stanzas × 5 lines",
+        "spring theme",
+        "singable"
+      ],
+      "generation_time_s": 191.7,
+      "generated_at": "2026-05-16T23:35:24.933599+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "e01",
+      "title": "English Ode — Romantic, Autumn, Transience",
+      "language": "english",
+      "domain": "english_romantic",
+      "wm_seed_text": "autumn mist lake twilight gold ripple romantic poem",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "climax",
+      "wm_prefix_used": "[Creative state: mode=Mixolydian, key=E / Ga, section=climax, register=ardent, tension=released, tempo=medium, mood=passion/devotion] ",
+      "text": "Golden light spills low across the water’s face,  \nA honeyed pour from October’s slanting sun,  \nIt gilds the reeds, it warms the stillness’ grace,  \nAnd turns the lake to molten amber spun.  \nNo ripple stirs where shadow once had lain,  \nNo breath disturbs the surface, smooth as skin — The light lies flat, a quiet, liquid rain  \nThat soaks the deep in warmth it cannot win.  \n\nIt holds the sky without a single flaw,  \nNo cloud, no bird, no tremor breaks the glass,  \nThe world above is drowned in liquid awe,  \nAnd heaven seems to sink, not rise, to pass.  \nThe pines stand stiff as sentinels of bronze,  \nTheir needles sharp against the blazing dome — Yet here, below, no wind, no sound responds,  \nOnly the light, and light, and light, and home.  \n\nIt climbs the trunks, it kisses every stone,  \nIt lingers where the lily pads recline,  \nIt paints the minnows’ flash with liquid tone,  \nAnd makes the dark beneath the surface shine.  \nNo fish has stirred, no frog has dared to break  \nThis held suspension — time has ceased to flow — The light is not reflected, but partakes  \nOf water’s soul, and water’s of its glow.  \n\nThen, slow as thought, the sun begins to slip,  \nA finger pulls the gold from east to west,  \nThe light retreats, a slow, reluctant sip  \nOf day’s last warmth, drawn inward to its rest.  \nThe lake grows cool, the reeds exhale their sigh,  \nThe shadows stretch and claim their ancient right — Not gone, but changed: the light still lingers high  \nIn memory, where water keeps the light.",
+      "scores": {
+        "camatk_total": 1.0,
+        "r_vfe": 1.0,
+        "r_structure": 1.0,
+        "r_length": 1.0,
+        "r_imagery": 1.0,
+        "word_count": 267,
+        "unique_words": 173
+      },
+      "music_context": {
+        "mode": "Dorian",
+        "key": "D minor",
+        "tempo": "slow",
+        "time_sig": "6/8"
+      },
+      "structured_hints": [
+        "4 stanzas × 8 lines",
+        "sustained single image",
+        "autumn light"
+      ],
+      "generation_time_s": 243.0,
+      "generated_at": "2026-05-16T23:39:31.444614+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "e02",
+      "title": "English Modernist — Fragmented Urban Interior",
+      "language": "english",
+      "domain": "english_modernist",
+      "wm_seed_text": "city fragment interior window concrete glass modernist poem",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "climax",
+      "wm_prefix_used": "[Creative state: mode=Lydian, key=G / Pa, section=climax, register=ardent, tension=released, tempo=medium, mood=passion/devotion] ",
+      "text": "I.  \nI sit beneath the hum of the ceiling’s drone — a Muzak fugue in G-major, flattened fifth  \nlike a pigeon’s wing caught mid-flap against glass,  \nthe magazine lies open to a perfume ad:  \n*Jasmine and ozone, they say, evoke memory*  \nbut all I smell is antiseptic and old wool  \nfrom the man two seats over — his left shoe unlaced,  \nthe lace a black serpent coiled near the sole.  \n\nII.  \nOutside, the light slants low, gilding the pigeons’ necks — they peck at crumbs no one meant to drop,  \ntheir heads jerking like metronomes set to  \na rhythm only the waiting understand.  \nI think of Stevens’ jar on the Tennessee hill — how it made the wilderness submit to order,  \nyet here, the order is the waiting, the breath  \nheld between the beep and the next beep.  \n\nIII.  \nA woman’s voice on the intercom: *Room 312, please.*  \nNo one moves. The sound lingers, half-dissolved  \nin the vinyl of the chairs, the dust motes  \nswimming in the slant — like Stevens’ emperor  \nof ice-cream, cold and deliberate,  \npresiding over nothing. I watch the lace  \non the man’s shoe — it twitches. Is he dreaming?  \nOr is the world just breathing through him?  \n\nIV.  \nThe Muzak shifts — a flute enters, tentative,  \nlike a question no one dares to finish.  \nI open my mouth to speak — the pigeon outside  \nsuddenly takes flight,  \nits shadow slicing the ad for eternal youth  \ninto ribbons of gold and doubt — and I realize  \nI’ve forgotten why I came.  \nThe lace — still — the light — the note hangs —",
+      "scores": {
+        "camatk_total": 0.9352,
+        "r_vfe": 1.0,
+        "r_structure": 0.7407,
+        "r_length": 1.0,
+        "r_imagery": 1.0,
+        "word_count": 267,
+        "unique_words": 174
+      },
+      "music_context": {
+        "mode": "Phrygian",
+        "key": "E minor",
+        "tempo": "irregular",
+        "time_sig": "free"
+      },
+      "structured_hints": [
+        "4 sections",
+        "fragmented",
+        "no resolution",
+        "interior monologue"
+      ],
+      "generation_time_s": 206.0,
+      "generated_at": "2026-05-16T23:43:01.416122+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "l01",
+      "title": "Carnatic Kṛti — Rāga Bhairavi, Nature Devotion",
+      "language": "sanskrit_telugu",
+      "domain": "carnatic",
+      "wm_seed_text": "carnatic composition pallavi anupallavi caranam devotion secular",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "caranam_2",
+      "wm_prefix_used": "[Creative state: rāga=Puriya Dhanashri, section=caranam_2, register=ardent, tension=released, tempo=medium, emotion=passion/devotion] ",
+      "text": "Pallavi: 1-2-3-4-5-6-7-8  \nSangeetam parabrahma rupam G G G S R2 G2 M1 P  \nSangītaṃ jagadīśvaraṃ namo namo G S R2 G2 M1 P D2 N3 S  \n\nAnupallavi: 1-2-3-4-5-6-7-8  \nŚruti layaṃ jīva tattvaṃ G M1 P D2 N3 S  \nNāda brahmandaṃ vibhūtiṃ namo namo G M1 P D2 N3 S  \n\nCaraṇam: 1-2-3-4-5-6-7-8  \nGānaṃ devaṃ sākṣāt kāraṇaṃ G R2 S N2 D2 P M1 G2 R2 S  \nSvara layaṃ madhuraṃ bhaktiṃ G S R2 G2 M1 P D2 N3 S  \nŚuddha śuddhaṃ sadā śuddhaṃ G M1 P D2 N3 S  \nSangītaṃ namo namo namo G S R2 G2 M1 P D2 N3 S  \n\nSvarakalpana note: After Caraṇam line 4, improvise in ārohaṇa-avaroḥana: S R2 G2 M1 P D2 N3 Ṡ • Ṡ N3 D2 P M1 G2 R2 S, emphasizing gamakas on G2, D2, N3 with kampita and jaru. Focus on madhya sthayi, slow to medium pace, letting each svarā linger with oscillation. Return to pallavi after 2-3 avartanams.",
+      "scores": {
+        "camatk_total": 0.986,
+        "r_vfe": 1.0,
+        "r_structure": 1.0,
+        "r_length": 1.0,
+        "r_imagery": 0.9299,
+        "word_count": 157,
+        "unique_words": 73
+      },
+      "music_context": {
+        "raga": "Bhairavi",
+        "tala": "Adi (8 beats)",
+        "tempo": "madhya laya",
+        "gamaka_style": "Tyagaraja",
+        "svara_section": "after caranam"
+      },
+      "structured_hints": [
+        "pallavi",
+        "anupallavi",
+        "caranam",
+        "tala beats",
+        "gamaka marks"
+      ],
+      "generation_time_s": 112.0,
+      "generated_at": "2026-05-16T23:50:01.373928+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "l02",
+      "title": "Kannada Film Song — Romantic, Nature, Golden Era",
+      "language": "kannada",
+      "domain": "kannada_film",
+      "wm_seed_text": "jazz blues verse chorus bridge standard bebop head",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "charana_2",
+      "wm_prefix_used": "[Creative state: section=charana_2, rāga=Puriya Dhanashri, register=ardent, tension=released, mood=passion/devotion] ",
+      "text": "ಮುಖಾರ:\nನೀವು ಬಂದು ಬಂದು ಮಂದಿ ಮಂದಿ (You came, you came, slowly, slowly)\nಬೀಳುತ್ತಲೇ ದೀಪಗಳು ಬೀಳುತ್ತಲೇ (Lights flickering, lights flickering)\n\nಚರಣ 1:\nಮನೆ ಮನೆ ಮನೆ ಮನೆ ಮನೆ ಮನೆ (House by house, house by house, house by house)\nಬೀದಿ ಮನೆ ಮನೆ ಮನೆ ಮನೆ (Street house, house, house, house)\nರಂಗ ಬಣ್ಣದ ಲೀಲೆಯ ಮಾಂದಿರ (Temple of play in colors and hues)\nಸಂಗೀತದ ಧ್ವನಿ ಹಾರದ ಹಾರದ (Sound of music, necklace of sound)\n\nಚರಣ 2:\nನೀನು ಬಂದು ಬಂದು ಮಂದಿ ಮಂದಿ (You came, you came, slowly, slowly)\nನನ್ನ ಹೃದಯದ ಮಂದಿರದ ಮಂದಿರ (Temple of my heart, temple)\nಬೀಳುತ್ತಲೇ ದೀಪಗಳು ಬೀಳುತ್ತಲೇ (Lights flickering, lights flickering)\nನಿನ್ನ ಕನ್ನಡದಲ್ಲಿ ನನಗೆ ಕನ್ನಡ (In your Kannada, I am Kannada)",
+      "scores": {
+        "camatk_total": 0.8134,
+        "r_vfe": 1.0,
+        "r_structure": 0.3704,
+        "r_length": 0.8833,
+        "r_imagery": 1.0,
+        "word_count": 106,
+        "unique_words": 62
+      },
+      "music_context": {
+        "raga": "Kapi",
+        "tala": "Adi",
+        "tempo": "medium",
+        "instrument_hint": "harmonium, tabla, violin"
+      },
+      "structured_hints": [
+        "mukhara",
+        "charana_1",
+        "charana_2",
+        "bilingual",
+        "8-10 syllables"
+      ],
+      "generation_time_s": 33.4,
+      "generated_at": "2026-05-16T23:50:37.840149+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "l03",
+      "title": "Jazz Spiritual — Four Movements, Love and Sound",
+      "language": "english",
+      "domain": "western_jazz",
+      "wm_seed_text": "hindustani khayal vilambit drut alap taana monsoon raag",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "solos",
+      "wm_prefix_used": "[Creative state: mode=Lydian, key=B / Ni, section=solos, register=ardent, tension=released, tempo=medium, mood=passion/devotion] ",
+      "text": "I. RESOLUTION  \nThe horn breathes blue note fire into the air,  \nA single tone held — not played, but *found*,  \nLike sweat on skin after the long pursuit,  \nWhere silence was the womb and now the tone is born.  \nNo doctrine, no creed — just vibration in the bone,  \nThe reed answers the lip, the lip answers the soul,  \nThis is the resolution: sound as home,  \nNot God above, but tone within the room.  \n\nII. PURSUANCE  \nWe chase the overtone that shimmers just above,  \nA ghost note in the chord, a shimmer in the drone,  \nFingers slip on valve, breath stutters — still we blow,  \nNot for perfection, but for the *almost*,  \nThe blue note bent, the cry that won’t resolve,  \nThe horn becomes a tongue, the lungs a psalm,  \nEach phrase a question, each release a sigh,  \nAnd in the tension — we are most alive.  \n\nIII. ACKNOWLEDGEMENT  \nListen: the bass holds the root like a heartbeat,  \nThe cymbal’s wash — not noise, but breathing space,  \nThe piano’s left hand, a drone beneath the prayer,  \nThe trumpet’s cry — not loud, but *true*,  \nWe do not worship sound — we *are* its echo,  \nThe listener leans in, the air itself responds,  \nNo temple needed — just this room, this breath, this tone,  \nHere, in the gap between note and silence — we know.  \n\nIV. PSALM  \nA love supreme — not sung, but *sounded*,  \nNot in words, but in the vibration of the bell,  \nIn the hollow of the horn after the last note fades,  \nIn the way the room still hums when all is still,  \nYou are not separate from the tone — you are its cause,  \nIts vessel, its wound, its release, its return,  \nPlay on, even when no one claps — play on,  \nFor the sound is the prayer, and the prayer is sound.",
+      "scores": {
+        "camatk_total": 1.0,
+        "r_vfe": 1.0,
+        "r_structure": 1.0,
+        "r_length": 1.0,
+        "r_imagery": 1.0,
+        "word_count": 307,
+        "unique_words": 167
+      },
+      "music_context": {
+        "mode": "Mixolydian",
+        "key": "F",
+        "tempo": "variable",
+        "time_sig": "free",
+        "instruments": "tenor saxophone, piano, bass, drums"
+      },
+      "structured_hints": [
+        "4 movements",
+        "6-8 lines each",
+        "jazz vocabulary",
+        "call-response"
+      ],
+      "generation_time_s": 59.8,
+      "generated_at": "2026-05-16T23:51:40.097966+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "w01",
+      "title": "World Fusion — Multilingual, Sea, Migration",
+      "language": "multilingual",
+      "domain": "world_fusion",
+      "wm_seed_text": "sea shore tide migration threshold horizon salt boat wind fusion",
+      "wm_energy": 11.5,
+      "wm_register": "ardent",
+      "wm_section": "development",
+      "wm_prefix_used": "[Creative state: mode=Mixolydian, rāga=Bhairav, section=development, register=ardent, emotion=passion/devotion/intensity] ",
+      "text": "[Tamil]\nகடலின் கடைசி துறை, மின்சாரமான காற்று,\nமனிதன் கையால் வெட்டப்பட்ட காற்று,\nவீடு விட்டு செல்வது, காதல் கதை,\nநீர் கூட ந larmes க pleurer,\nதண்ணீர் தூங்கும் நிலையில், காதலின் முகம்.\n\n[Bengali]\nসাগরের শেষ সীমানায়, জ্বালন্ত মরিচের মতো জ্বলে,\nপথিকের হৃদয়, আত্মার স্রোত,\nবাড়ি ছোড়া যায়, মন ভরে ভরে,\nজলময় জiban, জibanকে ধরে,\nস্রোতের গতি, স্রোতের গতি.\n\n[Hindi]\nसमुद्र की अंतिम सीमा, ज्वलंत अग्नि की तरह,\nपथिक का हृदय, आंतरिक आग,\nघर छोड़ना, दिल का बोझ,\nजल की धारा, जीवन की धारा,\nधारा की गति, धारा की धारा.\n\n[English]\nThe sea's last threshold, blazing like sacred fire,\nMigrant's heart, an inner flame,\nLeaving home, the weight of belonging,\nWaters carry what words cannot name,\nCurrent's pulse, current's pulse.\n\n[Kannada]\nಸಾಗರದ ಅಂತಿಮ ಹದಿನালಿ, ಪವಿತ್ರ Agnಿ মতো ಜ್ವಲನ,\nವಲಸೆಯ ಹೃದಯ, ಆಂತರಿಕ Agnಿ,\nಮನೆ ಮರುಗುವത്, ದೀರ್ಘ ದುಃಖ,\nಜಲದ ಪ್ರವಾಹ, ಜೀವನದ ಪ್ರವಾಹ,\nಪ್ರವಾಹದ ಗತಿ, ಪ್ರವಾಹದ ಗತಿ.",
+      "scores": {
+        "camatk_total": 0.9167,
+        "r_vfe": 1.0,
+        "r_structure": 0.6667,
+        "r_length": 1.0,
+        "r_imagery": 1.0,
+        "word_count": 137,
+        "unique_words": 122
+      },
+      "music_context": {
+        "mode": "World",
+        "raga": "Bilawal/Shankarabharanam",
+        "tempo": "medium",
+        "instruments": "sitar, mridangam, violin, drums"
+      },
+      "structured_hints": [
+        "5 stanzas",
+        "5 languages",
+        "native scripts",
+        "sea/migration theme"
+      ],
+      "generation_time_s": 249.6,
+      "generated_at": "2026-05-16T23:55:52.148373+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    }
+  ],
+  "summary": {
+    "n_outputs": 18,
+    "mean_camatk": 0.8084,
+    "max_camatk": 1.0,
+    "min_camatk": 0.4414,
+    "generated_at": "2026-05-16T23:55:52.165924+00:00"
+  }
+}

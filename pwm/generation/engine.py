@@ -198,7 +198,7 @@ def call_ollama(system: str, user: str, num_predict: int = 900,
             "temperature": temperature,
             "top_p": top_p,
         },
-    }, timeout=300)
+    }, timeout=420)  # 7min — 120B @ 15 tok/s needs >300s for 900 tokens under load
     resp.raise_for_status()
     return resp.json()["message"]["content"].strip()
 

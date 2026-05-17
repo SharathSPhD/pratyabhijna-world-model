@@ -1,0 +1,11 @@
+{
+  "n_outputs": 18,
+  "gate_pass": false,
+  "shaiva_violations": 0,
+  "score_violations": 0,
+  "placeholder_violations": 1,
+  "empty_violations": 0,
+  "failures": [
+    "PLACEHOLDER [w01]: has '...' or [...]"
+  ]
+}

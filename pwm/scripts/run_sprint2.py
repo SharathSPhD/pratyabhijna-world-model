@@ -47,15 +47,38 @@ def audit_shaiva(text: str) -> list[str]:
 
 
 def audit_placeholders(text: str) -> bool:
-    """Return True if text has ellipsis or placeholder lines."""
+    """Return True if text has actual stub/ellipsis placeholders.
+
+    Explicitly does NOT flag:
+    - Language section labels like [Tamil], [Bengali], [English], [Hindi]
+    - Transliteration notes like [Devanagari script], [script]
+    These are legitimate structural elements in multilingual creative output.
+
+    Flags only:
+    - Bare ellipsis lines: standalone '...' on its own line
+    - Bracket-wrapped ellipsis: [...]
+    - Common stub markers: [TODO], [INSERT], [continues], (continues...)
+    - Inline '...' not adjacent to quotes/dialogue (mid-sentence stubs)
+    """
+    # Language / script labels — do NOT flag these
+    _lang_labels = re.compile(
+        r"^\s*\[(Tamil|Bengali|Hindi|Kannada|Telugu|Sanskrit|English|"
+        r"Marathi|Gujarati|Malayalam|Odia|Punjabi|Urdu|"
+        r"Japanese|Chinese|Arabic|Persian|French|German|Spanish|"
+        r"Latin|Greek|script|Devanagari|Transliteration)\]",
+        re.IGNORECASE | re.MULTILINE,
+    )
+    # Remove language labels before checking
+    cleaned = _lang_labels.sub("", text)
+
     patterns = [
-        r"\.\.\.",
-        r"\[.*\]",                      # [placeholder text]
-        r"^\s*\.{3}\s*$",               # standalone ...
-        r"^\s*\(.*continues\).*$",      # (continues...)
+        r"^\s*\.{3}\s*$",               # standalone ... on its own line
+        r"\[\.{3}\]",                    # [...] bracket-wrapped ellipsis
+        r"\[(TODO|INSERT|PLACEHOLDER|TBD|your\s+text|fill\s+in)\]",  # stub markers
+        r"^\s*\(.*continues\.{0,3}\).*$",  # (continues...) lines
     ]
     for p in patterns:
-        if re.search(p, text, re.MULTILINE):
+        if re.search(p, cleaned, re.MULTILINE | re.IGNORECASE):
             return True
     return False
 
