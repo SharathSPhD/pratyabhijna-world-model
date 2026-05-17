@@ -1,0 +1,57 @@
+{
+  "phase": 4,
+  "title": "Production Integration — Trained Checkpoint + VimarsaBridgeV2 Training",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "branch": "phase-4/checkpoint-integration",
+  "sprints": {
+    "S12": {
+      "title": "Checkpoint Integration — WM + EFEActor + CittaStore from trained weights",
+      "gate_pass": true,
+      "tests_pass": 5,
+      "efe_net0_norm_before": 1.0,
+      "efe_net0_norm_after": 32.21,
+      "citta_n_levels": 3
+    },
+    "S13": {
+      "title": "VimarsaBridgeV2 Training on WM (h_t, next_token) pairs",
+      "gate_pass": true,
+      "tests_pass": 4,
+      "initial_loss": 11.7175,
+      "final_loss": 3.3709,
+      "loss_reduction_pct": 71.2,
+      "kl_div_pass": true
+    }
+  },
+  "regression": {
+    "S9": 6,
+    "S10": 7,
+    "S11": 7,
+    "S12": 5,
+    "S13": 4,
+    "total": 29,
+    "passed": 29
+  },
+  "system_state": {
+    "wm": "Trained 1M steps (multilingual fine-tuned WM, base EFE+Citta)",
+    "efe_actor": "Trained 1M steps — preferences learned from corpus",
+    "citta_store": "Trained 1M steps, n_levels=3",
+    "vimarsa_bridge_v2": "Trained 2000 steps, loss -71.2%, checkpoint at checkpoints/vimarsa_bridge_v2.pt",
+    "llm": "Nemotron 120B GGUF (models/nemotron-120b.gguf, symlink to Ollama blob)"
+  },
+  "api": {
+    "v1_generate": "Uses load_trained_components() — all modules from trained checkpoint",
+    "v1_health": "Returns CUDA/llama/bridge status",
+    "sse_contract2": "Verified — vfe/efe_score forbidden keys not in payloads"
+  },
+  "contracts": {
+    "contract1_pancakrtya_invariant": true,
+    "contract2_layer_boundary": true,
+    "contract3_wm_primary": true
+  },
+  "next": {
+    "S14": "EAGLE3 speculative decoding — reduce first-token latency",
+    "S15": "LiveViz WebSocket — dual-mode (SSE + WebSocket) for neo-fm-web integration",
+    "S16": "End-to-end demo: neo-fm-web.vercel.app calling /v1/generate"
+  }
+}
