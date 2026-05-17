@@ -100,7 +100,7 @@ def test_citta_store_recall_changes_with_stored():
     r_filled = store.recall(query, mode="episodic")
 
     # Recall should change after storing
-    diff = float((r_filled - r_empty).norm())
+    diff = float((r_filled - r_empty).norm().detach())
     # If the blend gate is zero-init, recalled ≈ query — but recalled from bank changes
     # At minimum, the bank retrieve is non-trivial. Just check finite and non-NaN.
     assert torch.isfinite(r_filled).all(), "Recall contains NaN/Inf after store"
