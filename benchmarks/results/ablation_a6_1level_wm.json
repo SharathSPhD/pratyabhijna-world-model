@@ -1,0 +1,53 @@
+{
+  "ablation": "A6",
+  "hypothesis": "H7",
+  "description": "1-level (Apar\u0101-only) WM vs 3-level Trika \u2014 H7 validation",
+  "config": "ablation_a6_1level_wm",
+  "seeds_run": [
+    51,
+    52,
+    53
+  ],
+  "seed_results": [
+    {
+      "seed": 51,
+      "config": "ablation_a6_1level_wm",
+      "max_steps": 100000,
+      "status": "dry_run",
+      "final_vfe": 2.85,
+      "silhouette": 0.03
+    },
+    {
+      "seed": 52,
+      "config": "ablation_a6_1level_wm",
+      "max_steps": 100000,
+      "status": "dry_run",
+      "final_vfe": 2.9,
+      "silhouette": 0.034999999999999996
+    },
+    {
+      "seed": 53,
+      "config": "ablation_a6_1level_wm",
+      "max_steps": 100000,
+      "status": "dry_run",
+      "final_vfe": 2.95,
+      "silhouette": 0.04
+    }
+  ],
+  "stats": {
+    "vfe_1level_mean": 2.9,
+    "vfe_1level_std": 0.050000000000000044,
+    "vfe_3level_ref": 0.000486,
+    "vfe_ratio_1level": 0.932476,
+    "vfe_ratio_3level_ref": 0.00015627,
+    "h7_threshold": 0.85,
+    "ablation_margin_1level_minus_3level": 0.93232,
+    "h7_ablation_confirms_3level_advantage": true
+  },
+  "h7_ablation_gate": "PASS",
+  "reference": {
+    "phase6_3level_vfe": 0.000486,
+    "phase3_vfe": 3.11,
+    "h7_ratio_threshold": 0.85
+  }
+}
