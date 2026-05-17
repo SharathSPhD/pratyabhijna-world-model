@@ -54,7 +54,8 @@ def _make_mocks():
             return None  # None is valid (no bias)
 
     class MockLLM:
-        def stream(self, system, user, logits_processor, max_tokens, temperature, top_p):
+        def stream(self, system, user, logits_processor, max_tokens, temperature, top_p,
+                   **kwargs):   # **kwargs accepts think_prefill (ADR-002) and future args
             acts_called.append("kriya")
             yield "moon rises\n"
 

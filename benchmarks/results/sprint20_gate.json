@@ -1,0 +1,32 @@
+{
+  "sprint": 20,
+  "title": "Pipeline E2E wiring — WMReasoningTrace through PancakrtyaLoopV2 and API",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "tests": {
+    "test_loop_passes_think_prefill_when_domain_set": "PASS",
+    "test_loop_no_think_prefill_without_domain": "PASS",
+    "test_loop_think_prefill_is_assistant_role": "PASS",
+    "test_loop_think_prefill_has_think_tags": "PASS",
+    "test_loop_prefill_contains_domain_label": "PASS",
+    "test_loop_prefill_camatk_score_present": "PASS",
+    "test_loop_all_events_still_fire": "PASS",
+    "test_loop_domain_in_config_propagates_api": "PASS",
+    "test_loop_ws_domain_propagates_api": "PASS"
+  },
+  "total_tests_s20": 9,
+  "passed_s20": 9,
+  "cumulative_tests_phase7": 118,
+  "cumulative_passed": 118,
+  "implementation": {
+    "pancakrtya_loop_v2": {
+      "change": "LoopConfig.domain field added; run_stanza() builds WMReasoningTrace.render_as_assistant_prefill() between Acts 5 and 6; passed as think_prefill to llm.stream()",
+      "fallback": "If WMReasoningTrace import fails or render() raises, think_prefill=None — llm.stream() proceeds without prefill (Contract 3 preserved)"
+    },
+    "api_main": {
+      "sse_path": "_event_stream LoopConfig: domain=req.domain",
+      "ws_path": "ws_generate LoopConfig: domain=domain"
+    },
+    "mock_fix": "test_sprint9_pancakrtya_sse.py MockLLM.stream() updated with **kwargs to accept think_prefill"
+  }
+}
