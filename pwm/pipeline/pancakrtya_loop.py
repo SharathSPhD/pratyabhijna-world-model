@@ -33,6 +33,16 @@ import time
 import torch
 from torch import Tensor
 
+# Sprint 5: ISO 15919 transliteration — available as a post-processing step
+# on any narration string produced by the kriyā act.
+_translit_fn = None
+_TRANSLIT_AVAILABLE = False
+try:
+    from pwm.generation.transliterate import transliterate_text as _translit_fn  # type: ignore[assignment]
+    _TRANSLIT_AVAILABLE = True
+except ImportError:
+    pass
+
 
 @dataclass
 class LoopState:
@@ -264,3 +274,45 @@ class PancakrtyaLoop:
         device = state.h.device
         batch_size = state.h.shape[0]
         return self.init(batch_size, device)
+
+    @staticmethod
+    def transliterate_narration(narration: str) -> dict[str, Any]:
+        """
+        Sprint 5 — kriyā post-processing: ISO 15919 romanisation of narration.
+
+        Sanskrit concept (CLAUDE.md §9):
+          Vimarśa (ĪPK 1.5.11) — the reflexive cognition that makes the inner
+          act legible. Transliteration renders Indic-script narrations into
+          IAST so they can be included in LaTeX paper figures directly.
+
+        Usage:
+            result = loop.step(state, obs, action)
+            translit = PancakrtyaLoop.transliterate_narration(result[1]["narration"])
+            # translit["iast"] — romanised text for the paper
+
+        Args:
+            narration: The narration string emitted by the kriyā act (may be
+                       Devanāgarī, Kannada, Tamil, Telugu, Bengali, or Latin).
+
+        Returns:
+            dict with keys: iast, script, has_indic, mixed, latex_annotation.
+            If transliteration is unavailable, returns {"iast": narration,
+            "script": "unknown", "has_indic": False, ...}.
+        """
+        if not _TRANSLIT_AVAILABLE or not narration.strip():
+            return {
+                "iast": narration,
+                "script": "unknown",
+                "has_indic": False,
+                "mixed": False,
+                "latex_annotation": narration,
+            }
+
+        result = _translit_fn(narration)  # type: ignore[misc]
+        return {
+            "iast": result.iast,
+            "script": result.script,
+            "has_indic": result.has_indic,
+            "mixed": result.mixed_language,
+            "latex_annotation": result.latex_annotation(),
+        }

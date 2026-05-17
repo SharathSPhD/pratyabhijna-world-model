@@ -28,6 +28,7 @@ import torch
 from pwm.generation.domain_metadata import CreativeMetadata, Domain, WMStateDecoder
 from pwm.generation.creative_specs import CreativeSpec
 from pwm.generation.music_notation import MusicNotation, annotate as annotate_music
+from pwm.generation.transliterate import annotate_output as add_transliteration  # Sprint 5
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -286,7 +287,7 @@ def generate_one(spec: CreativeSpec, wm: Any, decoder: WMStateDecoder,
     # 5. Score
     scores = score_camatk(text, meta, spec.domain)
 
-    return {
+    result = {
         "id": spec.id,
         "title": spec.title,
         "language": spec.language,
@@ -306,6 +307,9 @@ def generate_one(spec: CreativeSpec, wm: Any, decoder: WMStateDecoder,
         "model": MODEL,
         "checkpoint": str(CHECKPOINT),
     }
+    # Sprint 5: ISO 15919 transliteration for non-Latin scripts
+    add_transliteration(result)
+    return result
 
 
 def run_all_specs(specs: list[CreativeSpec],
