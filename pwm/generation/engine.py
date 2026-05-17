@@ -36,6 +36,9 @@ from pwm.generation.lora_adapters import make_lora_bank  # Sprint 6
 # llama-server fallback remains at :8080 if Ollama is unavailable.
 LLAMA_SERVER_URL = "http://localhost:11434"
 OLLAMA_MODEL_NAME = "nemotron-3-super:120b"
+# S18 cascade: fast intermediary model for TTFT <5s while 120B reasons.
+# Set to None to disable cascade (research/high-quality mode uses 120B directly).
+CASCADE_MODEL_NAME = "nemotron-mini:4b"
 LLAMA_MODEL_PATH = "/home/sharaths/projects/pwm-phase3/models/nemotron-120b.gguf"
 CHECKPOINT  = Path("/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt")
 # Use multilingual fine-tuned checkpoint if available
@@ -245,8 +248,14 @@ def warmup_wm_on_text(wm: Any, seed_text: str, steps: int = 60,
 
 # ─── LLM Generation ─────────────────────────────────────────────────────────
 
-def get_llm_backend() -> Any:
-    """Return LlamaCppBackend singleton (lazy-initialised)."""
+def get_llm_backend(cascade: bool = True) -> Any:
+    """Return LlamaCppBackend singleton (lazy-initialised).
+
+    Args:
+        cascade: When True (default), sets cascade_model_name so stream_cascade()
+                 is available for TTFT <5s. Set False for research/high-quality mode
+                 where the 120B model is used exclusively (no fast-model phase).
+    """
     global _LLAMA_BACKEND
     if _LLAMA_BACKEND is None:
         from pwm.generation.llama_backend import LlamaCppBackend
@@ -256,6 +265,7 @@ def get_llm_backend() -> Any:
             n_ctx=4096,
             server_url=LLAMA_SERVER_URL,
             model_name=OLLAMA_MODEL_NAME,
+            cascade_model_name=CASCADE_MODEL_NAME if cascade else None,
         )
     return _LLAMA_BACKEND
 
