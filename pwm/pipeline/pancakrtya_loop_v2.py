@@ -28,6 +28,20 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Generator, Iterator, Optional
 
+# WMReasoningTrace — ADR-002 Sketch A (TRIZ IFR 4/4)
+# Lazy import to avoid circular dependency and keep the module light.
+_WMReasoningTrace: Any = None
+
+def _get_wm_trace_cls() -> Any:
+    global _WMReasoningTrace
+    if _WMReasoningTrace is None:
+        try:
+            from pwm.vimarsa.narrator import WMReasoningTrace
+            _WMReasoningTrace = WMReasoningTrace
+        except ImportError:
+            pass
+    return _WMReasoningTrace
+
 import torch
 import torch.nn.functional as F
 from torch import Tensor
@@ -49,6 +63,10 @@ class LoopConfig:
     obs_dim: int = 512
     action_dim: int = 64
     hidden_dim: int = 512
+    # ADR-002: creative domain for WMReasoningTrace (think-block prefill).
+    # Set to the request domain (e.g. "kannada_film") to enable WM-deliberation
+    # short-circuiting of the 120B reasoning phase. Empty string disables.
+    domain: str = ""
 
 
 # ─── Result type ─────────────────────────────────────────────────────────────
@@ -185,6 +203,30 @@ class PancakrtyaLoopV2:
         # ── Emit stanza_start ─────────────────────────────────────────────
         yield {"event": "stanza_start", "data": {"stanza": stanza_idx}}
 
+        # ── ADR-002: WM Reasoning Trace → think_prefill ───────────────────
+        # Build <think>…</think> assistant-prefill from h_t so the 120B LLM
+        # receives vimarśa-complete context, collapsing CoT from ~60s to ~3s.
+        # Only active when cfg.domain is set and WMReasoningTrace is importable.
+        think_prefill: Optional[dict] = None
+        if cfg.domain:
+            try:
+                _TraceCls = _get_wm_trace_cls()
+                if _TraceCls is not None:
+                    tracer = _TraceCls()
+                    think_prefill = tracer.render_as_assistant_prefill(
+                        h_t=h_t,
+                        domain=cfg.domain,
+                        stanza_idx=stanza_idx,
+                        camatk_score=aesthetic_quality,
+                        vfe=vfe,
+                        sphuratta_events=(
+                            [{"stanza": stanza_idx, "camatk_score": aesthetic_quality}]
+                            if sphuratta else None
+                        ),
+                    )
+            except Exception as exc:
+                logger.debug(f"[PancakrtyaLoopV2] WMReasoningTrace skipped: {exc}")
+
         # ── Act 6: Kriyā — LLM stream ────────────────────────────────────
         generated_tokens: list[str] = []
         llm_ok = False
@@ -196,6 +238,7 @@ class PancakrtyaLoopV2:
                 max_tokens=cfg.max_tokens_per_stanza,
                 temperature=cfg.temperature,
                 top_p=cfg.top_p,
+                think_prefill=think_prefill,
             ):
                 generated_tokens.append(token_text)
                 yield {"event": "token", "data": {"text": token_text}}

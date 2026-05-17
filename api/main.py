@@ -855,6 +855,7 @@ async def generate_v1(req: V1GenerateRequest) -> StreamingResponse:
             max_tokens_per_stanza=256,
             temperature=0.88,
             top_p=0.92,
+            domain=req.domain,   # ADR-002: enables WMReasoningTrace think-block
         )
         loop = PancakrtyaLoopV2(wm, efe, citta, bridge, llm, cfg)
 
@@ -1019,7 +1020,8 @@ async def ws_generate(websocket) -> None:
     obs_list = [h.unsqueeze(0)] * n_stanzas
 
     cfg = LoopConfig(n_stanzas=n_stanzas, device=str(DEVICE),
-                     max_tokens_per_stanza=256, temperature=0.88, top_p=0.92)
+                     max_tokens_per_stanza=256, temperature=0.88, top_p=0.92,
+                     domain=domain)   # ADR-002: WMReasoningTrace think-block
     loop = PancakrtyaLoopV2(state.wm, state.efe, state.citta, state.bridge,
                              get_llm_backend(), cfg)
 
