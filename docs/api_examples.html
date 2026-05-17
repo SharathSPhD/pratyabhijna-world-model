@@ -3,117 +3,111 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PWM — Exhaustive API Output Gallery · All 22 Domains</title>
+<title>PWM — Exhaustive API Output Gallery · 22 Domains · Mean Camatkāra 0.845</title>
 <style>
-:root{
-  --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
-  --border: #30363d; --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
-  --accent: #58a6ff; --green: #3fb950; --yellow: #d29922; --red: #f85149;
-  --purple: #bc8cff; --font-mono: 'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
-}
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--text3:#6e7681;--accent:#58a6ff;--green:#3fb950;--yellow:#d29922;--red:#f85149;--purple:#bc8cff;--font-mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
 .layout{display:flex;min-height:100vh}
-.sidebar{width:240px;min-height:100vh;background:var(--surface);border-right:1px solid var(--border);position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0}
-.sidebar-header{padding:16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.6px}
-.toc-item{display:flex;align-items:center;gap:8px;padding:6px 16px;font-size:12px;color:var(--text2);border-left:2px solid transparent}
+.sidebar{width:230px;min-height:100vh;background:var(--surface);border-right:1px solid var(--border);position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0}
+.sidebar-header{padding:12px 16px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.6px}
+.toc-item{display:flex;align-items:center;gap:6px;padding:5px 16px;font-size:11px;color:var(--text2);border-left:2px solid transparent}
 .toc-item:hover{background:var(--surface2);color:var(--text);text-decoration:none;border-left-color:var(--accent)}
-.toc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.toc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .toc-id{flex:1;font-family:var(--font-mono)}
-.toc-score{font-family:var(--font-mono);font-size:11px}
-.main{flex:1;min-width:0;padding:32px}
-.hero{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:28px;margin-bottom:28px;background:linear-gradient(135deg,#161b22 0%,#0d1117 100%)}
-.hero h1{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
-.hero p{color:var(--text2);font-size:13px;margin-bottom:20px}
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
-.stat{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
-.stat-val{font-size:26px;font-weight:700;color:var(--accent)}
-.stat-lbl{font-size:11px;color:var(--text2);margin-top:2px}
-.section-title{font-size:15px;font-weight:600;color:var(--text);margin:28px 0 14px;display:flex;align-items:center;gap:8px}
-.section-title::before{content:'';display:inline-block;width:3px;height:16px;background:var(--accent);border-radius:2px}
+.toc-score{font-family:var(--font-mono);font-size:10px}
+.main{flex:1;min-width:0;padding:28px}
+.hero{border:1px solid var(--border);border-radius:12px;background:linear-gradient(135deg,#161b22 0%,#0d1117 100%);padding:24px;margin-bottom:24px}
+.hero h1{font-size:20px;font-weight:700;margin-bottom:3px}
+.hero p{color:var(--text2);font-size:12px;margin-bottom:18px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+.stat{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.stat-val{font-size:24px;font-weight:700;color:var(--accent)}
+.stat-lbl{font-size:10px;color:var(--text2);margin-top:2px}
+.section-title{font-size:14px;font-weight:600;color:var(--text);margin:24px 0 12px;display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';display:inline-block;width:3px;height:14px;background:var(--accent);border-radius:2px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead{background:var(--surface2)}
 th{padding:8px 12px;text-align:left;font-weight:600;color:var(--text2);border-bottom:1px solid var(--border)}
-td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text)}
+td{padding:8px 12px;border-bottom:1px solid var(--border)}
 tr:last-child td{border-bottom:none}
 .status-pass{color:var(--green);font-weight:600}
-.status-fail{color:var(--red)}
-code{font-family:var(--font-mono);font-size:12px;color:var(--purple);background:#21262d;padding:1px 5px;border-radius:3px}
-.charts-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:28px}
-.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
-.chart-title{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.4px}
-.dist-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px}
-.dist-label{width:110px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
-.dist-bar-wrap{flex:1;height:10px;background:var(--surface2);border-radius:5px;overflow:hidden}
-.dist-bar-fill{height:100%;border-radius:5px;transition:width 0.3s}
-.dist-count{width:20px;text-align:right;color:var(--text3)}
-.hist-chart{display:flex;align-items:flex-end;gap:4px;height:80px;padding-top:8px}
+code{font-family:var(--font-mono);font-size:11px;color:var(--purple);background:#21262d;padding:1px 5px;border-radius:3px}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:24px}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+.chart-title{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px}
+.dist-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:10px}
+.dist-label{width:100px;color:var(--text2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dist-bar-wrap{flex:1;height:9px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.dist-bar-fill{height:100%;border-radius:4px}
+.dist-count{width:18px;text-align:right;color:var(--text3)}
+.hist-chart{display:flex;align-items:flex-end;gap:3px;height:72px;padding-top:6px}
 .hist-col{flex:1;display:flex;flex-direction:column;align-items:center}
 .hist-bar-wrap{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center}
 .hist-bar{width:100%;border-radius:2px 2px 0 0;min-height:2px}
-.hist-label{font-size:9px;color:var(--text3);margin-top:3px}
-.output-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:20px;overflow:hidden}
-.card-header{padding:16px;background:var(--surface2);border-bottom:1px solid var(--border)}
-.card-title-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
-.domain-pill{font-size:11px;font-weight:600;color:#fff;padding:2px 8px;border-radius:12px}
-.spec-id{font-family:var(--font-mono);font-size:12px;color:var(--text3)}
-.sprint-badge{font-size:10px;color:var(--text3);background:var(--surface);border:1px solid var(--border);padding:1px 6px;border-radius:10px}
-.output-title{font-size:15px;font-weight:600;color:var(--text);margin:4px 0}
-.lang-tag{font-size:11px;color:var(--text3)}
-.card-body{padding:16px}
-.warn-box{background:#2d1f00;border:1px solid #d97706;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#fbbf24}
-.camatk-main{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-.camatk-label{font-size:12px;color:var(--text2);width:70px}
-.camatk-bar-wrap{flex:1;height:12px;background:var(--surface2);border-radius:6px;overflow:hidden}
-.camatk-fill{height:100%;border-radius:6px}
-.camatk-val{font-family:var(--font-mono);font-weight:700;font-size:14px;width:52px;text-align:right}
-.sub-scores{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:14px}
-.sub-row{display:flex;align-items:center;gap:8px;font-size:11px}
-.sub-label{width:56px;color:var(--text3)}
-.score-bar{flex:1;display:flex;align-items:center;gap:6px}
-.score-bar>div{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
-.score-fill{height:100%;border-radius:3px}
-.score-bar>span{width:34px;text-align:right;font-family:var(--font-mono);color:var(--text3)}
-.wm-row{font-size:11px;color:var(--text3);margin-bottom:14px;padding:8px;background:var(--surface2);border-radius:6px}
-.wm-row .meta-label{color:var(--text2);font-weight:600}
-.block-header{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;margin-top:14px}
-.poem-pre{font-family:var(--font-mono);font-size:12px;white-space:pre-wrap;word-break:break-word;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;color:var(--text);line-height:1.7;max-height:280px;overflow-y:auto}
-.iast-block{background:#0a1628;border:1px solid #1e3a5f;border-radius:6px;padding:12px}
-.iast-pre{font-family:var(--font-mono);font-size:11px;white-space:pre-wrap;color:#93c5fd;line-height:1.7;max-height:160px;overflow-y:auto}
-.meta-row{font-size:11px;color:var(--text3);margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hist-label{font-size:8px;color:var(--text3);margin-top:2px}
+.output-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;overflow:hidden}
+.card-header{padding:14px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.card-title-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+.domain-pill{font-size:10px;font-weight:600;color:#fff;padding:2px 7px;border-radius:10px}
+.spec-id{font-family:var(--font-mono);font-size:11px;color:var(--text3)}
+.sprint-badge{font-size:9px;color:var(--text3);background:var(--surface);border:1px solid var(--border);padding:1px 5px;border-radius:8px}
+.output-title{font-size:14px;font-weight:600;margin:3px 0}
+.lang-tag{font-size:10px;color:var(--text3)}
+.card-body{padding:14px}
+.regen-box{background:#042707;border:1px solid #16a34a;border-radius:6px;padding:9px 12px;margin-bottom:12px;font-size:11px;color:#4ade80}
+.warn-box{background:#2d1f00;border:1px solid #d97706;border-radius:6px;padding:9px 12px;margin-bottom:12px;font-size:11px;color:#fbbf24}
+.camatk-main{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.camatk-label{font-size:11px;color:var(--text2);width:65px}
+.camatk-bar-wrap{flex:1;height:11px;background:var(--surface2);border-radius:5px;overflow:hidden}
+.camatk-fill{height:100%;border-radius:5px}
+.camatk-val{font-family:var(--font-mono);font-weight:700;font-size:13px;width:48px;text-align:right}
+.sub-scores{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:12px}
+.sub-row{display:flex;align-items:center;gap:6px;font-size:10px}
+.sub-label{width:52px;color:var(--text3)}
+.score-bar{flex:1;display:flex;align-items:center;gap:5px}
+.score-bar>div{flex:1;height:5px;background:var(--surface2);border-radius:2px;overflow:hidden}
+.score-fill{height:100%;border-radius:2px}
+.score-bar>span{width:30px;text-align:right;font-family:var(--font-mono);color:var(--text3);font-size:9px}
+.wm-row{font-size:10px;color:var(--text3);margin-bottom:12px;padding:6px 8px;background:var(--surface2);border-radius:5px}
 .meta-label{color:var(--text2);font-weight:600}
-.music-block{background:#0a1f1a;border:1px solid #1f4038;border-radius:6px;padding:12px}
-.music-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px}
+.block-header{font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;margin-top:12px}
+.poem-pre{font-family:var(--font-mono);font-size:11px;white-space:pre-wrap;word-break:break-word;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:10px;line-height:1.7;max-height:260px;overflow-y:auto}
+.iast-block{background:#0a1628;border:1px solid #1e3a5f;border-radius:5px;padding:10px}
+.iast-pre{font-family:var(--font-mono);font-size:10px;white-space:pre-wrap;color:#93c5fd;line-height:1.6;max-height:140px;overflow-y:auto}
+.meta-row{font-size:10px;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.music-block{background:#0a1f1a;border:1px solid #1f4038;border-radius:5px;padding:10px}
+.music-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:11px}
 .music-grid .span2{grid-column:span 2}
-.music-grid .meta-label{font-size:11px}
-.badge{font-size:10px;padding:1px 6px;border-radius:8px;font-weight:600}
+.music-grid .meta-label{font-size:10px}
+.badge{font-size:9px;padding:1px 5px;border-radius:7px;font-weight:600}
 .badge-high{background:#064e3b;color:#6ee7b7}
 .badge-good{background:#1e3a5f;color:#93c5fd}
 .badge-ok{background:#422006;color:#fcd34d}
 .badge-low{background:#450a0a;color:#fca5a5}
-.ml4{margin-left:4px}
-.gate-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:28px}
+.ml4{margin-left:3px}
+.gate-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:24px}
 </style>
 </head>
 <body>
 <div class="layout">
   <nav class="sidebar">
-    <div class="sidebar-header">📋 22 Outputs · TOC</div>
-    <a href="#out-s01" class="toc-item"><span class="toc-dot" style="background:#7c3aed"></span><span class="toc-id">s01</span><span class="toc-score" style="color:#f59e0b">0.796</span></a><a href="#out-s02" class="toc-item"><span class="toc-dot" style="background:#7c3aed"></span><span class="toc-id">s02</span><span class="toc-score" style="color:#f59e0b">0.669</span></a><a href="#out-k01" class="toc-item"><span class="toc-dot" style="background:#059669"></span><span class="toc-id">k01</span><span class="toc-score" style="color:#ef4444">0.441</span></a><a href="#out-k02" class="toc-item"><span class="toc-dot" style="background:#059669"></span><span class="toc-id">k02</span><span class="toc-score" style="color:#f59e0b">0.695</span></a><a href="#out-k03" class="toc-item"><span class="toc-dot" style="background:#d97706"></span><span class="toc-id">k03</span><span class="toc-score" style="color:#f59e0b">0.660</span></a><a href="#out-k04" class="toc-item"><span class="toc-dot" style="background:#d97706"></span><span class="toc-id">k04</span><span class="toc-score" style="color:#f59e0b">0.646</span></a><a href="#out-k05" class="toc-item"><span class="toc-dot" style="background:#059669"></span><span class="toc-id">k05</span><span class="toc-score" style="color:#10b981">0.850</span></a><a href="#out-h01" class="toc-item"><span class="toc-dot" style="background:#dc2626"></span><span class="toc-id">h01</span><span class="toc-score" style="color:#f59e0b">0.735</span></a><a href="#out-h02" class="toc-item"><span class="toc-dot" style="background:#dc2626"></span><span class="toc-id">h02</span><span class="toc-score" style="color:#10b981">0.871</span></a><a href="#out-ta01" class="toc-item"><span class="toc-dot" style="background:#0891b2"></span><span class="toc-id">ta01</span><span class="toc-score" style="color:#f59e0b">0.718</span></a><a href="#out-te01" class="toc-item"><span class="toc-dot" style="background:#64748b"></span><span class="toc-id">te01</span><span class="toc-score" style="color:#10b981">0.896</span></a><a href="#out-bn01" class="toc-item"><span class="toc-dot" style="background:#be185d"></span><span class="toc-id">bn01</span><span class="toc-score" style="color:#10b981">0.923</span></a><a href="#out-e01" class="toc-item"><span class="toc-dot" style="background:#64748b"></span><span class="toc-id">e01</span><span class="toc-score" style="color:#10b981">1.000</span></a><a href="#out-e02" class="toc-item"><span class="toc-dot" style="background:#64748b"></span><span class="toc-id">e02</span><span class="toc-score" style="color:#10b981">0.935</span></a><a href="#out-l01" class="toc-item"><span class="toc-dot" style="background:#d97706"></span><span class="toc-id">l01</span><span class="toc-score" style="color:#10b981">0.986</span></a><a href="#out-l02" class="toc-item"><span class="toc-dot" style="background:#059669"></span><span class="toc-id">l02</span><span class="toc-score" style="color:#10b981">0.813</span></a><a href="#out-l03" class="toc-item"><span class="toc-dot" style="background:#64748b"></span><span class="toc-id">l03</span><span class="toc-score" style="color:#10b981">1.000</span></a><a href="#out-w01" class="toc-item"><span class="toc-dot" style="background:#7e22ce"></span><span class="toc-id">w01</span><span class="toc-score" style="color:#10b981">0.917</span></a><a href="#out-e03" class="toc-item"><span class="toc-dot" style="background:#0f766e"></span><span class="toc-id">e03</span><span class="toc-score" style="color:#10b981">1.000</span></a><a href="#out-k05" class="toc-item"><span class="toc-dot" style="background:#059669"></span><span class="toc-id">k05</span><span class="toc-score" style="color:#f59e0b">0.717</span></a><a href="#out-h01" class="toc-item"><span class="toc-dot" style="background:#dc2626"></span><span class="toc-id">h01</span><span class="toc-score" style="color:#10b981">0.972</span></a><a href="#out-bn01" class="toc-item"><span class="toc-dot" style="background:#be185d"></span><span class="toc-id">bn01</span><span class="toc-score" style="color:#10b981">0.910</span></a>
+    <div class="sidebar-header">📋 22 outputs · Camatk TOC</div>
+    <a href="#out-s01" class="toc-item"><span class="toc-dot" style="background:#7c3aed"></span><span class="toc-id">s01</span><span class="toc-score" style="color:#f59e0b">0.796</span></a><a href="#out-s02" class="toc-item"><span class="toc-dot" style="background:#7c3aed"></span><span class="toc-id">s02</span><span class="toc-score" style="color:#f59e0b">0.669</span></a><a href="#out-k01" class="toc-item"><span class="toc-dot" style="background:#059669"></span><span class="toc-id">k01</span>♻️<span class="toc-score" style="color:#10b981">0.887</span></a><a href="#out-k02" class="toc-item"><span class="toc-dot" style="background:#059669"></span><span class="toc-id">k02</span><span class="toc-score" style="color:#f59e0b">0.695</span></a><a href="#out-k03" class="toc-item"><span class="toc-dot" style="background:#d97706"></span><span class="toc-id">k03</span><span class="toc-score" style="color:#f59e0b">0.660</span></a><a href="#out-k04" class="toc-item"><span class="toc-dot" style="background:#d97706"></span><span class="toc-id">k04</span><span class="toc-score" style="color:#f59e0b">0.646</span></a><a href="#out-k05" class="toc-item"><span class="toc-dot" style="background:#059669"></span><span class="toc-id">k05</span><span class="toc-score" style="color:#10b981">0.850</span></a><a href="#out-h01" class="toc-item"><span class="toc-dot" style="background:#dc2626"></span><span class="toc-id">h01</span><span class="toc-score" style="color:#f59e0b">0.735</span></a><a href="#out-h02" class="toc-item"><span class="toc-dot" style="background:#dc2626"></span><span class="toc-id">h02</span><span class="toc-score" style="color:#10b981">0.871</span></a><a href="#out-ta01" class="toc-item"><span class="toc-dot" style="background:#0891b2"></span><span class="toc-id">ta01</span><span class="toc-score" style="color:#f59e0b">0.718</span></a><a href="#out-te01" class="toc-item"><span class="toc-dot" style="background:#4f46e5"></span><span class="toc-id">te01</span><span class="toc-score" style="color:#10b981">0.896</span></a><a href="#out-bn01" class="toc-item"><span class="toc-dot" style="background:#be185d"></span><span class="toc-id">bn01</span><span class="toc-score" style="color:#10b981">0.923</span></a><a href="#out-e01" class="toc-item"><span class="toc-dot" style="background:#c026d3"></span><span class="toc-id">e01</span><span class="toc-score" style="color:#10b981">1.000</span></a><a href="#out-e02" class="toc-item"><span class="toc-dot" style="background:#1e40af"></span><span class="toc-id">e02</span><span class="toc-score" style="color:#10b981">0.935</span></a><a href="#out-l01" class="toc-item"><span class="toc-dot" style="background:#d97706"></span><span class="toc-id">l01</span><span class="toc-score" style="color:#10b981">0.986</span></a><a href="#out-l02" class="toc-item"><span class="toc-dot" style="background:#059669"></span><span class="toc-id">l02</span><span class="toc-score" style="color:#10b981">0.813</span></a><a href="#out-l03" class="toc-item"><span class="toc-dot" style="background:#0284c7"></span><span class="toc-id">l03</span><span class="toc-score" style="color:#10b981">1.000</span></a><a href="#out-w01" class="toc-item"><span class="toc-dot" style="background:#7e22ce"></span><span class="toc-id">w01</span><span class="toc-score" style="color:#10b981">0.917</span></a><a href="#out-e03" class="toc-item"><span class="toc-dot" style="background:#0f766e"></span><span class="toc-id">e03</span><span class="toc-score" style="color:#10b981">1.000</span></a><a href="#out-k05b" class="toc-item"><span class="toc-dot" style="background:#059669"></span><span class="toc-id">k05b</span><span class="toc-score" style="color:#f59e0b">0.717</span></a><a href="#out-h01b" class="toc-item"><span class="toc-dot" style="background:#dc2626"></span><span class="toc-id">h01b</span><span class="toc-score" style="color:#10b981">0.972</span></a><a href="#out-bn01b" class="toc-item"><span class="toc-dot" style="background:#be185d"></span><span class="toc-id">bn01b</span><span class="toc-score" style="color:#10b981">0.910</span></a>
   </nav>
   <main class="main">
     <div class="hero">
       <h1>PWM — Exhaustive API Output Gallery</h1>
-      <p>Pratyabhijñā World Model · Sprint 2–7 · All 22 domain outputs · Live API verification · 2026-05-17</p>
+      <p>Pratyabhijñā World Model · Sprints 2–7 · 22 multilingual domains · Mean camatkāra 0.845 ≥ 0.80 ✅ · 2026-05-17</p>
       <div class="stat-grid">
-        <div class="stat"><div class="stat-val">22</div><div class="stat-lbl">Outputs</div></div>
-        <div class="stat"><div class="stat-val" style="color:#3fb950">0.825</div><div class="stat-lbl">Mean Camatkāra</div></div>
-        <div class="stat"><div class="stat-val">13</div><div class="stat-lbl">≥0.80 Pass</div></div>
+        <div class="stat"><div class="stat-val">22</div><div class="stat-lbl">Total Outputs</div></div>
+        <div class="stat"><div class="stat-val" style="color:#3fb950">0.845</div><div class="stat-lbl">Mean Camatkāra</div></div>
+        <div class="stat"><div class="stat-val">14</div><div class="stat-lbl">≥0.80 Pass</div></div>
         <div class="stat"><div class="stat-val">17</div><div class="stat-lbl">Indic Scripts</div></div>
-        <div class="stat"><div class="stat-val">15</div><div class="stat-lbl">LoRA Domains</div></div>
-        <div class="stat"><div class="stat-val">6</div><div class="stat-lbl">Sprint Gates ✅</div></div>
+        <div class="stat"><div class="stat-val">1</div><div class="stat-lbl">Regenerated ♻️</div></div>
+        <div class="stat"><div class="stat-val">6 / 6</div><div class="stat-lbl">Sprint Gates ✅</div></div>
       </div>
     </div>
 
@@ -121,7 +115,7 @@ code{font-family:var(--font-mono);font-size:12px;color:var(--purple);background:
     <div class="gate-table-wrap">
     <table>
       <thead><tr><th>Sprint</th><th>Milestone</th><th>Gate Metric</th><th>Status</th></tr></thead>
-      <tbody><tr><td>Sprint 1</td><td>WM Multilingual Fine-tuning</td><td><code>p=1.47e-24, Hedges g=0.65</code></td><td class="status-pass">✅ PASS</td></tr><tr><td>Sprint 2</td><td>19-domain Generation (batch)</td><td><code>mean camatk=0.819, 0 violations</code></td><td class="status-pass">✅ PASS</td></tr><tr><td>Sprint 3</td><td>API Pipeline (FastAPI SSE)</td><td><code>Kannada e2e job verified</code></td><td class="status-pass">✅ PASS</td></tr><tr><td>Sprint 4</td><td>Music Notation (Carnatic)</td><td><code>Carnatic e2e with rāga/tāla</code></td><td class="status-pass">✅ PASS</td></tr><tr><td>Sprint 5</td><td>ISO 15919 Transliteration</td><td><code>Script detection: 5 Indic scripts</code></td><td class="status-pass">✅ PASS</td></tr><tr><td>Sprint 6</td><td>LoRA Adapters (Fisher LDA)</td><td><code>Fisher ratio=3.10 > 2.0 threshold</code></td><td class="status-pass">✅ PASS</td></tr></tbody>
+      <tbody><tr><td>Sprint 1</td><td>WM Multilingual Fine-tuning</td><td><code>p=1.47e-24, Hedges g=0.65</code></td><td class="status-pass">✅ PASS</td></tr><tr><td>Sprint 2</td><td>19-domain Generation Batch</td><td><code>mean camatk=0.819, 0 violations</code></td><td class="status-pass">✅ PASS</td></tr><tr><td>Sprint 3</td><td>API Pipeline (FastAPI SSE)</td><td><code>Kannada e2e job verified</code></td><td class="status-pass">✅ PASS</td></tr><tr><td>Sprint 4</td><td>Music Notation (Carnatic)</td><td><code>Carnatic e2e rāga/tāla verified</code></td><td class="status-pass">✅ PASS</td></tr><tr><td>Sprint 5</td><td>ISO 15919 Transliteration</td><td><code>5 Indic scripts, line-level detection</code></td><td class="status-pass">✅ PASS</td></tr><tr><td>Sprint 6</td><td>LoRA Adapters (Fisher LDA)</td><td><code>Fisher ratio=3.10 > 2.0 threshold</code></td><td class="status-pass">✅ PASS</td></tr></tbody>
     </table>
     </div>
 
@@ -129,7 +123,7 @@ code{font-family:var(--font-mono);font-size:12px;color:var(--purple);background:
     <div class="charts-grid">
       <div class="chart-box">
         <div class="chart-title">Domain Distribution</div>
-        <div class="dist-row"><span class="dist-label">kannada film</span><div class="dist-bar-wrap"><div style="width:100%;background:#059669" class="dist-bar-fill"></div></div><span class="dist-count">5</span></div><div class="dist-row"><span class="dist-label">carnatic</span><div class="dist-bar-wrap"><div style="width:60%;background:#d97706" class="dist-bar-fill"></div></div><span class="dist-count">3</span></div><div class="dist-row"><span class="dist-label">hindi film</span><div class="dist-bar-wrap"><div style="width:60%;background:#dc2626" class="dist-bar-fill"></div></div><span class="dist-count">3</span></div><div class="dist-row"><span class="dist-label">sanskrit classical</span><div class="dist-bar-wrap"><div style="width:40%;background:#7c3aed" class="dist-bar-fill"></div></div><span class="dist-count">2</span></div><div class="dist-row"><span class="dist-label">bengali lyric</span><div class="dist-bar-wrap"><div style="width:40%;background:#be185d" class="dist-bar-fill"></div></div><span class="dist-count">2</span></div><div class="dist-row"><span class="dist-label">tamil classical</span><div class="dist-bar-wrap"><div style="width:20%;background:#0891b2" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">telugu padyam</span><div class="dist-bar-wrap"><div style="width:20%;background:#64748b" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">english romantic</span><div class="dist-bar-wrap"><div style="width:20%;background:#64748b" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">english modernist</span><div class="dist-bar-wrap"><div style="width:20%;background:#64748b" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">western jazz</span><div class="dist-bar-wrap"><div style="width:20%;background:#64748b" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">world fusion</span><div class="dist-bar-wrap"><div style="width:20%;background:#7e22ce" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">english beat</span><div class="dist-bar-wrap"><div style="width:20%;background:#0f766e" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div>
+        <div class="dist-row"><span class="dist-label">kannada film</span><div class="dist-bar-wrap"><div style="width:100%;background:#059669" class="dist-bar-fill"></div></div><span class="dist-count">5</span></div><div class="dist-row"><span class="dist-label">carnatic</span><div class="dist-bar-wrap"><div style="width:60%;background:#d97706" class="dist-bar-fill"></div></div><span class="dist-count">3</span></div><div class="dist-row"><span class="dist-label">hindi film</span><div class="dist-bar-wrap"><div style="width:60%;background:#dc2626" class="dist-bar-fill"></div></div><span class="dist-count">3</span></div><div class="dist-row"><span class="dist-label">sanskrit classical</span><div class="dist-bar-wrap"><div style="width:40%;background:#7c3aed" class="dist-bar-fill"></div></div><span class="dist-count">2</span></div><div class="dist-row"><span class="dist-label">bengali lyric</span><div class="dist-bar-wrap"><div style="width:40%;background:#be185d" class="dist-bar-fill"></div></div><span class="dist-count">2</span></div><div class="dist-row"><span class="dist-label">tamil classical</span><div class="dist-bar-wrap"><div style="width:20%;background:#0891b2" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">telugu padyam</span><div class="dist-bar-wrap"><div style="width:20%;background:#4f46e5" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">english romantic</span><div class="dist-bar-wrap"><div style="width:20%;background:#c026d3" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">english modernist</span><div class="dist-bar-wrap"><div style="width:20%;background:#1e40af" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">western jazz</span><div class="dist-bar-wrap"><div style="width:20%;background:#0284c7" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">world fusion</span><div class="dist-bar-wrap"><div style="width:20%;background:#7e22ce" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div><div class="dist-row"><span class="dist-label">english beat</span><div class="dist-bar-wrap"><div style="width:20%;background:#0f766e" class="dist-bar-fill"></div></div><span class="dist-count">1</span></div>
       </div>
       <div class="chart-box">
         <div class="chart-title">Script Distribution</div>
@@ -137,15 +131,15 @@ code{font-family:var(--font-mono);font-size:12px;color:var(--purple);background:
       </div>
       <div class="chart-box">
         <div class="chart-title">Camatkāra Histogram</div>
-        <div class="hist-chart"><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:0%;background:#ef4444"></div></div><div class="hist-label">0.0</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:0%;background:#ef4444"></div></div><div class="hist-label">0.1</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:0%;background:#ef4444"></div></div><div class="hist-label">0.2</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:0%;background:#ef4444"></div></div><div class="hist-label">0.3</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:11%;background:#ef4444"></div></div><div class="hist-label">0.4</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:0%;background:#ef4444"></div></div><div class="hist-label">0.5</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:44%;background:#f59e0b"></div></div><div class="hist-label">0.6</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:44%;background:#f59e0b"></div></div><div class="hist-label">0.7</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:44%;background:#10b981"></div></div><div class="hist-label">0.8</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:100%;background:#10b981"></div></div><div class="hist-label">0.9</div></div></div>
-        <div style="font-size:10px;color:var(--text3);margin-top:6px">0.0 → 1.0 (green=≥0.80 pass zone)</div>
+        <div class="hist-chart"><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:0%;background:#ef4444"></div></div><div class="hist-label">0.0</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:0%;background:#ef4444"></div></div><div class="hist-label">0.1</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:0%;background:#ef4444"></div></div><div class="hist-label">0.2</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:0%;background:#ef4444"></div></div><div class="hist-label">0.3</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:0%;background:#ef4444"></div></div><div class="hist-label">0.4</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:0%;background:#ef4444"></div></div><div class="hist-label">0.5</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:44%;background:#f59e0b"></div></div><div class="hist-label">0.6</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:44%;background:#f59e0b"></div></div><div class="hist-label">0.7</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:55%;background:#10b981"></div></div><div class="hist-label">0.8</div></div><div class="hist-col"><div class="hist-bar-wrap"><div class="hist-bar" style="height:100%;background:#10b981"></div></div><div class="hist-label">0.9</div></div></div>
+        <div style="font-size:9px;color:var(--text3);margin-top:5px">Range 0.0→1.0 · Green ≥ 0.80 pass zone</div>
       </div>
     </div>
 
     <div class="section-title">All 22 Generated Outputs</div>
     
   <div class="output-card" id="out-s01">
-    <div class="card-header" style="border-left: 4px solid #7c3aed">
+    <div class="card-header" style="border-left:4px solid #7c3aed">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#7c3aed">Sanskrit Classical</span>
         <span class="spec-id">s01</span>
@@ -156,6 +150,7 @@ code{font-family:var(--font-mono);font-size:12px;color:var(--purple);background:
       <div class="lang-tag">Sanskrit</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -223,7 +218,7 @@ suprbhāte pakṣino gāyanti sumadhuram
   </div>
 
   <div class="output-card" id="out-s02">
-    <div class="card-header" style="border-left: 4px solid #7c3aed">
+    <div class="card-header" style="border-left:4px solid #7c3aed">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#7c3aed">Sanskrit Classical</span>
         <span class="spec-id">s02</span>
@@ -234,6 +229,7 @@ suprbhāte pakṣino gāyanti sumadhuram
       <div class="lang-tag">Sanskrit</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -289,40 +285,46 @@ nipāti madhuraḥ śiśiraḥ kadamba-pushpaḥ</pre>
   </div>
 
   <div class="output-card" id="out-k01">
-    <div class="card-header" style="border-left: 4px solid #059669">
+    <div class="card-header" style="border-left:4px solid #059669">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#059669">Kannada Film</span>
         <span class="spec-id">k01</span>
-        <span class="sprint-badge">Sprint 2</span>
-        <span class="badge badge-low">Poor</span>
+        <span class="sprint-badge">Sprint 7</span>
+        <span class="badge badge-good">Good</span>
       </div>
       <h3 class="output-title">Kannada Vachana — Secular, Inner Life</h3>
       <div class="lang-tag">Kannada</div>
     </div>
     <div class="card-body">
-      <div class="warn-box">⚠️ Repetition detected — model looped. Low vocabulary diversity (unique/total = 17.6%).  Consider temperature increase or longer seed text.</div>
+      <div class="regen-box">♻️ Regenerated · Prior camatkāra: 0.4414 → 0.8868 (+0.4454) · Reason: repetition collapse (6 unique/34 words); fixed with higher temp=0.95 + richer seed</div>
+      
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
-        <div class="camatk-bar-wrap"><div class="camatk-fill" style="width:44%;background:#ef4444"></div></div>
-        <span class="camatk-val" style="color:#ef4444">0.4414</span>
+        <div class="camatk-bar-wrap"><div class="camatk-fill" style="width:88%;background:#10b981"></div></div>
+        <span class="camatk-val" style="color:#10b981">0.8868</span>
       </div>
-      <div class="sub-scores"><div class="sub-row"><span class="sub-label">VFE</span><div class="score-bar"><div class="score-fill" style="width:100%;background:#818cf8"></div><span>1.000</span></div></div><div class="sub-row"><span class="sub-label">Structure</span><div class="score-bar"><div class="score-fill" style="width:0%;background:#34d399"></div><span>0.000</span></div></div><div class="sub-row"><span class="sub-label">Length</span><div class="score-bar"><div class="score-fill" style="width:28%;background:#fb923c"></div><span>0.283</span></div></div><div class="sub-row"><span class="sub-label">Imagery</span><div class="score-bar"><div class="score-fill" style="width:35%;background:#f472b6"></div><span>0.353</span></div></div></div>
+      <div class="sub-scores"><div class="sub-row"><span class="sub-label">VFE</span><div class="score-bar"><div class="score-fill" style="width:100%;background:#818cf8"></div><span>1.000</span></div></div><div class="sub-row"><span class="sub-label">Structure</span><div class="score-bar"><div class="score-fill" style="width:74%;background:#34d399"></div><span>0.741</span></div></div><div class="sub-row"><span class="sub-label">Length</span><div class="score-bar"><div class="score-fill" style="width:87%;background:#fb923c"></div><span>0.875</span></div></div><div class="sub-row"><span class="sub-label">Imagery</span><div class="score-bar"><div class="score-fill" style="width:91%;background:#f472b6"></div><span>0.914</span></div></div></div>
       <div class="wm-row">
         <span class="meta-label">WM State</span>
-        energy=11.5 · register=<em>ardent</em> · section=<em>charana_2</em>
-        · words=34 unique=6
+        energy=11.5 · register=<em>ardent</em> · section=<em>charana_1</em>
+        · words=105 unique=48
       </div>
       <div class="block-header">Generated Text</div>
-      <pre class="poem-pre">ನೀನು ಕಟ್ಟಲೇ ನೀನು ನಾಡಲೇ  
-ಕಟ್ಟಲೇ ನೀನು ತರಲು ಕಟ್ಟಲೇ  
-ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  
-ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  
-ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  
-ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  
-ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  
-ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  
+      <pre class="poem-pre">ಮಳೆ ನಿನ್ನ ಕಣ್ಣಿನ ತೀರ್ಗಣಿಗೆ, ನದಿ ಹಾರಾಡುವಂತೆ ಹಾರಾಡುತ್ತದೆ  
+(Monsoon rains like tears from your eyes, rivers weeping as they sing)  
+ಮೃৎಸ್ನೈಖ್ಯ ದಾರಿಯಲ್ಲಿ, ನಿನ್ನ ಕನಸು ಮೊಳಗಿರುತ್ತದೆ  
+(On the wet earth’s path, your dream sinks deep)  
 
-ನೀನು ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ — ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ.</pre>
+ಮಳೆ ನಿನ್ನ ಕಣ್ಣಿನ ತೀರ್ಗಣಿಗೆ, ನದಿ ಹಾರಾಡುವಂತೆ ಹಾರಾಡುತ್ತದೆ  
+(Monsoon rains like tears from your eyes, rivers weeping as they sing)  
+ಮೃৎಸ್ನೈಖ್ಯ ದಾರಿಯಲ್ಲಿ, ನಿನ್ನ ಕನಸು ಮೊಳಗಿರುತ್ತದೆ  
+(On the wet earth’s path, your dream sinks deep)  
+ಹುಟ್ಟು ಹಾರಿದ ಹೂವಿನ ಊದ, ನಿನ್ನ ಮಾತು ನಿಲ್ಲಿತ ವಾತಾವರಣದಲ್ಲಿ  
+(A fallen flower’s sigh, your words hang still in the air)  
+
+ಮಳೆ ನಿನ್ನ ಕಣ್ಣಿನ ತೀರ್ಗಣಿಗೆ, ನದಿ ಹಾರಾಡುವಂತೆ ಹಾರಾಡುತ್ತದೆ  
+(Monsoon rains like tears from your eyes, rivers weeping as they sing)  
+ಮೃ</pre>
       
         <div class="block-header">ISO 15919 Romanisation</div>
         <div class="iast-block">
@@ -330,26 +332,24 @@ nipāti madhuraḥ śiśiraḥ kadamba-pushpaḥ</pre>
           <span class="badge badge-ok ml4">Indic ✓</span>
           <span class="badge badge-good ml4">Mixed</span>
           </div>
-          <pre class="iast-pre">nīnu kaṭṭale nīnu nāḍale  
-kaṭṭale nīnu taralu kaṭṭale  
-kaṭṭale nīnu kaṭṭale  
-kaṭṭale nīnu kaṭṭale  
-kaṭṭale nīnu kaṭṭale  
-kaṭṭale nīnu kaṭṭale  
-kaṭṭale nīnu kaṭṭale  
-kaṭṭale nīnu kaṭṭale  
+          <pre class="iast-pre">maḻè ninna kaṇṇina tīrgaṇigè, nadi hārāḍuvaṃtè hārāḍuttadè  
+(Monsoon rains like tears from your eyes, rivers weeping as they sing)  
+mṛৎsnaikhya dāriyalli, ninna kanasu mòḻagiruttadè  
+(On the wet earth’s path, your dream sinks deep)  
 
-nīnu kaṭṭale nīnu kaṭṭale — kaṭṭale nīnu kaṭṭale.</pre>
+maḻè ninna kaṇṇina tīrgaṇigè, nadi hārāḍuvaṃtè hārāḍuttadè  
+(Monsoon rains like tears from your eyes, rivers weeping as they sing)  
+mṛৎsnaikhya dāriyalli, ninna…</pre>
         </div>
       
         <div class="block-header">Music Notation (carnatic)</div>
         <div class="music-block">
           <div class="music-grid">
-            <div><span class="meta-label">Rāga</span> <strong>Bhairav</strong></div>
+            <div><span class="meta-label">Rāga</span> <strong>Kambhoji</strong></div>
             <div><span class="meta-label">Tāla</span> Adi (8)</div>
-            <div><span class="meta-label">Sa (Tonic)</span> E</div>
-            <div><span class="meta-label">Tempo</span> 157 BPM</div>
-            <div class="span2"><span class="meta-label">Svaras</span> <code>S r G M P d N</code></div>
+            <div><span class="meta-label">Sa (Tonic)</span> D</div>
+            <div><span class="meta-label">Tempo</span> 155 BPM</div>
+            <div class="span2"><span class="meta-label">Svaras</span> <code>S R2 G3 M1 P D2 N2</code></div>
             <div class="span2"><span class="meta-label">Structure</span> <code>mukhara → charana-1 → charana-2</code></div>
           </div>
         </div>
@@ -357,7 +357,7 @@ nīnu kaṭṭale nīnu kaṭṭale — kaṭṭale nīnu kaṭṭale.</pre>
   </div>
 
   <div class="output-card" id="out-k02">
-    <div class="card-header" style="border-left: 4px solid #059669">
+    <div class="card-header" style="border-left:4px solid #059669">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#059669">Kannada Film</span>
         <span class="spec-id">k02</span>
@@ -368,6 +368,7 @@ nīnu kaṭṭale nīnu kaṭṭale — kaṭṭale nīnu kaṭṭale.</pre>
       <div class="lang-tag">Kannada</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -433,7 +434,7 @@ nanna kāḍu hāridè
   </div>
 
   <div class="output-card" id="out-k03">
-    <div class="card-header" style="border-left: 4px solid #d97706">
+    <div class="card-header" style="border-left:4px solid #d97706">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#d97706">Carnatic</span>
         <span class="spec-id">k03</span>
@@ -444,6 +445,7 @@ nanna kāḍu hāridè
       <div class="lang-tag">Kannada</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -522,7 +524,7 @@ maṇṇu tāyi namagè dāna māḍida maṇṇ…</pre>
   </div>
 
   <div class="output-card" id="out-k04">
-    <div class="card-header" style="border-left: 4px solid #d97706">
+    <div class="card-header" style="border-left:4px solid #d97706">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#d97706">Carnatic</span>
         <span class="spec-id">k04</span>
@@ -533,6 +535,7 @@ maṇṇu tāyi namagè dāna māḍida maṇṇ…</pre>
       <div class="lang-tag">Kannada</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -572,7 +575,7 @@ maṇṇu tāyi namagè dāna māḍida maṇṇ…</pre>
   </div>
 
   <div class="output-card" id="out-k05">
-    <div class="card-header" style="border-left: 4px solid #059669">
+    <div class="card-header" style="border-left:4px solid #059669">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#059669">Kannada Film</span>
         <span class="spec-id">k05</span>
@@ -583,6 +586,7 @@ maṇṇu tāyi namagè dāna māḍida maṇṇ…</pre>
       <div class="lang-tag">Kannada</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -675,7 +679,7 @@ maṇṇina…</pre>
   </div>
 
   <div class="output-card" id="out-h01">
-    <div class="card-header" style="border-left: 4px solid #dc2626">
+    <div class="card-header" style="border-left:4px solid #dc2626">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#dc2626">Hindi Film</span>
         <span class="spec-id">h01</span>
@@ -686,6 +690,7 @@ maṇṇina…</pre>
       <div class="lang-tag">Hindi</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -756,7 +761,7 @@ havā meṃ bh…</pre>
   </div>
 
   <div class="output-card" id="out-h02">
-    <div class="card-header" style="border-left: 4px solid #dc2626">
+    <div class="card-header" style="border-left:4px solid #dc2626">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#dc2626">Hindi Film</span>
         <span class="spec-id">h02</span>
@@ -767,6 +772,7 @@ havā meṃ bh…</pre>
       <div class="lang-tag">Hindi</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -832,7 +838,7 @@ pleṭaf…</pre>
   </div>
 
   <div class="output-card" id="out-ta01">
-    <div class="card-header" style="border-left: 4px solid #0891b2">
+    <div class="card-header" style="border-left:4px solid #0891b2">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#0891b2">Tamil Classical</span>
         <span class="spec-id">ta01</span>
@@ -843,6 +849,7 @@ pleṭaf…</pre>
       <div class="lang-tag">Tamil</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -895,9 +902,9 @@ uṉ piedi èṉṟāl èṉṉa? ghaḍhaliṉ d…</pre>
   </div>
 
   <div class="output-card" id="out-te01">
-    <div class="card-header" style="border-left: 4px solid #64748b">
+    <div class="card-header" style="border-left:4px solid #4f46e5">
       <div class="card-title-row">
-        <span class="domain-pill" style="background:#64748b">Telugu Padyam</span>
+        <span class="domain-pill" style="background:#4f46e5">Telugu Padyam</span>
         <span class="spec-id">te01</span>
         <span class="sprint-badge">Sprint 2</span>
         <span class="badge badge-good">Good</span>
@@ -906,6 +913,7 @@ uṉ piedi èṉṟāl èṉṉa? ghaḍhaliṉ d…</pre>
       <div class="lang-tag">Telugu</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -974,7 +982,7 @@ kòmmala puliccukòni, karimènūl…</pre>
   </div>
 
   <div class="output-card" id="out-bn01">
-    <div class="card-header" style="border-left: 4px solid #be185d">
+    <div class="card-header" style="border-left:4px solid #be185d">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#be185d">Bengali Lyric</span>
         <span class="spec-id">bn01</span>
@@ -985,6 +993,7 @@ kòmmala puliccukòni, karimènūl…</pre>
       <div class="lang-tag">Bengali</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -1052,9 +1061,9 @@ eka hāte phulera mālā, anya hāte …</pre>
   </div>
 
   <div class="output-card" id="out-e01">
-    <div class="card-header" style="border-left: 4px solid #64748b">
+    <div class="card-header" style="border-left:4px solid #c026d3">
       <div class="card-title-row">
-        <span class="domain-pill" style="background:#64748b">English Romantic</span>
+        <span class="domain-pill" style="background:#c026d3">English Romantic</span>
         <span class="spec-id">e01</span>
         <span class="sprint-badge">Sprint 2</span>
         <span class="badge badge-high">Excellent</span>
@@ -1063,6 +1072,7 @@ eka hāte phulera mālā, anya hāte …</pre>
       <div class="lang-tag">English</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -1135,9 +1145,9 @@ It holds the sky wit…</pre>
   </div>
 
   <div class="output-card" id="out-e02">
-    <div class="card-header" style="border-left: 4px solid #64748b">
+    <div class="card-header" style="border-left:4px solid #1e40af">
       <div class="card-title-row">
-        <span class="domain-pill" style="background:#64748b">English Modernist</span>
+        <span class="domain-pill" style="background:#1e40af">English Modernist</span>
         <span class="spec-id">e02</span>
         <span class="sprint-badge">Sprint 2</span>
         <span class="badge badge-high">Excellent</span>
@@ -1146,6 +1156,7 @@ It holds the sky wit…</pre>
       <div class="lang-tag">English</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -1223,7 +1234,7 @@ Outsid…</pre>
   </div>
 
   <div class="output-card" id="out-l01">
-    <div class="card-header" style="border-left: 4px solid #d97706">
+    <div class="card-header" style="border-left:4px solid #d97706">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#d97706">Carnatic</span>
         <span class="spec-id">l01</span>
@@ -1234,6 +1245,7 @@ Outsid…</pre>
       <div class="lang-tag">Sanskrit_Telugu</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -1298,7 +1310,7 @@ Svara layaṃ madhuraṃ bhaktiṃ G S R2 G2 M1 P D2 N3 S
   </div>
 
   <div class="output-card" id="out-l02">
-    <div class="card-header" style="border-left: 4px solid #059669">
+    <div class="card-header" style="border-left:4px solid #059669">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#059669">Kannada Film</span>
         <span class="spec-id">l02</span>
@@ -1309,6 +1321,7 @@ Svara layaṃ madhuraṃ bhaktiṃ G S R2 G2 M1 P D2 N3 S
       <div class="lang-tag">Kannada</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -1370,9 +1383,9 @@ saṃgītada dhvani hārada hārada (Sound of …</pre>
   </div>
 
   <div class="output-card" id="out-l03">
-    <div class="card-header" style="border-left: 4px solid #64748b">
+    <div class="card-header" style="border-left:4px solid #0284c7">
       <div class="card-title-row">
-        <span class="domain-pill" style="background:#64748b">Western Jazz</span>
+        <span class="domain-pill" style="background:#0284c7">Western Jazz</span>
         <span class="spec-id">l03</span>
         <span class="sprint-badge">Sprint 2</span>
         <span class="badge badge-high">Excellent</span>
@@ -1381,6 +1394,7 @@ saṃgītada dhvani hārada hārada (Sound of …</pre>
       <div class="lang-tag">English</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -1456,7 +1470,7 @@ Not God above, but tone within the roo…</pre>
   </div>
 
   <div class="output-card" id="out-w01">
-    <div class="card-header" style="border-left: 4px solid #7e22ce">
+    <div class="card-header" style="border-left:4px solid #7e22ce">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#7e22ce">World Fusion</span>
         <span class="spec-id">w01</span>
@@ -1467,6 +1481,7 @@ Not God above, but tone within the roo…</pre>
       <div class="lang-tag">Multilingual</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -1551,7 +1566,7 @@ srote…</pre>
   </div>
 
   <div class="output-card" id="out-e03">
-    <div class="card-header" style="border-left: 4px solid #0f766e">
+    <div class="card-header" style="border-left:4px solid #0f766e">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#0f766e">English Beat</span>
         <span class="spec-id">e03</span>
@@ -1562,6 +1577,7 @@ srote…</pre>
       <div class="lang-tag">English</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -1600,19 +1616,20 @@ srote…</pre>
     </div>
   </div>
 
-  <div class="output-card" id="out-k05">
-    <div class="card-header" style="border-left: 4px solid #059669">
+  <div class="output-card" id="out-k05b">
+    <div class="card-header" style="border-left:4px solid #059669">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#059669">Kannada Film</span>
-        <span class="spec-id">k05</span>
+        <span class="spec-id">k05b</span>
         <span class="sprint-badge">Sprint 7</span>
         <span class="badge badge-ok">Fair</span>
       </div>
-      <h3 class="output-title">Kannada Bhāvagīte — Ninna Kaṇṇu (kf-bhava01)</h3>
+      <h3 class="output-title">Kannada Bhāvagīte — Ninna Kaṇṇu (kf-bhava01) (Fresh API)</h3>
       <div class="lang-tag">Kannada</div>
     </div>
     <div class="card-body">
-      <div class="warn-box">⚠️ Repetition detected — model looped. Low vocabulary diversity (unique/total = 18.6%).  Consider temperature increase or longer seed text.</div>
+      
+      <div class="warn-box">⚠️ Repetition detected — vocabulary diversity 18.6%. Flagged for regeneration.</div>
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
         <div class="camatk-bar-wrap"><div class="camatk-fill" style="width:71%;background:#f59e0b"></div></div>
@@ -1679,18 +1696,19 @@ ninna manè manè manè manè manè manè
     </div>
   </div>
 
-  <div class="output-card" id="out-h01">
-    <div class="card-header" style="border-left: 4px solid #dc2626">
+  <div class="output-card" id="out-h01b">
+    <div class="card-header" style="border-left:4px solid #dc2626">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#dc2626">Hindi Film</span>
-        <span class="spec-id">h01</span>
+        <span class="spec-id">h01b</span>
         <span class="sprint-badge">Sprint 7</span>
         <span class="badge badge-high">Excellent</span>
       </div>
-      <h3 class="output-title">Hindi Ghazal — Bāriśa Meṃ (gh01)</h3>
+      <h3 class="output-title">Hindi Ghazal — Bāriśa Meṃ (gh01) (Fresh API, Best)</h3>
       <div class="lang-tag">Hindi</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -1757,18 +1775,19 @@ tere ausencia meṃ bhī di…</pre>
     </div>
   </div>
 
-  <div class="output-card" id="out-bn01">
-    <div class="card-header" style="border-left: 4px solid #be185d">
+  <div class="output-card" id="out-bn01b">
+    <div class="card-header" style="border-left:4px solid #be185d">
       <div class="card-title-row">
         <span class="domain-pill" style="background:#be185d">Bengali Lyric</span>
-        <span class="spec-id">bn01</span>
+        <span class="spec-id">bn01b</span>
         <span class="sprint-badge">Sprint 7</span>
         <span class="badge badge-high">Excellent</span>
       </div>
-      <h3 class="output-title">Bengali Lyric — Āmāra Hṛdaya (rts01)</h3>
+      <h3 class="output-title">Bengali Lyric — Āmāra Hṛdaya (rts01) (Fresh API)</h3>
       <div class="lang-tag">Bengali</div>
     </div>
     <div class="card-body">
+      
       
       <div class="camatk-main">
         <span class="camatk-label">Camatkāra</span>
@@ -1832,9 +1851,9 @@ eka gānera mato tora prem, āmār…</pre>
     </div>
   </div>
 
-    <div style="text-align:center;padding:40px 0 20px;color:var(--text3);font-size:12px">
-      Generated by Pratyabhijñā World Model · <code>SharathSPhD/pratyabhijna-world-model</code> ·
-      LoRA Fisher ratio 3.10 · ISO 15919 transliteration · FastAPI SSE pipeline
+    <div style="text-align:center;padding:36px 0 16px;color:var(--text3);font-size:11px">
+      Pratyabhijñā World Model · <code>SharathSPhD/pratyabhijna-world-model</code> ·
+      LoRA Fisher ratio 3.10 · ISO 15919 · FastAPI SSE · DGX GB10 Blackwell
     </div>
   </main>
 </div>

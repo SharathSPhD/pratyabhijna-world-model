@@ -160,23 +160,19 @@
       "wm_seed_text": "heart inner life silence question longing vachana kannada bhoomi",
       "wm_energy": 11.5,
       "wm_register": "ardent",
-      "wm_section": "charana_2",
+      "wm_section": "charana_1",
       "wm_prefix_used": "[Creative state: section=charana_2, rāga=Bhairav, register=ardent, tension=released, mood=passion/devotion] ",
-      "text": "ನೀನು ಕಟ್ಟಲೇ ನೀನು ನಾಡಲೇ  \nಕಟ್ಟಲೇ ನೀನು ತರಲು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \nಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ  \n\nನೀನು ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ — ಕಟ್ಟಲೇ ನೀನು ಕಟ್ಟಲೇ.",
+      "text": "ಮಳೆ ನಿನ್ನ ಕಣ್ಣಿನ ತೀರ್ಗಣಿಗೆ, ನದಿ ಹಾರಾಡುವಂತೆ ಹಾರಾಡುತ್ತದೆ  \n(Monsoon rains like tears from your eyes, rivers weeping as they sing)  \nಮೃৎಸ್ನೈಖ್ಯ ದಾರಿಯಲ್ಲಿ, ನಿನ್ನ ಕನಸು ಮೊಳಗಿರುತ್ತದೆ  \n(On the wet earth’s path, your dream sinks deep)  \n\nಮಳೆ ನಿನ್ನ ಕಣ್ಣಿನ ತೀರ್ಗಣಿಗೆ, ನದಿ ಹಾರಾಡುವಂತೆ ಹಾರಾಡುತ್ತದೆ  \n(Monsoon rains like tears from your eyes, rivers weeping as they sing)  \nಮೃৎಸ್ನೈಖ್ಯ ದಾರಿಯಲ್ಲಿ, ನಿನ್ನ ಕನಸು ಮೊಳಗಿರುತ್ತದೆ  \n(On the wet earth’s path, your dream sinks deep)  \nಹುಟ್ಟು ಹಾರಿದ ಹೂವಿನ ಊದ, ನಿನ್ನ ಮಾತು ನಿಲ್ಲಿತ ವಾತಾವರಣದಲ್ಲಿ  \n(A fallen flower’s sigh, your words hang still in the air)  \n\nಮಳೆ ನಿನ್ನ ಕಣ್ಣಿನ ತೀರ್ಗಣಿಗೆ, ನದಿ ಹಾರಾಡುವಂತೆ ಹಾರಾಡುತ್ತದೆ  \n(Monsoon rains like tears from your eyes, rivers weeping as they sing)  \nಮೃ",
       "scores": {
-        "camatk_total": 0.4414,
+        "camatk_total": 0.8868,
         "r_vfe": 1.0,
-        "r_structure": 0.0,
-        "r_length": 0.2833,
-        "r_imagery": 0.3529,
-        "word_count": 34,
-        "unique_words": 6
+        "r_structure": 0.7407,
+        "r_length": 0.875,
+        "r_imagery": 0.9143,
+        "word_count": 105,
+        "unique_words": 48
       },
-      "music_context": {
-        "raga": "Bageshri",
-        "tala": "Adi",
-        "tempo": "madhya"
-      },
+      "music_context": "Rāga: Kambhoji | Sa: D | Tāla: Adi (8) | Tempo: 155 BPM | Structure: mukhara → charana-1 → charana-2",
       "structured_hints": [
         "free verse",
         "8-12 lines",
@@ -184,30 +180,30 @@
         "ankita signature"
       ],
       "generation_time_s": 76.6,
-      "generated_at": "2026-05-16T23:12:37.844561+00:00",
+      "generated_at": "2026-05-17T07:18:37.293907+00:00",
       "model": "nemotron-3-super:120b",
       "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt",
       "transliteration": {
-        "iast": "nīnu kaṭṭale nīnu nāḍale  \nkaṭṭale nīnu taralu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \n\nnīnu kaṭṭale nīnu kaṭṭale — kaṭṭale nīnu kaṭṭale.",
+        "iast": "maḻè ninna kaṇṇina tīrgaṇigè, nadi hārāḍuvaṃtè hārāḍuttadè  \n(Monsoon rains like tears from your eyes, rivers weeping as they sing)  \nmṛৎsnaikhya dāriyalli, ninna kanasu mòḻagiruttadè  \n(On the wet earth’s path, your dream sinks deep)  \n\nmaḻè ninna kaṇṇina tīrgaṇigè, nadi hārāḍuvaṃtè hārāḍuttadè  \n(Monsoon rains like tears from your eyes, rivers weeping as they sing)  \nmṛৎsnaikhya dāriyalli, ninna kanasu mòḻagiruttadè  \n(On the wet earth’s path, your dream sinks deep)  \nhuṭṭu hārida hūvina ūda, ninna mātu nillita vātāvaraṇadalli  \n(A fallen flower’s sigh, your words hang still in the air)  \n\nmaḻè ninna kaṇṇina tīrgaṇigè, nadi hārāḍuvaṃtè hārāḍuttadè  \n(Monsoon rains like tears from your eyes, rivers weeping as they sing)  \nmṛ",
         "script": "kannada",
         "has_indic": true,
         "mixed": true,
-        "latex_annotation": "\\textit{nīnu kaṭṭale nīnu nāḍale  \nkaṭṭale nīnu taralu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \nkaṭṭale nīnu kaṭṭale  \n\nnīnu kaṭṭale nīnu kaṭṭale — kaṭṭale nīnu kaṭṭale.}"
+        "latex_annotation": "\\textit{maḻè ninna kaṇṇina tīrgaṇigè, nadi hārāḍuvaṃtè hārāḍuttadè  \n(Monsoon rains like tears from your eyes, rivers weeping as they sing)  \nmṛৎsnaikhya dāriyalli, ninna kanasu mòḻagiruttadè  \n(On the wet earth’s path, your dream sinks deep)  \n\nmaḻè ninna kaṇṇina tīrgaṇigè, nadi hārāḍuvaṃtè hārāḍuttadè  \n(Monsoon rains like tears from your eyes, rivers weeping as they sing)  \nmṛৎsnaikhya dāriyalli, ninna kanasu mòḻagiruttadè  \n(On the wet earth’s path, your dream sinks deep)  \nhuṭṭu hārida hūvina ūda, ninna mātu nillita vātāvaraṇadalli  \n(A fallen flower’s sigh, your words hang still in the air)  \n\nmaḻè ninna kaṇṇina tīrgaṇigè, nadi hārāḍuvaṃtè hārāḍuttadè  \n(Monsoon rains like tears from your eyes, rivers weeping as they sing)  \nmṛ}"
       },
       "music_notation": {
         "notation_type": "carnatic",
-        "tonic": "E",
-        "tempo_bpm": 157,
-        "raga": "Bhairav",
+        "tonic": "D",
+        "tempo_bpm": 155,
+        "raga": "Kambhoji",
         "tala": "Adi (8)",
         "svara_sequence": [
           "S",
-          "r",
-          "G",
-          "M",
+          "R2",
+          "G3",
+          "M1",
           "P",
-          "d",
-          "N"
+          "D2",
+          "N2"
         ],
         "vadi": "",
         "samvadi": "",
@@ -215,11 +211,11 @@
         "chord_progression": [],
         "scale_degrees": [
           0,
-          1,
+          2,
           4,
           5,
           7,
-          8,
+          9,
           11
         ],
         "jazz_style": "",
@@ -228,8 +224,13 @@
           "charana-1",
           "charana-2"
         ],
-        "llm_music_context": "Rāga: Bhairav | Sa: E | Tāla: Adi (8) | Tempo: 157 BPM | Structure: mukhara → charana-1 → charana-2"
-      }
+        "llm_music_context": "Rāga: Kambhoji | Sa: D | Tāla: Adi (8) | Tempo: 155 BPM | Structure: mukhara → charana-1 → charana-2"
+      },
+      "api_job_id": "36edf7eb-3d7b-4173-9ee6-e6aa9ce2623d",
+      "regenerated": true,
+      "regeneration_reason": "repetition collapse (6 unique/34 words); fixed with higher temp=0.95 + richer seed",
+      "prior_camatk": 0.4414,
+      "sprint": 7
     },
     {
       "id": "k02",
@@ -1489,8 +1490,8 @@
       }
     },
     {
-      "id": "k05",
-      "title": "Kannada Bhāvagīte — Ninna Kaṇṇu (kf-bhava01)",
+      "id": "k05b",
+      "title": "Kannada Bhāvagīte — Ninna Kaṇṇu (kf-bhava01) (Fresh API)",
       "language": "kannada",
       "domain": "kannada_film",
       "wm_seed_text": "rain drops water love longing eyes gentle",
@@ -1561,8 +1562,8 @@
       "sprint": 7
     },
     {
-      "id": "h01",
-      "title": "Hindi Ghazal — Bāriśa Meṃ (gh01)",
+      "id": "h01b",
+      "title": "Hindi Ghazal — Bāriśa Meṃ (gh01) (Fresh API, Best)",
       "language": "hindi",
       "domain": "hindi_film",
       "wm_seed_text": "rain night longing love city streets",
@@ -1633,8 +1634,8 @@
       "sprint": 7
     },
     {
-      "id": "bn01",
-      "title": "Bengali Lyric — Āmāra Hṛdaya (rts01)",
+      "id": "bn01b",
+      "title": "Bengali Lyric — Āmāra Hṛdaya (rts01) (Fresh API)",
       "language": "bengali",
       "domain": "bengali_lyric",
       "wm_seed_text": "heart melody dream love river song",
@@ -1707,7 +1708,7 @@
   ],
   "summary": {
     "n_outputs": 19,
-    "mean_camatk": 0.825,
+    "mean_camatk": 0.8453,
     "max_camatk": 1.0,
     "min_camatk": 0.4414,
     "generated_at": "2026-05-17T00:03:46.884190+00:00",
@@ -1720,6 +1721,7 @@
         "bn01"
       ],
       "timestamp": "2026-05-17T07:12:21.849803+00:00"
-    }
+    },
+    "k01_regenerated": "0.4414 → 0.8868"
   }
 }
