@@ -1,0 +1,104 @@
+{
+  "phase": 8,
+  "phase_name": "paper_ablations_arxiv_submission",
+  "branch": "phase-8/paper-ablations",
+  "date": "2026-05-17",
+  "description": "Phase 8: H7 ablation (A6), H5 live, TTFT validation, paper completion, arXiv submission packaging",
+
+  "exit_criteria": {
+    "h7_a6_ablation": {
+      "description": "3-level Trika WM > 1-level Aparā WM on VFE ratio (all 3 seeds)",
+      "status": "PARTIAL_PASS",
+      "note": "Seed 51 PASS (VFE ratio 0.003264 vs 3-level 0.000156, margin 0.003108). Seeds 52+53 running.",
+      "seed51_vfe": 0.010151,
+      "seed51_ratio": 0.003264,
+      "ref_3level_ratio": 0.00015627,
+      "seed51_confirms_3level_advantage": true,
+      "seeds_complete": 1,
+      "seeds_total": 3,
+      "gate_pass": "PARTIAL (seed51 PASS; await 52+53)"
+    },
+    "h5_live_ablation": {
+      "description": "PWM-conditioned (VimarsaBridgeV2) > bare-LLM on camatkāra heuristic (10 samples/domain, 3 domains)",
+      "status": "IN_PROGRESS",
+      "note": "Running: 2/30 samples scored (english_pop s0 LLM>PWM, s1 PWM>LLM). Need permutation test at completion.",
+      "samples_complete": 2,
+      "samples_total": 30,
+      "gate_pass": "PENDING"
+    },
+    "ttft_live_validation": {
+      "description": "ADR-001 TTFT < 5s, ADR-002 switch reduction > 80% vs no-trace baseline (5 prompts × 2 conditions)",
+      "status": "PENDING",
+      "note": "Killed due to Ollama contention with H5 live. Will relaunch after H5 completes.",
+      "gate_pass": "PENDING"
+    },
+    "paper_completion": {
+      "description": "All sections complete, all figures generated, Related Work exhaustive, arXiv-ready PDF",
+      "status": "PASS",
+      "details": {
+        "pages": 21,
+        "figures": 10,
+        "sections": ["Introduction", "Background", "Related Work", "Architecture", "Experiments",
+                     "Results (Phases 1-7)", "Creative Works", "Discussion", "Conclusion"],
+        "related_work_subsections": 8,
+        "new_subsection": "TRIZ-Guided Architecture Evolution and LLM Cascade Streaming",
+        "citation_fix": "sec:camatk label added",
+        "compile_clean": true
+      },
+      "gate_pass": true
+    },
+    "arxiv_submission": {
+      "description": "arXiv submission package: main.tex, all figures, refs_new.bib, main.bbl, ARXIV_METADATA.md",
+      "status": "PASS",
+      "tarball": "pratyabhijna_world_model_arxiv.tar.gz",
+      "tarball_size_mb": 1.3,
+      "test_compile_pages": 21,
+      "hf_dataset_prepared": true,
+      "gate_pass": true
+    }
+  },
+
+  "phase7_results_carried_forward": {
+    "source": "phase7_gate.json",
+    "s20_tests": "118/118 PASS",
+    "adr001_cascade_streaming": "PASS",
+    "adr002_wm_reasoning_trace": "PASS",
+    "ttft_dry_run": "<3.5s (mean)",
+    "switch_reduction_dry_run": ">80%"
+  },
+
+  "deliverables_complete": {
+    "phase8_branch": "phase-8/paper-ablations",
+    "commits_ahead_of_main": "TBD (merge pending)",
+    "arxiv_tarball": "pratyabhijna_world_model_arxiv.tar.gz (1.3 MB)",
+    "hf_dataset_scripts": "scripts/prepare_hf_dataset.py",
+    "hf_dataset_files": ["hf_dataset/README.md", "hf_dataset/creative_outputs.jsonl", "hf_dataset/hypothesis_results.jsonl"],
+    "paper_pdf": "paper/main.pdf (21 pages, clean)",
+    "decoder_z_only_fix": "run_ttft_validation.py + run_h5_live_ablation.py fixed"
+  },
+
+  "pending_before_final_merge": [
+    "A6 seeds 52+53 complete (ETA: ~01:00)",
+    "H5 live ablation complete (ETA: ~02:00)",
+    "TTFT live validation relaunch after H5 (ETA: ~02:30)",
+    "Update ablation_a6_1level_wm.json with all 3 seeds",
+    "Update h5_live_ablation.json with real ratio",
+    "Update ttft_live_validation.json with real measurements",
+    "Final paper update with Phase 8 results",
+    "Merge phase-8/paper-ablations → main"
+  ],
+
+  "hypothesis_summary": {
+    "H1": {"description": "EFE > REINFORCE", "gate_pass": true, "metric": "h1_reward_ratio=29.72"},
+    "H2": {"description": "Hopfield pattern completion", "gate_pass": true},
+    "H3": {"description": "Sleep prevents forgetting", "gate_pass": true},
+    "H4": {"description": "VimarsaBridge narration quality", "gate_pass": true},
+    "H5": {"description": "PWM > PCE v0.4", "gate_pass": "PENDING (live run)"},
+    "H6": {"description": "Camatkāra correlates with human judgment", "gate_pass": true},
+    "H7": {"description": "3-level > 1-level WM", "gate_pass": "PARTIAL (seed51 confirms, seeds 52+53 pending)"},
+    "H8": {"description": "Mala regularisers prevent collapse", "gate_pass": true},
+    "H9": {"description": "Svātantrya correlates with novelty", "gate_pass": true}
+  },
+
+  "overall_gate_pass": "PARTIAL — paper/arXiv PASS; H5 live + TTFT + A6 seeds 52+53 pending"
+}
