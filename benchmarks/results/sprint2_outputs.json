@@ -647,13 +647,82 @@
       "generated_at": "2026-05-16T23:55:52.148373+00:00",
       "model": "nemotron-3-super:120b",
       "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
+    },
+    {
+      "id": "e03",
+      "title": "English Beat Poem — City Night, Jazz, Freedom",
+      "language": "english",
+      "domain": "english_beat",
+      "wm_seed_text": "street diner dawn jazz neon beat generation poem",
+      "wm_energy": 11.5704,
+      "wm_register": "ardent",
+      "wm_section": "resolution",
+      "wm_prefix_used": "[Creative state: mode=Mixolydian, key=A / Dha, section=resolution, register=ardent, tension=released, tempo=medium, mood=passion/devotion] ",
+      "text": "At the edge of dusk where the neon bleeds into the bruised violet sky and the first streetlamp clicks on like a tired eye opening I step into the city’s pulse with coffee-stained hands and a mind full of unsent letters the air smells of wet asphalt and distant grills where someone’s burning onions for a late shift worker’s dream the buses groan like old beasts dragging their steel bellies through avenues named after presidents who never walked these blocks I pass the shuttered bookstore where Kerouac once scribbled on napkins now a vape shop blowing cherry clouds into the face of a homeless man mutting about the moon being a government lens I duck into The Blue Note where the sax player’s horn cries like a lost lover and the bartender slides me a whiskey neat without asking — he knows my silence better than my words the jukebox stutters through Sinatra then cuts to some kid’s bedroom beat made on a laptop propped on a stack of tax forms laughter erupts from a booth where three nurses in scrubs argue about whose shift was worse one shows a tattoo of a IV drip shaped like a heart another laughs so hard she snorts her beer the waitress with the silver braid calls me honey and refills my glass before I’m empty her knuckles are red from scrubbing pots but her smile is wide open like a church door at midnight I leave a tip folded into a poem I wrote on a receipt — For the ones who keep the lights on while we dream — and step back into the night where the crosstown bus hisses to a stop and a teenager with eyes too old offers me a hit from a pipe shaped like a dragon I decline but nod — we share the same hunger just different fuels the subway rattles underground like a dragon’s belly full of dreams and delays I surface near the all-night diner where the chrome stools gleam under fluorescent gods and the cook flips eggs with the precision of a juggler while the radio preaches salvation between ads for baldness cream and debt relief a trucker in a Stetson nurses black coffee and tells me about hauling frozen salmon from Alaska to Atlanta how the ice melts slow like time in a jail cell a college kid with a backpack full of Whitman tries to explain transcendentalism to a drunk poet who just wants to know if the world ends with a bang or a whimper the poet says it ends with a sigh and a check left on the table the jukebox plays Coltrane’s “A Love Supreme” and for three minutes the whole place holds its breath — the steam from the waffle iron, the hiss of the grill, the clink of spoons — all suspended in that ascending horn then the waitress drops a plate and the spell breaks laughter rushes back like blood after a tourniquet I pay with change and a smile and walk out into the predawn hush where the street sweepers are already at work their brooms whispering against the curb like secrets being buried the sky is a washed-out denim over the water tower where a lone pigeon coos its first song of the day I pass the shuttered club where last night’s sweat still lingers in the bricks the graffiti on the alley wall reads LOVE IS A LOUD NEIGHBOR and someone’s added in pencil underneath — but we keep dancing anyway the air is cool now, washed clean by the night’s labor my lungs fill with something like peace not the kind you find in temples but the kind earned in vinyl seats and sticky floors and shared silence between strangers who became witnesses the sun peeks over the fire escape like a shy applicant for a job it’s not qualified for but gets anyway I sit on the stoop of a brownstone and eat a warm donut from the cart that just opened sugar on my lips powder on my shirt and for the first time in hours I am not running from anything not chasing anything just here — breath in, breath out — the city exhaling with me the garbage trucks rumble in the distance like distant applause and I know — this is the holy ground not where the light is brightest but where it flickers where we are most awake when we are most lost when we are most alive in the raw unedited now of neon and noise and the human sound of keeping on — I light a cigarette not to smoke but to watch the flame — small, brave, def",
+      "scores": {
+        "camatk_total": 1.0,
+        "r_vfe": 1.0,
+        "r_structure": 1.0,
+        "r_length": 1.0,
+        "r_imagery": 1.0,
+        "word_count": 787,
+        "unique_words": 436
+      },
+      "music_context": {
+        "mode": "Blues",
+        "key": "Bb",
+        "tempo": "medium-fast",
+        "time_sig": "swing"
+      },
+      "music_notation": {
+        "notation_type": "western_chord",
+        "tonic": "Bb",
+        "tempo_bpm": 159,
+        "raga": "",
+        "tala": "",
+        "svara_sequence": [],
+        "vadi": "",
+        "samvadi": "",
+        "mode": "Ionian",
+        "chord_progression": [
+          "I",
+          "V",
+          "vi",
+          "IV"
+        ],
+        "scale_degrees": [
+          0,
+          2,
+          4,
+          5,
+          7,
+          9,
+          11
+        ],
+        "jazz_style": "",
+        "section_structure": [
+          "movement-I",
+          "movement-II",
+          "movement-III"
+        ],
+        "llm_music_context": "Key: Bb Ionian | Chord progression: I - V - vi - IV | Tempo: 159 BPM | Character: bright, major"
+      },
+      "structured_hints": [
+        "40-60 lines",
+        "long breath lines",
+        "night to dawn arc"
+      ],
+      "generation_time_s": 359.4,
+      "generated_at": "2026-05-17T00:03:46.884190+00:00",
+      "model": "nemotron-3-super:120b",
+      "checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/step_1000000.pt"
     }
   ],
   "summary": {
-    "n_outputs": 18,
-    "mean_camatk": 0.8084,
+    "n_outputs": 19,
+    "mean_camatk": 0.8185,
     "max_camatk": 1.0,
     "min_camatk": 0.4414,
-    "generated_at": "2026-05-16T23:55:52.165924+00:00"
+    "generated_at": "2026-05-17T00:03:46.884190+00:00"
   }
 }

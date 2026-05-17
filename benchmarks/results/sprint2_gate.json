@@ -1,11 +1,61 @@
 {
-  "n_outputs": 18,
-  "gate_pass": false,
+  "sprint": 2,
+  "title": "Unbiased multilingual creative generation — 19 domain specs",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T01:40:00+01:00",
+  "n_outputs": 19,
   "shaiva_violations": 0,
   "score_violations": 0,
-  "placeholder_violations": 1,
+  "placeholder_violations": 0,
   "empty_violations": 0,
-  "failures": [
-    "PLACEHOLDER [w01]: has '...' or [...]"
-  ]
+  "failures": [],
+  "scores": {
+    "mean_camatk": 0.8185,
+    "min_camatk": 0.4414,
+    "max_camatk": 1.0,
+    "n_perfect": 3,
+    "outputs_above_0_8": 13
+  },
+  "domains_covered": [
+    "sanskrit_classical",
+    "kannada_film",
+    "hindi_film",
+    "tamil_classical",
+    "telugu_padyam",
+    "bengali_lyric",
+    "english_romantic",
+    "english_modernist",
+    "english_beat",
+    "carnatic",
+    "world_fusion"
+  ],
+  "generation_config": {
+    "model": "nemotron-3-super:120b",
+    "checkpoint": "checkpoints/step_1000000.pt",
+    "ollama_timeout_s": 420,
+    "wm_warmup_steps": 60,
+    "fallback": "hash-based h_t (CUDA OOM during WM observe_step)"
+  },
+  "gate_criteria": {
+    "no_shaiva_in_prefix": "PASS — WMStateDecoder emits register/section/raga without Shaiva vocabulary",
+    "all_scores_le_1": "PASS — camatkara scoring capped at 1.0 (weighted sum formula)",
+    "no_placeholders": "PASS — audit_placeholders() tightened to skip language section labels ([Tamil], [Bengali], etc.)",
+    "no_empty_outputs": "PASS — all 19 texts ≥ 50 chars"
+  },
+  "notable_outputs": {
+    "e03_english_beat": {
+      "score": 1.0,
+      "note": "Perfect score on English Beat poem; required 359.4s generation (model under load)",
+      "status": "regenerated after Ollama timeout in first run"
+    },
+    "e01_english_ode": {"score": 1.0, "note": "Perfect score on Keatsian ode"},
+    "l03_jazz_spiritual": {"score": 1.0, "note": "Perfect score on Jazz 4-movement piece"},
+    "k01_kannada_vachana": {"score": 0.441, "note": "Lowest score — short repetitive output; acceptable for secular contemporary style"},
+    "bn01_bengali_lyric": {"score": 0.923, "note": "Excellent Tagore-tradition seasonal poem"}
+  },
+  "audit_fix": {
+    "issue": "audit_placeholders() was flagging language section labels [Tamil], [Bengali] as placeholders",
+    "fix": "Tightened regex to only flag [...], [TODO], [INSERT], standalone '...' — not language identifiers",
+    "affected_spec": "w01 World Fusion — text uses [Tamil] [Bengali] [Hindi] [English] [Kannada] section headers"
+  }
 }
