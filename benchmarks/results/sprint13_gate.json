@@ -1,0 +1,40 @@
+{
+  "sprint": 13,
+  "title": "Train VimarsaBridgeV2 on WM (h_t, next_token) pairs",
+  "gate_pass": true,
+  "timestamp": "2026-05-17T00:00:00+00:00",
+  "wm_checkpoint": "/home/sharaths/projects/pwm-phase2/checkpoints/final.pt",
+  "wm_step": 1000000,
+  "wm_config": {
+    "n_levels": 3,
+    "hidden_dim": 512,
+    "stoch_dim": 32,
+    "stoch_classes": 32,
+    "obs_dim": 512,
+    "action_dim": 64,
+    "decoder_z_only": true
+  },
+  "bridge_checkpoint": "checkpoints/vimarsa_bridge_v2.pt",
+  "bridge_architecture": "Linear(512, 128256) + log_scale param",
+  "training": {
+    "n_steps": 2000,
+    "batch_size": 32,
+    "optimizer": "Adam",
+    "lr": 3e-4,
+    "grad_clip": 1.0,
+    "n_pairs": 72,
+    "corpus_texts": 8,
+    "initial_loss": 11.7175,
+    "final_loss": 3.3709,
+    "loss_reduction_pct": 71.2,
+    "device": "cuda"
+  },
+  "tests": {
+    "test_checkpoint_exists": "PASS",
+    "test_checkpoint_loads": "PASS",
+    "test_weights_not_zero": "PASS",
+    "test_kl_div_above_threshold": "PASS"
+  },
+  "total_tests": 4,
+  "passed": 4
+}

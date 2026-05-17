@@ -742,28 +742,19 @@ async def generate_v1(req: V1GenerateRequest) -> StreamingResponse:
     """
     import torch
     from pwm.pipeline.pancakrtya_loop_v2 import PancakrtyaLoopV2, LoopConfig
-    from pwm.active_inference.efe_actor import EFEActor
-    from pwm.memory.citta_store import CittaStore
     from pwm.vimarsa.bridge_v2 import VimarsaBridgeV2
 
-    # Resolve device — S8 will set DEVICE=cuda; graceful fallback
-    try:
-        from pwm.generation.engine import DEVICE, load_wm, warmup_wm_on_text, get_llm_backend
-    except ImportError:
-        # Pre-S8 fallback: use cpu and Ollama (temporary)
-        import torch
-        DEVICE = torch.device("cpu")
-        from pwm.generation.engine import load_wm, warmup_wm_on_text
-        get_llm_backend = None
+    # S12: load trained components from 1M-step checkpoint
+    from pwm.generation.engine import (
+        DEVICE, load_trained_components, warmup_wm_on_text, get_llm_backend,
+    )
 
     async def _event_stream():
-        wm = load_wm()
+        # S12: WM + EFEActor + CittaStore loaded from trained checkpoint
+        # CittaStore uses n_levels=3 to match checkpoint architecture
+        wm, efe, citta = load_trained_components()
 
-        # Build sub-components (S10: these move to startup singleton)
-        efe = EFEActor(
-            hidden_dim=512, stoch_dim=32, n_cats=32, action_dim=64
-        ).to(DEVICE)
-        citta = CittaStore(hidden_dim=512, n_levels=1).to(DEVICE)
+        # VimarsaBridgeV2: load from training checkpoint if available (S13)
         bridge = VimarsaBridgeV2.load_or_init(
             hidden_dim=512, vocab_size=128256,
             ckpt_path=Path("checkpoints/vimarsa_bridge_v2.pt"),

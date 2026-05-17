@@ -108,6 +108,58 @@ def load_wm() -> Any:
     return wm
 
 
+def load_trained_components() -> tuple:
+    """
+    Load WM + EFEActor + CittaStore from the 1M-step trained checkpoint.
+
+    Returns: (wm, efe_actor, citta_store) — all on DEVICE, all in inference mode.
+
+    Architecture verified against checkpoint shapes:
+      - WM: TrikaWorldModel(n_levels=3, ...)
+      - EFEActor: input 1536 = hidden_dim(512) + stoch_dim*stoch_classes(1024)
+      - CittaStore: n_levels=3, blend_gate (512, 1024)
+    """
+    from pwm.active_inference.efe_actor import EFEActor
+    from pwm.memory.citta_store import CittaStore
+
+    # WM: prefer multilingual fine-tune if available; otherwise use base 1M-step
+    wm = load_wm()
+
+    # EFEActor and CittaStore: always load from BASE checkpoint (step 1M)
+    # The multilingual fine-tune only updates the WM — EFE/Citta stay from base.
+    base_ckpt: dict | None = None
+    if CHECKPOINT.exists():
+        base_ckpt = torch.load(CHECKPOINT, map_location=DEVICE, weights_only=False)
+        print(f"  [base ckpt] {CHECKPOINT.name} (step={base_ckpt.get('step', '?')})")
+    else:
+        print(f"  [base ckpt] NOT FOUND at {CHECKPOINT} — EFE/Citta random weights")
+
+    # EFEActor — architecture is exact match with checkpoint
+    efe = EFEActor(
+        hidden_dim=WM_CFG["hidden_dim"],
+        stoch_dim=WM_CFG["stoch_dim"],
+        n_cats=WM_CFG["stoch_classes"],
+        action_dim=WM_CFG["action_dim"],
+    ).to(DEVICE)
+    if base_ckpt is not None and "efe_actor" in base_ckpt:
+        efe.load_state_dict(base_ckpt["efe_actor"], strict=True)
+        print(f"  [EFEActor] Loaded trained weights (step={base_ckpt.get('step', '?')})")
+    else:
+        print("  [EFEActor] No checkpoint — random weights")
+    efe.eval()
+
+    # CittaStore — must use n_levels=3 to match checkpoint (not n_levels=1)
+    citta = CittaStore(hidden_dim=WM_CFG["hidden_dim"], n_levels=3).to(DEVICE)
+    if base_ckpt is not None and "citta_store" in base_ckpt:
+        citta.load_state_dict(base_ckpt["citta_store"], strict=True)
+        print(f"  [CittaStore] Loaded trained weights (n_levels=3)")
+    else:
+        print("  [CittaStore] No checkpoint — random weights")
+    citta.train(False)
+
+    return wm, efe, citta
+
+
 def warmup_wm_on_text(wm: Any, seed_text: str, steps: int = 60,
                       domain: str = "generic",
                       lora_bank: Any = None) -> torch.Tensor:
