@@ -645,6 +645,61 @@ to a creative direction.
 The LLM is never fine-tuned; all adaptation is through the cross-attention
 projector, preserving the general capabilities of the frozen backbone.
 
+\subsection{Domain LoRA Adapters}\label{sec:lora}
+
+To adapt the frozen WM hidden state $h_t \in \mathbb{R}^{512}$ to 15 creative
+domains without disturbing the pretrained weights, we use Low-Rank Adaptation
+(LoRA)~\cite{hu2022lora}.
+For each domain $d \in \mathcal{D}$ (15 total, spanning Sanskrit classical to
+English Beat poetry), a \emph{LoRA linear} replaces the dense projection
+$W \in \mathbb{R}^{512 \times 512}$ with:
+%
+\begin{equation}
+  \mathbf{y} = W\mathbf{x} + \frac{\alpha}{r}\,B_d A_d\,\mathbf{x},
+  \quad A_d \in \mathbb{R}^{r \times 512},\; B_d \in \mathbb{R}^{512 \times r},
+\end{equation}
+%
+where $W$ is frozen, $r = 8$ (rank), $\alpha = 16$ (scale; $\alpha/r = 2$),
+and $B_d$ is zero-initialised so that the adapter acts as an identity mapping
+before training.
+Each adapter has $2 \cdot 512 \cdot 8 = 8{,}192$ trainable parameters;
+across 15 domains, the \texttt{DomainLoRABank} exposes 122{,}880 trainable
+parameters (3.0\% of the base WM parameter count of 4{,}055{,}040).
+At inference, the adapters are merged via
+$W' = W + (\alpha/r)\,B_d A_d$ using \texttt{merge\_weights()}, adding
+zero overhead to forward passes.
+Training requires the Ollama 120B model to be unloaded to free GPU memory;
+this is deferred to Sprint~6 (Section~\ref{sec:limitations}).
+
+\subsection{ISO 15919 Transliteration Pipeline}\label{sec:translit}
+
+Indic-script creative outputs require romanisation for inclusion in IEEE
+paper figures and for downstream ASR/TTS processing.
+The \texttt{transliterate.py} module (Sprint~5) implements ISO~15919/IAST
+romanisation using \texttt{indic-transliteration}~2.3.82:
+\begin{enumerate}[noitemsep,label=(\roman*)]
+  \item \textbf{Script detection}: classify each line by Unicode block
+        (Devanāgarī U+0900–U+097F, Kannada U+0C80–U+0CFF, Tamil U+0B80–U+0BFF,
+        Telugu U+0C00–U+0C7F, Bengali U+0980–U+09FF);
+  \item \textbf{Line-level transliteration}: preserve Indic combining character
+        sequences (mātrās, virāmas, anusvāras) that would be severed by
+        character-level segmentation;
+  \item \textbf{Passthrough}: Latin-script lines are returned unchanged, enabling
+        mixed-language poems (e.g.\ \texttt{mixed=True} for Kannada verses
+        with English parenthetical glosses).
+\end{enumerate}
+The \texttt{TranslitResult.latex\_annotation()} method wraps the IAST output
+in \verb|\textit{...}|, ready for direct insertion into LaTeX figure captions.
+TRIZ Principle~10 (Prior Action) applies: transliteration is computed in
+the same pipeline step as generation so that SSE clients and the paper
+figure generator receive IAST without a separate post-processing pass.
+Verified IAST outputs across all five supported scripts:
+Kannada \textit{ma\d{l}\`{e} ba\d{m}de ma\d{n}\d{n}u},
+Telugu \textit{nadi sa\d{m}dhya},
+Bengali \textit{vasanta phula v\={a}t\={a}sa},
+Devanāgarī \textit{mukhar\b{a}} (Devanāgarī \textsc{mukha\d{r}ā}),
+Tamil approximated via Sanskrit IAST table (known limitation; see Section~\ref{sec:limitations}).
+
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Experimental Setup}\label{sec:experiments}
 
@@ -1436,8 +1491,8 @@ confirms genuine svātantrya (creative freedom) at the committed-mode level.
 
 To validate end-to-end creative output quality, we ran PWM (Phase~6 checkpoint,
 step 1{,}000{,}000) coupled with Nemotron-3-Super 120B (Q4\_K\_M, served via
-Ollama at \texttt{localhost:11434}) on 13 creative specifications spanning
-Sanskrit, Kannada, and English poetry and song.
+Ollama at \texttt{localhost:11434}) on 19 creative specifications spanning
+Sanskrit, Kannada, Hindi, Tamil, Telugu, Bengali, and English poetry and song.
 The world model runs on CPU (TRIZ Principle~2 device separation: 82\,MB checkpoint,
 no GPU memory contention with the 94\,GB LLM), warming up hidden state $h_t$
 with 50 random observation steps per seed.
@@ -1531,18 +1586,48 @@ Theme: Śiva as primordial sound (\emph{nāda}), camatkāra as divine acoustic w
 Rāga Bhairavi traditionally associated with devotion and creative twilight.
 WM seed 18; camatkāra score $= 0.876$.
 
+\subsection{Kannada Film Lyric --- Rainy Night (kf01)}\label{sec:kf01}
+
+\begin{quote}
+\small\itshape
+ma\d{l}\`{e}yo\d{l}age manassu nareyuttade \\
+(Beyond the rain, my heart awakens) \\
+modalu ma\d{l}eya ba\d{m}da r\={a}tri, ninna ka\d{n}\d{n}u no\d{d}idare \\
+(When the first rain of the night falls, and I see your eyes)
+\end{quote}
+
+ISO~15919 romanisation (Sprint~5 transliteration pipeline) of a Kannada film lyric
+on the theme \emph{ma\d{l}e banda r\={a}tri} (rainy night).
+The \texttt{DomainLoRABank} \texttt{kannada\_film} adapter is zero-initialised
+(identity before training), so domain bias is carried by the WM seed text and
+LLM system prompt; LoRA training will inject further domain geometry in Sprint~6.
+The poem uses \texttt{mixed=True} (Kannada-script verses with English parenthetical
+glosses per line), and its \LaTeX{} annotation is generated directly via
+\texttt{TranslitResult.latex\_annotation()}.
+WM energy $= 18.34$ (above the creative-zone peak of $9.5$; indicates
+post-attractor high-energy excursion); camatkāra score $= 0.656$.
+
 \subsection{Summary of Generation Outcomes}\label{sec:gen-summary}
 
-All 13 outputs were scored with the camatkāra heuristic
-$R_{\text{camatk}} = 0.30 \cdot R_{\text{VFE}} + 0.25 \cdot R_{\text{term}}
-+ 0.25 \cdot R_{\text{len}} + 0.20 \cdot R_{\text{struct}} + \delta_{\text{div}}$
-where $R_{\text{VFE}}$ rewards low world-model free energy, $R_{\text{term}}$ rewards
-domain-specific terminology (Sanskrit/Kannada/English rasa vocabulary),
-$R_{\text{len}}$ rewards sufficient poetic development, and $R_{\text{struct}}$
-rewards structural forms (metre, pallavi, verse/chorus).
-Mean $R_{\text{camatk}} = 0.878$ across 13 outputs (range $0.851$–$0.903$).
-The highest-scoring output was l03 (Jazz Spiritual, $0.891$) due to its four-movement
-architecture satisfying both structural and terminological criteria.
+All 19 outputs were scored with the camatkāra heuristic (Section~\ref{sec:camatk}):
+%
+\begin{equation}
+  R_{\text{camatk}} = \min\!\left(1, 0.30 R_{\text{VFE}} + 0.25 R_{\text{struct}}
+  + 0.25 R_{\text{len}} + 0.20 R_{\text{imagery}}\right),
+\end{equation}
+%
+where $R_{\text{VFE}}$ rewards WM free energy in the creative zone $[6, 13]$,
+$R_{\text{struct}}$ rewards domain-specific structural vocabulary (independent
+of the generation prompt), $R_{\text{len}}$ rewards poetic development
+($\geq 120$ words), and $R_{\text{imagery}}$ rewards lexical diversity
+(type-token ratio $\times 2$, capped at~1).
+Mean $R_{\text{camatk}} = 0.819$ across 19 outputs (range $0.441$–$1.000$;
+three perfect scores: e01 English ode, e03 English Beat, l03 Jazz Spiritual).
+The lowest-scoring output was k01 (Kannada vacana, $0.441$) due to
+short, repetitive contemporary style — structurally valid but below the
+$\geq 120$ word threshold.
+All outputs pass the four gate criteria: no Śaiva vocabulary in WM prefix,
+score $\leq 1$, no placeholder stubs, no empty texts.
 The full output set is available in \texttt{benchmarks/results/creative\_outputs.json}
 and rendered on the GitHub Pages site
 \url{https://sharathsphd.github.io/pratyabhijna-world-model}.
@@ -1679,7 +1764,7 @@ pre-training the WM with IDL until $\cos\text{sim} \to -1.0$ and then freezing i
 before actor training is not merely a stability fix (Layer 7) — it is a structural
 prerequisite for sample-efficient actor learning on static corpora.
 
-\subsection{Limitations}
+\subsection{Limitations}\label{sec:limitations}
 
 \textbf{H9 metric refinement.}
 The original H9 proxy (per-step distributional entropy, threshold 1.0 nats) was
