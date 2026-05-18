@@ -20,11 +20,52 @@
 \providecommand{\BIBdecl}{\relax}
 \BIBdecl
 
+\bibitem{utpaladeva1994isvara}
+Utpaladeva, \emph{{\=I}{\'{s}}varapratyabhij{\~n}{\=a}k{\=a}rik{\=a} with the V{\d{r}}tti}, N.~Rastogi, Ed.\hskip 1em plus 0.5em minus 0.4em\relax Delhi: Motilal Banarsidass, 1994, with commentary by Abhinavagupta.
+
+\bibitem{torella1994isvara}
+R.~Torella, \emph{The {\=I}{\'{s}}varapratyabhij{\~n}{\=a}k{\=a}rik{\=a} of Utpaladeva with the Author's {V}{\d{r}}tti: Critical Edition and Annotated Translation}, ser. Serie Orientale Roma.\hskip 1em plus 0.5em minus 0.4em\relax Delhi: Motilal Banarsidass, 1994.
+
 \bibitem{pce2024}
-S.~P. Sharathchandra, ``Pratyabhij{\~n}{\=a} creative engine v0.4: Vimarśa as reflexive revision in {LLM}-native cascade,'' Internal Technical Report, 2024, pCE v0.4 baseline: vimarśa g=0.65, H5 LLM-native cascade g=0.14.
+S.~P. Sharathchandra, ``Pratyabhij{\~n}{\=a} creative engine v0.4: Vimarśa as reflexive revision in an {LLM}-native cascade,'' Project technical report (in preparation), 2024, pCE v0.4 baseline: vimarśa $g{=}0.65$ relative to bare LLM, full-cascade $g{=}0.14$ on creative-quality metrics; replication artefacts archived in the project repository.
 
 \bibitem{friston2017active}
 K.~Friston, T.~FitzGerald, F.~Rigoli, P.~Schwartenbeck, and G.~Pezzulo, ``Active inference: A process theory,'' \emph{Neural Computation}, vol.~29, no.~1, pp. 1--49, 2017.
+
+\bibitem{abhinavagupta2012tantraloka}
+Abhinavagupta, \emph{Tantr{\=a}loka: The Light on the Tantras}.\hskip 1em plus 0.5em minus 0.4em\relax Eugene, OR: Mattamayura Press, 2012.
+
+\bibitem{abhinava1992locana}
+------, \emph{Dhvany{\=a}loka-Locana}.\hskip 1em plus 0.5em minus 0.4em\relax Cambridge, MA: Harvard University Press, 1992.
+
+\bibitem{vasugupta1992spanda}
+Vasugupta, \emph{The Spanda K{\=a}rik{\=a}s: The Divine Creative Pulsation}.\hskip 1em plus 0.5em minus 0.4em\relax Delhi: Motilal Banarsidass, 1992.
+
+\bibitem{dyczkowski1992spanda}
+M.~S.~G. Dyczkowski, \emph{The Stanzas on Vibration: The Spandak{\=a}rik{\=a} with Four Commentaries}.\hskip 1em plus 0.5em minus 0.4em\relax Albany, NY: State University of New York Press, 1992.
+
+\bibitem{wallis2012tantra}
+C.~D. Wallis, \emph{Tantra Illuminated: The Philosophy, History, and Practice of a Timeless Tradition}.\hskip 1em plus 0.5em minus 0.4em\relax Eugene, OR: Mattamayura Press, 2012.
+
+\bibitem{ramsauer2020hopfield}
+\BIBentryALTinterwordspacing
+H.~Ramsauer, B.~Sch{\"a}fl, J.~Lehner, P.~Seidl, M.~Widrich, L.~Gruber, M.~Holzleitner, M.~Pavlovic, G.~K. Sandve, V.~Greiff, D.~Kreil, M.~Kopp, G.~Klambauer, J.~Brandstetter, and S.~Hochreiter, ``Hopfield networks is all you need,'' in \emph{International Conference on Learning Representations}, 2021. [Online]. Available: \url{https://arxiv.org/abs/2008.02217}
+\BIBentrySTDinterwordspacing
+
+\bibitem{hedges1981distribution}
+L.~V. Hedges, ``Distribution theory for {Glass}'s estimator of effect size and related estimators,'' \emph{Journal of Educational Statistics}, vol.~6, no.~2, pp. 107--128, 1981.
+
+\bibitem{efron1987bootstrap}
+B.~Efron and R.~Tibshirani, ``Bootstrap methods for standard errors, confidence intervals, and other measures of statistical accuracy,'' \emph{Statistical Science}, vol.~1, pp. 54--77, 1987.
+
+\bibitem{holm1979simple}
+S.~Holm, ``A simple sequentially rejective multiple test procedure,'' \emph{Scandinavian Journal of Statistics}, vol.~6, no.~2, pp. 65--70, 1979.
+
+\bibitem{flood1996introduction}
+G.~D. Flood, \emph{An Introduction to Hinduism}.\hskip 1em plus 0.5em minus 0.4em\relax Cambridge: Cambridge University Press, 1996.
+
+\bibitem{kshemaraja2000pratyabhijna}
+K{\d{s}}emar{\=a}ja, \emph{Pratyabhij{\~n}{\=a}h{\d{r}}dayam: The Secret of Self-Recognition}.\hskip 1em plus 0.5em minus 0.4em\relax Delhi: Motilal Banarsidass, 2000.
 
 \bibitem{friston2010free}
 K.~Friston, ``The free-energy principle: A unified brain theory?'' \emph{Nature Reviews Neuroscience}, vol.~11, no.~2, pp. 127--138, 2010.
@@ -35,6 +76,11 @@ C.~Heins, B.~Millidge, D.~Demekas, B.~Klein, K.~Friston, and O.~Catal, ``py{MDP}
 \bibitem{hafner2023dreamerv3}
 \BIBentryALTinterwordspacing
 D.~Hafner, T.~Lillicrap, M.~Norouzi, and J.~Ba, ``Mastering diverse domains through world models,'' in \emph{International Conference on Learning Representations}, 2024. [Online]. Available: \url{https://arxiv.org/abs/2301.04104}
+\BIBentrySTDinterwordspacing
+
+\bibitem{kingma2014vae}
+\BIBentryALTinterwordspacing
+D.~P. Kingma and M.~Welling, ``Auto-encoding variational {Bayes},'' in \emph{International Conference on Learning Representations}, 2014. [Online]. Available: \url{https://arxiv.org/abs/1312.6114}
 \BIBentrySTDinterwordspacing
 
 \bibitem{schmidhuber1991possibility}
@@ -71,11 +117,6 @@ B.~Millidge, A.~Seth, and C.~L. Buckley, ``Whence the expected free energy?'' \e
 
 \bibitem{sajid2021active}
 N.~Sajid, P.~J. Ball, T.~Parr, and K.~J. Friston, ``Active inference: Demystified and compared,'' \emph{Neural Computation}, vol.~33, no.~3, pp. 674--712, 2021.
-
-\bibitem{ramsauer2020hopfield}
-\BIBentryALTinterwordspacing
-H.~Ramsauer, B.~Sch{\"a}fl, J.~Lehner, P.~Seidl, M.~Widrich, L.~Gruber, M.~Holzleitner, M.~Pavlovic, G.~K. Sandve, V.~Greiff, D.~Kreil, M.~Kopp, G.~Klambauer, J.~Brandstetter, and S.~Hochreiter, ``Hopfield networks is all you need,'' in \emph{International Conference on Learning Representations}, 2021. [Online]. Available: \url{https://arxiv.org/abs/2008.02217}
-\BIBentrySTDinterwordspacing
 
 \bibitem{hu2023sparse}
 \BIBentryALTinterwordspacing
@@ -188,11 +229,11 @@ D.~Guo, D.~Yang, H.~Zhang \emph{et~al.}, ``{DeepSeek-R1}: Incentivizing reasonin
 
 \bibitem{nemotron2024}
 \BIBentryALTinterwordspacing
-{NVIDIA}, ``Nemotron-3 super 120b: Extended reasoning via thinking tokens,'' 2024, production reasoning model used as Phase 7 slow-model in cascade. [Online]. Available: \url{https://build.nvidia.com/nvidia/nemotron-super-49b-v1}
+{NVIDIA}, ``Llama nemotron super: A 49b/120b open family of reasoning models,'' NVIDIA Model Card, 2025, production reasoning model used as the Phase~7 slow model in the cascade; the 120B variant is served locally via Ollama as \texttt{nemotron-3-super:120b}. [Online]. Available: \url{https://build.nvidia.com/nvidia/llama-3_3-nemotron-super-49b-v1}
 \BIBentrySTDinterwordspacing
 
 \bibitem{crspp2023}
-{PWM Team}, ``{CRSPP}: Camatkāra-regularised successor preference prior for active inference world models,'' University of York, Tech. Rep., 2023, internal technical report; implementation at \url{https://github.com/SharathSPhD/pratyabhijna-world-model/blob/main/pwm/active_inference/crspp.py}.
+S.~P. Sharathchandra, ``{CRSPP}: Camatkāra-regularised successor preference prior for active-inference world models,'' Project technical note (in preparation); implementation at \url{https://github.com/SharathSPhD/pratyabhijna-world-model/blob/main/pwm/active_inference/crspp.py}, 2024.
 
 \bibitem{zhu2024deckard}
 J.~Zhu \emph{et~al.}, ``{DECKARD}: Large language model-guided world model learning and planning for goal-directed exploration,'' \emph{arXiv preprint arXiv:2406.00007}, 2024.
