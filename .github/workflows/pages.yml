@@ -4,8 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "docs/**"
+      - "site/**"
       - "benchmarks/results/**"
+      - "paper/figures/**"
+      - "README.md"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -30,10 +33,25 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload docs artifact
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: "site/package-lock.json"
+
+      - name: Install site dependencies
+        working-directory: site
+        run: npm ci
+
+      - name: Build Astro site
+        working-directory: site
+        run: npm run build
+
+      - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "./docs"
+          path: "./site/dist"
 
       - name: Deploy to GitHub Pages
         id: deployment

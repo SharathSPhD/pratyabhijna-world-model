@@ -1,0 +1,19 @@
+---
+import { withBase } from "../lib/nav";
+
+interface Props {
+  src: string;
+  title: string;
+  caption: string;
+}
+
+const { src, title, caption } = Astro.props;
+---
+
+<figure class="figurePanel">
+  <img src={withBase(`/figures/${src}`)} alt={title} loading="lazy" />
+  <figcaption>
+    <strong>{title}</strong>
+    <span>{caption}</span>
+  </figcaption>
+</figure>

@@ -1,0 +1,226 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import MetricCard from "../components/MetricCard.astro";
+import FigurePanel from "../components/FigurePanel.astro";
+import data from "../data/results.json";
+
+const passCount = `${data.headline.splitHypothesesPass} / ${data.headline.splitHypothesesTotal}`;
+const h5Ci = `[${data.h5Live.ci[0]}, ${data.h5Live.ci[1]}]`;
+---
+
+<BaseLayout
+  title="Pratyabhijna World Model"
+  description="Evidence-first companion site for the Pratyabhijna World Model: static text world models, active inference, and an honest H5b negative result."
+>
+  <section class="hero" id="overview">
+    <div class="heroCopy">
+      <p class="eyebrow">Pratyabhijna World Model</p>
+      <h1>A world-model substrate for creative AI, with the negative result kept in view.</h1>
+      <p class="lead">
+        PWM operationalises Kashmir Saiva recognition philosophy as a Dreamer-class textual world model:
+        latent imagination, Expected Free Energy, Hopfield memory, sleep consolidation, and a gated LLM bridge.
+        9 of 10 split hypotheses pass; the live text-only comparison against a 120B LLM failed.
+      </p>
+      <div class="heroActions">
+        <a class="button primary" href="https://github.com/SharathSPhD/pratyabhijna-world-model">GitHub repository</a>
+        <a class="button" href="#results">Read the results</a>
+      </div>
+      <p class="sourceNote">
+        Page built from checked-in JSON under <code>benchmarks/results/</code>; generated {new Date(data.generatedAt).toUTCString()}.
+      </p>
+    </div>
+    <aside class="heroPanel" aria-label="Headline status">
+      <MetricCard
+        kicker="Split hypothesis ledger"
+        title="Internal gates mostly pass"
+        value={passCount}
+        note="H5 is split into H5a internal-imagination PASS and H5b live-text FAIL."
+        tone="caveat"
+      />
+      <MetricCard
+        kicker="H1"
+        title="EFE over REINFORCE"
+        value={`${data.headline.h1RewardRatio}x`}
+        note="Mean episode reward ratio in the Phase 2 gate."
+        tone="pass"
+      />
+      <MetricCard
+        kicker="H5b"
+        title="Bare 120B wins live text"
+        value={`g=${data.headline.h5bHedgesG}`}
+        note="PWM conditioning did not improve text-only camatkara score."
+        tone="fail"
+      />
+    </aside>
+  </section>
+
+  <section class="section proseBlock">
+    <h2>Plain-language reading</h2>
+    <p>
+      PWM is not another prompt wrapper. It tries to give creative generation a latent world model:
+      an internal state that can be observed, imagined forward, rewarded, remembered, consolidated, and
+      only then narrated through a frozen LLM. That matters because LLM-only creative systems often hide
+      the mechanism of revision inside opaque text generation.
+    </p>
+    <p>
+      The project did not prove that world-model conditioning beats a frontier-scale language model at final
+      text quality. It showed something narrower and more useful: static creative text can be turned into a
+      hostile but workable world-model training substrate, and the resulting internal process can be measured
+      separately from the final surface text.
+    </p>
+  </section>
+
+  <section class="section" id="results">
+    <div class="sectionHeader">
+      <p class="eyebrow">Evidence ledger</p>
+      <h2>Results at a glance</h2>
+      <p>
+        These cards separate pass, failure, and caveat states. Each metric names the source JSON that produced it.
+      </p>
+    </div>
+    <div class="resultGrid">
+      {data.hypotheses.map((h) => (
+        <article class={`resultCard ${h.status}`}>
+          <div class="resultTop">
+            <span class="resultId">{h.id}</span>
+            <span class={`status ${h.status}`}>{h.status}</span>
+          </div>
+          <h3>{h.label}</h3>
+          <p class="metric">{h.metric}</p>
+          <p>{h.caveat}</p>
+          <small>{h.source}</small>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section class="section split" id="h5b">
+    <div>
+      <p class="eyebrow">H5b live ablation</p>
+      <h2>H5b is a real negative result, not a footnote.</h2>
+      <p>
+        The live protocol compared PWM-conditioned generation against a bare <code>nemotron-3-super:120b</code>
+        baseline with a text-only camatkara scorer. The bare LLM scored higher:
+        PWM {data.h5Live.meanPwm}, LLM {data.h5Live.meanLlm}, Hedges' g {data.h5Live.hedgesG},
+        BCa 95% CI {h5Ci}, permutation p {data.h5Live.pPermutation}.
+      </p>
+      <p>
+        The right interpretation is boundary, not dismissal. The scorer deliberately excludes VFE and other
+        world-model-only terms; the 120B baseline is near ceiling in English-script domains; Kannada film lyrics
+        show near parity. Internal process gains are real, but they do not yet guarantee better surface text.
+      </p>
+    </div>
+    <div class="tableCard">
+      <h3>Per-domain means</h3>
+      <table>
+        <thead>
+          <tr><th>Domain</th><th>PWM</th><th>LLM</th><th>Wins</th></tr>
+        </thead>
+        <tbody>
+          {data.h5Live.domainRows.map((row) => (
+            <tr>
+              <td>{row.domain.replaceAll("_", " ")}</td>
+              <td>{row.pwmMean}</td>
+              <td>{row.llmMean}</td>
+              <td>{row.pwmWins} / {row.llmWins}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p class="sourceNote">Source: <code>benchmarks/results/h5_live_ablation.json</code></p>
+    </div>
+  </section>
+
+  <section class="section" id="architecture">
+    <div class="sectionHeader">
+      <p class="eyebrow">Architecture</p>
+      <h2>The philosophical conjecture as a call stack</h2>
+      <p>
+        The Sanskrit terms are not used as decorative labels here; they shape which state is shared,
+        when the LLM is invoked, and what counts as a creative event.
+      </p>
+    </div>
+    <div class="flow">
+      <div><strong>Static corpora</strong><span>public text, no natural action loop</span></div>
+      <div><strong>Trika RSSM</strong><span>latent h/z state over text observations</span></div>
+      <div><strong>EFE + camatkara</strong><span>policy and intrinsic reward</span></div>
+      <div><strong>Citta + sleep</strong><span>Hopfield retrieval and consolidation</span></div>
+      <div><strong>Vimarsha bridge</strong><span>world-model state biases the LLM</span></div>
+    </div>
+    <div class="callout">
+      <h3>Adversarial reading</h3>
+      <p>
+        The design grammar is coherent, but the evidence does not yet prove that Kashmir Saiva categories
+        are uniquely necessary or that humans prefer PWM outputs. The strongest claim is that the philosophy
+        generated a productive, testable architecture.
+      </p>
+    </div>
+  </section>
+
+  <section class="section visuals" id="showcase">
+    <div class="sectionHeader">
+      <p class="eyebrow">Paper visuals</p>
+      <h2>Figures carried into the public site</h2>
+      <p>
+        The site reuses paper figures and new journal-revision figures so the non-technical page remains tied
+        to the same data artifacts as the manuscript.
+      </p>
+    </div>
+    <div class="figureGrid">
+      <FigurePanel src="fig_system_overview.png" title="System overview" caption="Pancakrtya loop, world model, reward, memory, sleep, and bridge." />
+      <FigurePanel src="fig_h1_efe_vs_reinforce.png" title="H1 EFE vs REINFORCE" caption="The strongest internal active-inference result." />
+      <FigurePanel src="fig10_h5_live_per_domain.png" title="H5b live per-domain" caption="The negative live text-only ablation." />
+      <FigurePanel src="fig11_a6_ablation.png" title="A6 hierarchy ablation" caption="Three-level Trika against one-level world model." />
+      <FigurePanel src="fig12_ttft_warm_cold.png" title="TTFT warm/cold" caption="Warm-path evidence and cold-start confounds." />
+      <FigurePanel src="fig_failure_chain.png" title="H1 failure chain" caption="The passive-corpus diagnostic cascade." />
+    </div>
+  </section>
+
+  <section class="section split">
+    <div>
+      <p class="eyebrow">Breakthroughs under review</p>
+      <h2>What deserves the strongest future vetting?</h2>
+      <ul class="checkList">
+        <li><strong>29.72x H1</strong>: strong internal result, but tied to project reward protocol.</li>
+        <li><strong>{data.a6.advantageFactor}x H7/A6</strong>: promising hierarchy signal, but two seeds are partial.</li>
+        <li><strong>Vimarsha bridge</strong>: learns a mapping, but H5b says the mapping does not yet beat bare 120B text output.</li>
+        <li><strong>TTFT cascade</strong>: product mechanism works in tests; aggregate live validation still fails.</li>
+      </ul>
+    </div>
+    <div class="tableCard">
+      <h3>A6 seeds</h3>
+      <table>
+        <thead><tr><th>Seed</th><th>Status</th><th>Steps</th><th>VFE</th></tr></thead>
+        <tbody>
+          {data.a6.seeds.map((seed) => (
+            <tr>
+              <td>{seed.seed}</td>
+              <td>{seed.status}</td>
+              <td>{seed.steps}</td>
+              <td>{seed.finalVfe}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" id="reproducibility">
+    <div class="sectionHeader">
+      <p class="eyebrow">Reproducibility</p>
+      <h2>Every public number should point to a file.</h2>
+    </div>
+    <div class="reproGrid">
+      {data.sourceFiles.map((source) => (
+        <code>{source}</code>
+      ))}
+    </div>
+    <div class="callout">
+      <h3>Known limits</h3>
+      <p>
+        Full 120B local inference requires local model weights and checkpoint paths that are not shipped in this repository.
+        The most reproducible public layer is the source code, paper, figure scripts, and JSON result artifacts.
+      </p>
+    </div>
+  </section>
+</BaseLayout>

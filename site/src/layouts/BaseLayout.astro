@@ -1,0 +1,51 @@
+---
+import "../styles/global.css";
+import { withBase } from "../lib/nav";
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sharathsphd.github.io/pratyabhijna-world-model/" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <header class="siteHeader">
+      <a class="brand" href={withBase("/")}>
+        <span class="brandMark">प्र</span>
+        <span>PWM</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#overview">Overview</a>
+        <a href="#results">Results</a>
+        <a href="#h5b">H5b</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#showcase">Visuals</a>
+        <a href="#reproducibility">Reproduce</a>
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="siteFooter">
+      <p>Pratyabhijna World Model · Sharath S. Subramanian · 2026</p>
+      <p>
+        Evidence-first companion site for
+        <a href="https://github.com/SharathSPhD/pratyabhijna-world-model">github.com/SharathSPhD/pratyabhijna-world-model</a>.
+      </p>
+    </footer>
+  </body>
+</html>

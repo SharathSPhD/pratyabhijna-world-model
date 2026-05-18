@@ -1,0 +1,18 @@
+---
+interface Props {
+  kicker: string;
+  title: string;
+  value: string;
+  note: string;
+  tone?: "pass" | "fail" | "caveat" | "neutral";
+}
+
+const { kicker, title, value, note, tone = "neutral" } = Astro.props;
+---
+
+<article class={`metricCard ${tone}`}>
+  <p class="kicker">{kicker}</p>
+  <h3>{title}</h3>
+  <p class="value">{value}</p>
+  <p class="note">{note}</p>
+</article>

@@ -1,5 +1,6 @@
 # Environment
 .env
+.env.example
 *.pyc
 __pycache__/
 *.egg-info/
@@ -26,6 +27,9 @@ data/benchmark/**/*.txt
 !data/benchmark/.gitkeep
 
 # Experiment artifacts (keep benchmarks/results JSON — they are the paper's evidence)
+.triz/
+.claude/
+docs/
 mlruns/
 wandb/
 *.log
@@ -40,12 +44,24 @@ paper/*.bbl
 paper/*.blg
 paper/_minted-*/
 paper/main.pdf
+paper/check_tex.pdf
+paper/._*
+arxiv_submission/*.aux
+arxiv_submission/*.blg
+arxiv_submission/*.out
+arxiv_submission/main.pdf
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# GitHub Pages / Node build artifacts
+site/node_modules/
+site/dist/
+site/.astro/
+site/src/data/results.json
 
 # OS
 .DS_Store

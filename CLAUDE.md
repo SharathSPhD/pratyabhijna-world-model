@@ -43,34 +43,37 @@ The SSH remote requires the host alias: `git@github-sharathsphd:SharathSPhD/prat
 ### 4. Phase Gates
 Do not advance to Phase N+1 until Phase N exit criteria are met and documented in `benchmarks/results/phase_N_gate.json`.
 
-### 5. Plugin Usage (Mandatory)
+### 5. Local-Only Paths
+`docs/`, `.claude/`, and `.env.example` are local-only working materials. Keep them on disk when useful, but never stage, commit, or push them. They must remain ignored in `.gitignore`; if they appear in `git status` as tracked changes, stop and remove them from the git index with `git rm --cached` rather than deleting the local files.
+
+### 6. Plugin Usage (Mandatory)
 - **TRIZ** (`triz-engine:analyze`, `:matrix`, `:principles`): invoke when hitting architectural contradictions
 - **Attractor-flow** (`attractor-flow:attractor-orchestrator`): invoke before major design decisions; use explorer-agent during ideation (divergence), convergence-agent during implementation
 - **Pratyaksha PCEH**: context management across long sessions; also the runtime inter-agent OS
 - **Ralph Wiggum** (`ralph-wiggum:ralph-loop`): invoke after complex multi-step implementations for completion assurance
 - **Skill**: `superpowers:brainstorming` for design exploration; `superpowers:executing-plans` for implementation
 
-### 6. No Mocks / No Synthetics
+### 7. No Mocks / No Synthetics
 All data: real public sources (GRETIL, HuggingFace, Poetry Foundation, arXiv).  
 All models: real weights. No placeholder/stub implementations in core ML code.
 
-### 7. Statistical Rigour
+### 8. Statistical Rigour
 Every hypothesis result → `benchmarks/results/{hypothesis_id}_{seed}_{timestamp}.json`  
 Tests: paired permutation (50K perms), Hedges' g, BCa CI (10K resamples), Holm-Bonferroni.  
 All ablations run ≥3 seeds. Report negative results with the same rigour as positives.
 
-### 8. Config-Driven Development
+### 9. Config-Driven Development
 All phase-specific settings in `configs/`. Use Hydra overrides, not code changes.  
 Feature flags in configs enable/disable modules — all 6 ablations run from single config change.
 
-### 9. Philosophical Rigour
+### 10. Philosophical Rigour
 Every module must have a docstring with:
 - The Sanskrit concept it implements
 - The textual source (author, work, verse/section)
 - The computational primitive it realises
-This prevents philosophical drift. See `docs/GLOSSARY.md` for the canonical mapping.
+This prevents philosophical drift. `docs/GLOSSARY.md` remains the local working glossary, but it is not tracked remotely; keep the compact public mapping in `README.md`/this file aligned with the local glossary.
 
-### 10. LLM Backend
+### 11. LLM Backend
 Default: local Nemotron-3-Nano-30B GGUF via `configs/llm_backend.yaml`.  
 API keys in `.env` (gitignored). Switch provider: `--set llm.provider=claude-api`.  
 Never hardcode model names or API endpoints in Python code — route through `LLMBackend`.
@@ -83,7 +86,6 @@ Never hardcode model names or API endpoints in Python code — route through `LL
 pratyabhijna-world-model/
 ├── CLAUDE.md                    # This file
 ├── README.md                    # Project overview
-├── .env.example                 # API key template (gitignored: .env)
 ├── pyproject.toml               # Package definition (uv/pip)
 ├── pwm/
 │   ├── world_model/
@@ -167,10 +169,7 @@ pratyabhijna-world-model/
 │   ├── figures/                 # Generated figures (matplotlib/TikZ)
 │   ├── tables/                  # Generated tables (LaTeX)
 │   └── Makefile                 # latexmk build → PDF
-├── docs/
-│   ├── GLOSSARY.md              # Sanskrit ↔ computational concept canonical mapping
-│   ├── ADR.md                   # Architecture Decision Records
-│   └── adr/                     # Individual ADR files
+├── site/                        # Tracked Astro GitHub Pages site
 └── tests/
     ├── test_rssm.py             # RSSM unit tests (shapes, gradients, VFE)
     ├── test_efe.py              # EFE computation tests
@@ -209,11 +208,12 @@ pratyabhijna-world-model/
 | H2 | Hopfield improves pattern completion | Occlusion completion accuracy |
 | H3 | Sleep reduces catastrophic forgetting | Forgetting rate (3-domain sequential) |
 | H4 | Vimarśa bridge improves narration quality | Human "meaningful" rate ≥70% |
-| H5 | PWM > PCE v0.4 on creative quality | R_camatk density + S_svātantrya |
-| H6 | Camatkāra correlates with human aesthetic judgment | DTW distance (lower=better) |
-| H7 | 3-level Trika > 1-level on long-horizon creativity | 16-step prediction MSE |
-| H8 | Mala regularisers prevent latent collapse | Metre satisfaction rate |
-| H9 | S_svātantrya correlates with human novelty ratings | Spearman ρ |
+| H5a | PWM imagination reward > Phase 2/PCE-aligned baseline | R_camatk ratio ≥ 2.0 |
+| H5b | PWM-conditioned live text > bare 120B LLM | Text-only camatkāra score (negative result) |
+| H6 | Camatkāra reward distribution is non-trivial | Reward entropy > 0.5 nats |
+| H7 | 3-level Trika > 1-level on long-horizon creativity | A6 VFE ablation |
+| H8 | Mala regularisers prevent latent collapse | Encoder norm in bounds |
+| H9 | IDL policy preserves committed action diversity | Greedy-action entropy |
 
 All statistical tests: paired permutation (50K), Hedges' g (small-sample corrected), BCa 95% CI (10K resamples), Holm-Bonferroni FWE correction.
 
@@ -234,7 +234,7 @@ All statistical tests: paired permutation (50K), Hedges' g (small-sample correct
 | Citi | PHṛ sūtra 1 | Trained prior p_θ(z) |
 | Citta | PHṛ sūtra 9 | Posterior Q(z\|o) |
 
-Full glossary: `docs/GLOSSARY.md`
+Full local working glossary: `docs/GLOSSARY.md` (ignored/local-only). Keep this table as the public compact mapping.
 
 ---
 
