@@ -138,7 +138,7 @@ The Hugging Face dataset card lives in `hf_dataset/README.md` and describes the 
 ```bibtex
 @article{subramanian2026pwm,
   title        = {Pratyabhijna World Model: Kashmir Saiva Philosophy as Active Inference Architecture},
-  author       = {Subramanian, Sharath S.},
+  author       = {Sharath S},
   journal      = {arXiv preprint},
   year         = {2026},
   note         = {Code: https://github.com/SharathSPhD/pratyabhijna-world-model}

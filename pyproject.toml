@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
-    {name = "SharathSPhD", email = "qbz506@york.ac.uk"},
+    {name = "Sharath S", email = "qbz506@york.ac.uk"},
 ]
 keywords = ["active-inference", "world-model", "creative-ai", "kashmir-shaiva", "dreamerv3"]
 

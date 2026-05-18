@@ -151,7 +151,7 @@ print(f"Camatkāra score: {sample['camatk_total']:.3f}")
 @article{sharath2026pratyabhijna,
   title     = {Pratyabhijñā World Model: Creative AI Through Recognition,
                Active Inference, and Associative Memory},
-  author    = {Sharath, S.},
+  author    = {Sharath S},
   journal   = {arXiv preprint cs.AI},
   year      = {2026},
   note      = {Code: https://github.com/SharathSPhD/pratyabhijna-world-model}
