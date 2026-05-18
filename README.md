@@ -3,9 +3,9 @@
 > "Consciousness recognises itself in every creative act."
 > — Utpaladeva, Isvarapratyabhijnakarika 1.3
 
-PWM is a research prototype that asks whether a Dreamer-class world model can make creative AI less dependent on direct LLM prompting. It operationalises Kashmir Saiva ideas as testable modules: a textual RSSM world model, Expected Free Energy actor, Hopfield memory, NREM/REM consolidation, camatkara intrinsic reward, and a gated LLM bridge for reflective narration.
+PWM is a research prototype that asks whether a Dreamer-class textual world model can give creative AI an inner state distinct from its surface text. It is a **composite system**: a trainable world model (Trika RSSM, EFE actor, Hopfield memory, NREM/REM consolidation, camatkara intrinsic reward) coupled to a **frozen 120B LLM** through a single learned channel, the Vimarsa Bridge. The world model holds creative state; the LLM speaks. They are not competitors.
 
-The project is intentionally evidence-first. Internal world-model and active-inference gates are strong; the live text-generation comparison against a 120B LLM is an honest negative result. The repository, paper, and website should be read as a research program with open questions, not as a finished product benchmark.
+The project is intentionally evidence-first. Internal world-model and active-inference gates are strong (H1 29.7x, H5a 2.142x, A6 23.6x). The H5b live ablation is an honest negative result for the bridge-bias coupling channel under a stripped text proxy — not a head-to-head between the world model and the LLM. The repository, paper, and website should be read as an active research program, not a finished product benchmark.
 
 **Live site:** <https://sharathsphd.github.io/pratyabhijna-world-model/>
 
@@ -41,7 +41,7 @@ The journal paper now splits H5 into two claims:
 | H3 | Sleep reduces forgetting across sequential domains | PASS gate, but weak discriminative evidence |
 | H4 | Vimarsha bridge produces meaningful narration proxy | PASS proxy |
 | H5a | PWM internal imagination reward exceeds Phase 2/PCE-aligned baseline | PASS, 2.142x |
-| H5b | PWM-conditioned live generation beats bare 120B LLM on text-only camatkara | FAIL, LLM > PWM with g=-0.47 |
+| H5b | Vimarsa Bridge v2 logit-bias channel lifts text-only camatkara on the same 120B model | FAIL on English-script domains, g=-0.47; near-parity on Kannada |
 | H6 | Camatkara reward distribution has non-trivial entropy | PASS, 1.897 nats in `phase_6_gate_step1000000.json` |
 | H7 | Three-level Trika world model beats one-level ablation | PASS, 23.6x advantage in A6 |
 | H8 | Mala regularisers prevent latent collapse | PASS, encoder norm 13.20 |
@@ -76,8 +76,9 @@ Key modules:
 
 ## Important Caveats
 
-- H5b is not a measurement footnote. It is a real failure of live text-surface improvement against a strong 120B baseline.
-- H5a and H5b are different protocols. H5a uses internal world-model/imagination reward; H5b uses a text-only scorer that excludes VFE/world-model terms for fairness.
+- H5b is an ablation of the trained logit-bias coupling channel (`VimarsaBridgeV2.as_logits_processor`), not a competition between two generators. Both conditions use the same 120B model and the same prompts; only the logits processor changes. The negative result bounds the bridge channel under a stripped text proxy, not the world model as a substrate.
+- H5a and H5b are different protocols. H5a uses internal world-model/imagination reward; H5b uses a text-only scorer that excludes VFE/world-model terms for fairness to the unconditioned baseline.
+- The API exposes two paths in `api/main.py`: the v1 endpoints (`POST /v1/generate`, `WS /v1/ws/generate`) route through `PancakrtyaLoopV2` and are the faithful surface; the legacy endpoints (`POST /generate`, `/refine`, `/batch`) are a parallel orchestration that uses only a WM-derived prompt prefix and are deprecated in spirit. Use the v1 path to reproduce paper claims.
 - The TTFT live validation aggregate fails because of cold-start/Ollama measurement confounds, even though sprint tests and warm-path measurements support the architecture.
 - No human evaluation study has been completed yet. Automated camatkara proxies are not a substitute for human aesthetic judgment.
 - Some runtime paths assume local checkpoints and models. Fresh-clone reproducibility is strongest for source, configs, paper, and JSON artifacts, not for full 120B local inference.

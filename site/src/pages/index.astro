@@ -1,85 +1,300 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import MetricCard from "../components/MetricCard.astro";
-import FigurePanel from "../components/FigurePanel.astro";
+import { withBase } from "../lib/nav";
 import data from "../data/results.json";
 
 const passCount = `${data.headline.splitHypothesesPass} / ${data.headline.splitHypothesesTotal}`;
 const h5Ci = `[${data.h5Live.ci[0]}, ${data.h5Live.ci[1]}]`;
+
+const positiveHypotheses = data.hypotheses.filter((h) => h.id !== "H5b");
+const boundaryHypotheses = data.hypotheses.filter((h) => h.id === "H5b");
+
+const figureStories = [
+  {
+    src: "fig_system_overview.png",
+    alt: "PWM system overview",
+    title: "The whole pipeline on one page",
+    caption: "Pancakrtya loop, world model, reward, memory, sleep, and bridge in their actual file locations.",
+    text: [
+      "PWM is a composite system. A trainable world model (left) holds latent state, scores creative process, and consolidates during sleep. A frozen 120B LLM (right) generates surface text. The Vimarsa Bridge is the single learned channel between them.",
+      "Read this diagram first if you only want to understand the architecture in one minute. Everything else on this page elaborates one box."
+    ],
+    next: "Next: see how the runtime call sequence flows through these boxes per stanza."
+  },
+  {
+    src: "fig_h1_efe_vs_reinforce.png",
+    alt: "H1 EFE vs REINFORCE",
+    title: "H1: active inference beats REINFORCE by ~30x",
+    caption: "Mean episode reward ratio (29.72x) between the EFE actor and a REINFORCE baseline in the Phase 2 gate.",
+    text: [
+      "Active inference is not a paperware concept here. The EFE actor's mean episode reward on the project's intrinsic creativity reward is about 30 times the REINFORCE baseline.",
+      "This is the strongest internal result and the cleanest evidence that the world model is learning something a weak policy cannot. It is measured under the project's own reward, not external human judgment; that gap is what H5c-style follow-ups should close."
+    ],
+    next: "Next: does the three-level hierarchy help over one level?"
+  },
+  {
+    src: "fig11_a6_ablation.png",
+    alt: "A6 hierarchy ablation",
+    title: "A6: three-level Trika versus one-level world model",
+    caption: `Final VFE ratio per seed; advantage factor ${data.a6.advantageFactor}x. Two of three seeds are partial timeout runs (annotated).`,
+    text: [
+      "The three-level Trika hierarchy converges to substantially better final VFE than a one-level baseline. Across the seeds that completed, the advantage factor is roughly the order of magnitude reported here.",
+      "The honest caveat: two of three seeds hit GPU contention timeouts before finishing. The direction is consistent across what completed; a clean rerun is queued as forward work."
+    ],
+    next: "Next: the negative-result panel that bounds what the bridge channel does."
+  },
+  {
+    src: "fig10_h5_live_per_domain.png",
+    alt: "H5b live per-domain",
+    title: "H5b: bridge-bias channel under a stripped text proxy",
+    caption: "Paired per-domain breakdown. Same 120B model both sides; the only difference is whether VimarsaBridgeV2 adds a logit bias.",
+    text: [
+      "This is the figure people misread the most. Both sides use the same 120B language model with the same prompts. Side A adds the trained logit bias from the world model's h_t. Side B uses identity logits.",
+      "On English-script domains the baseline saturates the text-only proxy and the bias does not lift it. On the Kannada film domain the gap collapses to near-parity. The negative result is the boundary of this one coupling channel, not a verdict on the world model as a substrate."
+    ],
+    next: "Next: the latency contradiction Phase 7 resolved (and the warm vs cold confound)."
+  },
+  {
+    src: "fig12_ttft_warm_cold.png",
+    alt: "TTFT warm vs cold",
+    title: "TTFT: warm-path works, aggregate run has a measurement confound",
+    caption: "Warm-model measurements (ADR-001 and ADR-002 satisfied) versus aggregate live run.",
+    text: [
+      "Phase 7 introduced a 4B/120B cascade plus WMReasoningTrace prefill to collapse a long chain-of-thought into a few seconds. Under warm-model timing both ADRs pass.",
+      "The aggregate live run still records gate_pass = false because of a separately documented cold-start confound. The site reports both numbers separately rather than collapsing them into a single 'TTFT pass'."
+    ],
+    next: "Next: the H1 failure chain that motivated the diagnostic discipline behind every other result."
+  },
+  {
+    src: "fig_failure_chain.png",
+    alt: "H1 failure chain",
+    title: "Why static text is a hostile world-model substrate",
+    caption: "The diagnostic cascade behind the passive-corpus repair: action blindness, zero-action replay, reward sparsity, decoder bypass.",
+    text: [
+      "PWM had to identify failure modes that interactive RL environments do not exhibit. Static text has no causal action-to-observation transition, so the policy can learn nothing or learn the wrong thing in characteristic ways.",
+      "The IDL fix and surrogate actions in the Phase 2 gate are the engineering response. The H1 result above only makes sense once this cascade is acknowledged."
+    ],
+    next: "Next: how to reproduce all of this from the public repo."
+  }
+];
 ---
 
 <BaseLayout
   title="Pratyabhijna World Model"
-  description="Evidence-first companion site for the Pratyabhijna World Model: static text world models, active inference, and an honest H5b negative result."
+  description="A creative AI substrate: a Dreamer-class textual world model coupled to a frozen 120B LLM through a single trained bias channel. Active research, not a finished product."
 >
   <section class="hero" id="overview">
     <div class="heroCopy">
+      <span class="statusPill">Active research &middot; not frozen</span>
       <p class="eyebrow">Pratyabhijna World Model</p>
-      <h1>A world-model substrate for creative AI, with the negative result kept in view.</h1>
-      <p class="lead">
-        PWM operationalises Kashmir Saiva recognition philosophy as a Dreamer-class textual world model:
-        latent imagination, Expected Free Energy, Hopfield memory, sleep consolidation, and a gated LLM bridge.
-        9 of 10 split hypotheses pass; the live text-only comparison against a 120B LLM failed.
-      </p>
+      <h1>A creative AI substrate, with a frozen LLM as the voice.</h1>
+
+      <div class="audienceTracks">
+        <article>
+          <h3>If you build models</h3>
+          <p>
+            A Dreamer-class textual world model (Trika RSSM, EFE actor, Hopfield memory, sleep) coupled
+            to a frozen 120B LLM through a single trained logit-bias channel (VimarsaBridgeV2). Substrate
+            and surface are measured separately.
+          </p>
+        </article>
+        <article>
+          <h3>If you read more than you code</h3>
+          <p>
+            PWM gives a creative AI an inner state that learns, remembers, dreams, and is rewarded for
+            its own surprise. Then it asks a large language model to put that state into words. The
+            model's mind and the model's mouth are different things.
+          </p>
+        </article>
+      </div>
+
       <div class="heroActions">
         <a class="button primary" href="https://github.com/SharathSPhD/pratyabhijna-world-model">GitHub repository</a>
-        <a class="button" href="#results">Read the results</a>
+        <a class="button" href="#architecture">How the parts fit</a>
+        <a class="button" href="#results">What we found</a>
       </div>
       <p class="sourceNote">
-        Page built from checked-in JSON under <code>benchmarks/results/</code>; generated {new Date(data.generatedAt).toUTCString()}.
+        Numbers on this page are read directly from JSON in <code>benchmarks/results/</code> at build time.
+        Generated {new Date(data.generatedAt).toUTCString()}.
       </p>
     </div>
     <aside class="heroPanel" aria-label="Headline status">
       <MetricCard
         kicker="Split hypothesis ledger"
-        title="Internal gates mostly pass"
+        title="Internal gates"
         value={passCount}
-        note="H5 is split into H5a internal-imagination PASS and H5b live-text FAIL."
+        note="Across H1-H9 with H5 split into H5a (substrate, PASS) and H5b (surface, FAIL)."
         tone="caveat"
       />
       <MetricCard
         kicker="H1"
-        title="EFE over REINFORCE"
+        title="EFE vs REINFORCE"
         value={`${data.headline.h1RewardRatio}x`}
         note="Mean episode reward ratio in the Phase 2 gate."
         tone="pass"
       />
       <MetricCard
-        kicker="H5b"
-        title="Bare 120B wins live text"
-        value={`g=${data.headline.h5bHedgesG}`}
-        note="PWM conditioning did not improve text-only camatkara score."
-        tone="fail"
+        kicker="H7 / A6"
+        title="3-level over 1-level"
+        value={`${data.headline.a6Advantage}x`}
+        note="Trika hierarchy advantage; two of three seeds partial."
+        tone="pass"
       />
     </aside>
   </section>
 
-  <section class="section proseBlock">
-    <h2>Plain-language reading</h2>
-    <p>
-      PWM is not another prompt wrapper. It tries to give creative generation a latent world model:
-      an internal state that can be observed, imagined forward, rewarded, remembered, consolidated, and
-      only then narrated through a frozen LLM. That matters because LLM-only creative systems often hide
-      the mechanism of revision inside opaque text generation.
-    </p>
-    <p>
-      The project did not prove that world-model conditioning beats a frontier-scale language model at final
-      text quality. It showed something narrower and more useful: static creative text can be turned into a
-      hostile but workable world-model training substrate, and the resulting internal process can be measured
-      separately from the final surface text.
-    </p>
+  <section class="section" id="status">
+    <div class="sectionHeader">
+      <p class="eyebrow">How to read this</p>
+      <h2>The project is not frozen. Here is what is in flight.</h2>
+      <p>
+        Calling a research prototype done is the fastest way to oversell it. The site is honest
+        about what is stable, what was revised this round, what is deprecated in spirit, and what
+        is queued for the next pass.
+      </p>
+    </div>
+    <table class="statusTable">
+      <thead>
+        <tr><th>Area</th><th>State</th><th>What it means now</th></tr>
+      </thead>
+      <tbody>
+        {data.status.map((row) => (
+          <tr>
+            <td>{row.area}</td>
+            <td><span class={`stateBadge ${row.state}`}>{row.state}</span></td>
+            <td>{row.note}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section" id="architecture">
+    <div class="sectionHeader">
+      <p class="eyebrow">Architecture</p>
+      <h2>Two systems, one bridge.</h2>
+      <p>
+        PWM is a composite: a trainable world model that learns latent creative state, and a frozen
+        120B language model that turns that state into text. Almost every misread of the project
+        comes from collapsing these two roles. The third box, the Vimarsa Bridge, is the only place
+        learning crosses between them.
+      </p>
+    </div>
+
+    <div class="roleSplit">
+      <div class="role wm">
+        <h3>What the world model is for</h3>
+        <p>{data.wmRole.summary}</p>
+        <ul>
+          {data.wmRole.bullets.map((b) => <li>{b}</li>)}
+        </ul>
+        <p class="sources">
+          Source files: {data.wmRole.sources.map((s, i) => (
+            <>
+              {i > 0 && ", "}
+              <code>{s}</code>
+            </>
+          ))}.
+        </p>
+      </div>
+      <div class="role llm">
+        <h3>What the frozen LLM is for</h3>
+        <p>{data.llmRole.summary}</p>
+        <ul>
+          {data.llmRole.bullets.map((b) => <li>{b}</li>)}
+        </ul>
+        <p class="sources">
+          Source files: {data.llmRole.sources.map((s, i) => (
+            <>
+              {i > 0 && ", "}
+              <code>{s}</code>
+            </>
+          ))}.
+        </p>
+      </div>
+    </div>
+
+    <div class="archDiagram" aria-label="Runtime call sequence diagram">
+      <pre>{`
+World model (trainable)                                Frozen LLM (sparse calls)
+============================                          ==========================
+text observation
+      |
+      v
+encoder + LoRA --> Trika RSSM (h, z) --> EFE actor
+                          |
+                          +--> Citta-store (Hopfield recall + episodic store)
+                          |              |
+                          |              +--> NREM / REM consolidation
+                          |
+                          +--> Camatkara reward (dF + dI_Hopfield + Empowerment)
+                          |              |
+                          |              +--> sphuratta event
+                          |
+                          +--> VimarsaBridgeV2.as_logits_processor(h_t)
+                                         |
+                                         v
+                                add logit bias  ->  nemotron-3-super:120b stream
+                                                                   |
+                                                                   v
+                                                          surface text (lyrics, lines)
+`}</pre>
+    </div>
+
+    <div class="callout">
+      <h3>Note on the API</h3>
+      <p>
+        The repository exposes two API surfaces in <code>api/main.py</code>. The v1 endpoints
+        (<code>POST /v1/generate</code>, <code>WS /v1/ws/generate</code>) delegate to
+        <code>PancakrtyaLoopV2</code> and exercise the world model, EFE actor, Citta-store, and bridge.
+        The legacy endpoints (<code>POST /generate</code>, <code>/refine</code>, <code>/batch</code>)
+        are a parallel orchestration that uses only a world-model-derived prompt prefix; they are
+        deprecated in spirit and slated for unification. Consumers reproducing paper claims should use the v1 path.
+      </p>
+    </div>
+  </section>
+
+  <section class="section" id="philosophy">
+    <div class="sectionHeader">
+      <p class="eyebrow">Philosophy meets code</p>
+      <h2>Sanskrit concept &rarr; textual source &rarr; module.</h2>
+      <p>
+        The Kashmir Saiva vocabulary is not decoration. Each term constrained a design decision:
+        what state is shared, when the LLM is invoked, what counts as a recognised moment.
+        The mapping below is concrete and lives in the codebase you can read.
+      </p>
+    </div>
+    <table class="philosophyTable">
+      <thead>
+        <tr><th>Concept</th><th>Source</th><th>Computational realisation</th><th>Module</th></tr>
+      </thead>
+      <tbody>
+        {data.philosophy.map((row) => (
+          <tr>
+            <td><span class="sanskrit">{row.sanskrit}</span></td>
+            <td>{row.source}</td>
+            <td>{row.primitive}</td>
+            <td><code>{row.module}</code></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   </section>
 
   <section class="section" id="results">
     <div class="sectionHeader">
-      <p class="eyebrow">Evidence ledger</p>
-      <h2>Results at a glance</h2>
+      <p class="eyebrow">What we found</p>
+      <h2>Positive results first, then the boundary.</h2>
       <p>
-        These cards separate pass, failure, and caveat states. Each metric names the source JSON that produced it.
+        Nine hypotheses pass under their pre-registered protocols (Hedges' g, BCa 95 percent CI,
+        50,000-permutation paired tests). Each card cites the source JSON; click through to the
+        repository for full artefacts.
       </p>
     </div>
+
     <div class="resultGrid">
-      {data.hypotheses.map((h) => (
+      {positiveHypotheses.map((h) => (
         <article class={`resultCard ${h.status}`}>
           <div class="resultTop">
             <span class="resultId">{h.id}</span>
@@ -92,123 +307,117 @@ const h5Ci = `[${data.h5Live.ci[0]}, ${data.h5Live.ci[1]}]`;
         </article>
       ))}
     </div>
+
+    {boundaryHypotheses.map((h) => (
+      <div class="boundary" id="h5b">
+        <h3><span class="boundaryTag">Boundary condition</span> {h.id}: a bridge-bias logit-channel ablation</h3>
+        <p>
+          <strong>H5b is not a head-to-head between the world model and the LLM.</strong>
+          It is an ablation of the single trained coupling channel between them. Both sides use the same
+          120B model, the same prompts and the same decoding hyperparameters. The only difference is whether
+          <code>VimarsaBridgeV2.as_logits_processor(h_t)</code> is applied to next-token logits, or whether
+          an identity processor is used. The scorer is the stripped text-only camatkara heuristic that omits
+          VFE so the unconditioned baseline is not penalised by construction.
+        </p>
+        <p class="metric">
+          With-bridge {data.h5Live.meanPwm}, identity {data.h5Live.meanLlm}, Hedges' g {data.h5Live.hedgesG},
+          BCa 95 percent CI {h5Ci}, paired permutation p {data.h5Live.pPermutation}, n = 30 across three domains.
+        </p>
+        <p>{data.h5Live.interpretation}</p>
+        <div class="split">
+          <div>
+            <p>
+              Read this as a boundary condition on the current coupling channel, not as a verdict on the
+              world model as a substrate. The world model's contribution lives in latent process quantities
+              (VFE, sphuratta firing, Hopfield retrieval coherence, empowerment) that the scorer explicitly
+              removes and that the unconditioned baseline does not have. On the lower-resource Kannada
+              domain, where the LLM is further from its training centre of mass, the gap collapses.
+            </p>
+          </div>
+          <div class="tableCard">
+            <h3>Per-domain means</h3>
+            <table>
+              <thead>
+                <tr><th>Domain</th><th>With bridge</th><th>Identity</th><th>Wins</th></tr>
+              </thead>
+              <tbody>
+                {data.h5Live.domainRows.map((row) => (
+                  <tr>
+                    <td>{row.domain.replaceAll("_", " ")}</td>
+                    <td>{row.pwmMean}</td>
+                    <td>{row.llmMean}</td>
+                    <td>{row.pwmWins} / {row.llmWins}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p class="sourceNote">Source: <code>benchmarks/results/h5_live_ablation.json</code></p>
+          </div>
+        </div>
+      </div>
+    ))}
   </section>
 
-  <section class="section split" id="h5b">
-    <div>
-      <p class="eyebrow">H5b live ablation</p>
-      <h2>H5b is a real negative result, not a footnote.</h2>
-      <p>
-        The live protocol compared PWM-conditioned generation against a bare <code>nemotron-3-super:120b</code>
-        baseline with a text-only camatkara scorer. The bare LLM scored higher:
-        PWM {data.h5Live.meanPwm}, LLM {data.h5Live.meanLlm}, Hedges' g {data.h5Live.hedgesG},
-        BCa 95% CI {h5Ci}, permutation p {data.h5Live.pPermutation}.
-      </p>
-      <p>
-        The right interpretation is boundary, not dismissal. The scorer deliberately excludes VFE and other
-        world-model-only terms; the 120B baseline is near ceiling in English-script domains; Kannada film lyrics
-        show near parity. Internal process gains are real, but they do not yet guarantee better surface text.
-      </p>
-    </div>
-    <div class="tableCard">
-      <h3>Per-domain means</h3>
-      <table>
-        <thead>
-          <tr><th>Domain</th><th>PWM</th><th>LLM</th><th>Wins</th></tr>
-        </thead>
-        <tbody>
-          {data.h5Live.domainRows.map((row) => (
-            <tr>
-              <td>{row.domain.replaceAll("_", " ")}</td>
-              <td>{row.pwmMean}</td>
-              <td>{row.llmMean}</td>
-              <td>{row.pwmWins} / {row.llmWins}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p class="sourceNote">Source: <code>benchmarks/results/h5_live_ablation.json</code></p>
-    </div>
-  </section>
-
-  <section class="section" id="architecture">
+  <section class="section" id="figures">
     <div class="sectionHeader">
-      <p class="eyebrow">Architecture</p>
-      <h2>The philosophical conjecture as a call stack</h2>
+      <p class="eyebrow">Figures with story</p>
+      <h2>Six pictures, in the order an outside reader should meet them.</h2>
       <p>
-        The Sanskrit terms are not used as decorative labels here; they shape which state is shared,
-        when the LLM is invoked, and what counts as a creative event.
+        Each figure here gets a paragraph of context, the figure itself, a one-line caption, and a
+        pointer to what comes next. The aim is to make the project legible without reading the paper.
       </p>
     </div>
-    <div class="flow">
-      <div><strong>Static corpora</strong><span>public text, no natural action loop</span></div>
-      <div><strong>Trika RSSM</strong><span>latent h/z state over text observations</span></div>
-      <div><strong>EFE + camatkara</strong><span>policy and intrinsic reward</span></div>
-      <div><strong>Citta + sleep</strong><span>Hopfield retrieval and consolidation</span></div>
-      <div><strong>Vimarsha bridge</strong><span>world-model state biases the LLM</span></div>
-    </div>
-    <div class="callout">
-      <h3>Adversarial reading</h3>
-      <p>
-        The design grammar is coherent, but the evidence does not yet prove that Kashmir Saiva categories
-        are uniquely necessary or that humans prefer PWM outputs. The strongest claim is that the philosophy
-        generated a productive, testable architecture.
-      </p>
+    <div class="stories">
+      {figureStories.map((story, i) => (
+        <article class={i % 2 === 1 ? "story reversed" : "story"}>
+          <div class="storyText">
+            <h3>{story.title}</h3>
+            {story.text.map((p) => <p>{p}</p>)}
+            <p class="next"><strong>Next</strong>{story.next}</p>
+          </div>
+          <figure class="storyFig">
+            <img src={withBase(`/figures/${story.src}`)} alt={story.alt} loading="lazy" />
+            <figcaption>{story.caption}</figcaption>
+          </figure>
+        </article>
+      ))}
     </div>
   </section>
 
-  <section class="section visuals" id="showcase">
+  <section class="section">
     <div class="sectionHeader">
-      <p class="eyebrow">Paper visuals</p>
-      <h2>Figures carried into the public site</h2>
+      <p class="eyebrow">Where this should go next</p>
+      <h2>Stop scoring composite systems with one scalar.</h2>
       <p>
-        The site reuses paper figures and new journal-revision figures so the non-technical page remains tied
-        to the same data artifacts as the manuscript.
+        The TRIZ-style moves below are the project's own follow-up agenda. They follow from H5b's
+        constructive reading: substrate gains and surface gains are different things and should not be
+        averaged together.
       </p>
     </div>
-    <div class="figureGrid">
-      <FigurePanel src="fig_system_overview.png" title="System overview" caption="Pancakrtya loop, world model, reward, memory, sleep, and bridge." />
-      <FigurePanel src="fig_h1_efe_vs_reinforce.png" title="H1 EFE vs REINFORCE" caption="The strongest internal active-inference result." />
-      <FigurePanel src="fig10_h5_live_per_domain.png" title="H5b live per-domain" caption="The negative live text-only ablation." />
-      <FigurePanel src="fig11_a6_ablation.png" title="A6 hierarchy ablation" caption="Three-level Trika against one-level world model." />
-      <FigurePanel src="fig12_ttft_warm_cold.png" title="TTFT warm/cold" caption="Warm-path evidence and cold-start confounds." />
-      <FigurePanel src="fig_failure_chain.png" title="H1 failure chain" caption="The passive-corpus diagnostic cascade." />
-    </div>
-  </section>
-
-  <section class="section split">
-    <div>
-      <p class="eyebrow">Breakthroughs under review</p>
-      <h2>What deserves the strongest future vetting?</h2>
-      <ul class="checkList">
-        <li><strong>29.72x H1</strong>: strong internal result, but tied to project reward protocol.</li>
-        <li><strong>{data.a6.advantageFactor}x H7/A6</strong>: promising hierarchy signal, but two seeds are partial.</li>
-        <li><strong>Vimarsha bridge</strong>: learns a mapping, but H5b says the mapping does not yet beat bare 120B text output.</li>
-        <li><strong>TTFT cascade</strong>: product mechanism works in tests; aggregate live validation still fails.</li>
-      </ul>
-    </div>
-    <div class="tableCard">
-      <h3>A6 seeds</h3>
-      <table>
-        <thead><tr><th>Seed</th><th>Status</th><th>Steps</th><th>VFE</th></tr></thead>
-        <tbody>
-          {data.a6.seeds.map((seed) => (
-            <tr>
-              <td>{seed.seed}</td>
-              <td>{seed.status}</td>
-              <td>{seed.steps}</td>
-              <td>{seed.finalVfe}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <table class="trizTable">
+      <thead>
+        <tr><th>Principle</th><th>Move</th></tr>
+      </thead>
+      <tbody>
+        {data.triz.map((row) => (
+          <tr>
+            <td class="principle">{row.principle}</td>
+            <td>{row.move}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   </section>
 
   <section class="section" id="reproducibility">
     <div class="sectionHeader">
-      <p class="eyebrow">Reproducibility</p>
-      <h2>Every public number should point to a file.</h2>
+      <p class="eyebrow">Reproduce</p>
+      <h2>Every number on this page points to a checked-in file.</h2>
+      <p>
+        Clone the repository, activate the project Python environment, and the gate JSONs are the
+        single source of truth. The H5b live ablation additionally requires a local Ollama server
+        with <code>nemotron-3-super:120b</code> and <code>nemotron-mini:4b</code> pulled.
+      </p>
     </div>
     <div class="reproGrid">
       {data.sourceFiles.map((source) => (
@@ -218,8 +427,9 @@ const h5Ci = `[${data.h5Live.ci[0]}, ${data.h5Live.ci[1]}]`;
     <div class="callout">
       <h3>Known limits</h3>
       <p>
-        Full 120B local inference requires local model weights and checkpoint paths that are not shipped in this repository.
-        The most reproducible public layer is the source code, paper, figure scripts, and JSON result artifacts.
+        Full 120B inference requires local model weights and checkpoint paths that are not shipped
+        in this repository. The most reproducible public layer is the source code, paper, figure
+        scripts, and JSON result artefacts. Treat this site as a companion to the repo, not a product.
       </p>
     </div>
   </section>

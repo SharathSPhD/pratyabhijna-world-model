@@ -13,11 +13,16 @@ if (!fs.existsSync(index)) {
 
 const html = fs.readFileSync(index, "utf8");
 const required = [
-  "9 of 10 split hypotheses pass",
-  "H5b is a real negative result",
+  "What the world model is for",
+  "What the frozen LLM is for",
+  "bridge-bias logit-channel ablation",
+  "Active research",
+  "not frozen",
+  "PancakrtyaLoopV2",
   "benchmarks/results/h5_live_ablation.json",
   "fig10_h5_live_per_domain.png",
-  "fig12_ttft_warm_cold.png"
+  "fig12_ttft_warm_cold.png",
+  "Sanskrit concept"
 ];
 
 const missing = required.filter((needle) => !html.includes(needle));
